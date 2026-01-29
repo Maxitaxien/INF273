@@ -88,8 +88,13 @@ We still have a little bit of redundancy, as if multiple daughter ships have the
 ### Representation of sample problem using this notation
 $\mathcal{M} = [6, 4]$
 
-$\mathcal{H} = \{6: \{1, 2\}, 4: \{3\}, 0: \{4, 5, 6, 7\}$
+$\mathcal{H} = \{6: \{1, 2\}, 4: \{3\}, 0: \{4, 5, 6, 7\} \}$
 
 $\mathcal{D}_1 = [5], \mathcal{D}_2 = [7, 8], \mathcal{D}_3 = [3, 2, 1], \mathcal{D}_4 = \mathcal{D}_5 = \mathcal{D}_6 = \mathcal{D}_7 = []$
 
-### Potential operations:
+### Potential operations, suggested logic:
+
+- To remove a port $n$ from the mother ship: Remove port from $\mathcal{M}$. Delete port key from $\mathcal{H}$, and move all values $j$ to key 0. For all values $j$, go through their $\mathcal{D}_j$ entries and collect these in a list $L$. Take entries in $L$ and distribute them among other non-empty $\mathcal{D_i}$. 
+- Permutation within mother route or daughter route: Easy, such permute within the relevant list.
+- To remove a port from a daughter ship $j$: Take the port and place it either into another daughter ship route or into the mother ship route. If the daughter ship route is now empty, search through all values in $\mathcal{H}$ and move $j$ to key $0$.
+- 
