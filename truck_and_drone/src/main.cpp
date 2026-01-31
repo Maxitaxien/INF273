@@ -1,6 +1,7 @@
 #include <iostream>
 #include "datahandling/reader.h"
+#include "datahandling/datasets.h"
 
 int main() {
-    read_instance("../data/toy_example/toy_example.txt");
+    Instance problem_instance = read_instance(datasets::toy);
 }

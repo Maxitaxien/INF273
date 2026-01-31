@@ -1,25 +1,61 @@
 #include "datahandling/reader.h"
 #include <fstream>
+#include <sstream>
 #include <iostream>
 
 Instance read_instance(const std::string& filename) {
-    Instance i;
     std::ifstream f(filename);
 
     if (!f) {
         std::cerr << "Error: Unable to open file: " << filename << std::endl;
     }
 
-    std::string txt;
-    getline(f, txt); // skip header
+    std::string line; 
+    Instance problem_instance;
 
     // Number of drones
-    int n;
-    f >> n;
+    std::getline(f, line);// skip header
+    std::getline(f, line);
+    problem_instance.n = std::stoi(line);
+    
 
-    // 
+    // Drone flight limit
+    std::getline(f, line); // skip header
+    std::getline(f, line);
+    problem_instance.lim = std::stoi(line);
 
+    // Truck travel matrix
+    std::getline(f, line);
+    std::vector<std::vector<long long>> truck_matrix;
+    double x;
+    for (int i = 0; i < problem_instance.n + 1; i++) {
+        std::getline(f, line);
+        std::istringstream ss(line);
+        std::vector<long long> row;
+        double x;
+        while (ss >> x) {
+            row.push_back(static_cast<long long>(x));
+        }
+        truck_matrix.push_back(row);
+    }
+    problem_instance.truck_matrix = truck_matrix;
 
+    // Drone travel matrix
+    std::getline(f, line);
+    std::vector<std::vector<long long>> drone_matrix;
+    double y;
+    for (int i = 0; i < problem_instance.n + 1; i++) {
+        std::getline(f, line);
+        std::istringstream ss(line);
+        std::vector<long long> row;
+        double x;
+        while (ss >> x) {
+            row.push_back(static_cast<long long>(x));
+        }
+        drone_matrix.push_back(row);
+    }
 
-    return Instance();
+    problem_instance.drone_matrix = drone_matrix;
+
+    return problem_instance;
 }
