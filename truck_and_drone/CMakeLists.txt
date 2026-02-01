@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD_REQIORED ON)
 add_executable(truck_and_drone
     src/main.cpp
     src/datahandling/reader.cpp
+    src/algorithms/nearest_neighbour.cpp
+    src/algorithms/greedy_drone_cover.cpp
 )
 
 target_include_directories(truck_and_drone
