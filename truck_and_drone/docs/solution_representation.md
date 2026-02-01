@@ -1,9 +1,10 @@
 # Solution representation for truck and drone
 
 - Part one: Permutable ordered list of values illustrating the truck route
-- Part two: Launch map. Keys for each node (even node 0). Value: List of length *amount of drones*. Each entry is a tuple consisting of (delivery destination, landing point).
-- Part three: Landing map. Keys for each node (even node 0). Values: List of length *amount of drones*. Each entry is a tuple consisting of (node just delievered from, launching point of said drone).
+- Part two: Drone map. Keys for each node (even node 0). Value: List of length *amount of drones*. Each entry is a tuple consisting of (delivery destination, landing point).
 
+
+This might be enough, or it might be useful to also introduce a map going in the opposite direction. 
 
 Also need to implement some method to convert from this to the wanted solution format (str)
 
