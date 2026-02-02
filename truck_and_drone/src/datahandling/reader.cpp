@@ -44,13 +44,15 @@ Instance read_instance(const std::string& filename) {
     std::getline(f, line);
     std::vector<std::vector<long long>> drone_matrix;
     double y;
-    for (int i = 0; i < problem_instance.n + 1; i++) {
+    for (int i = 0; i < problem_instance.n + 1; ++i) {
         std::getline(f, line);
         std::istringstream ss(line);
         std::vector<long long> row;
-        double x;
-        while (ss >> x) {
-            row.push_back(static_cast<long long>(x));
+        while (ss >> y) {
+            row.push_back(static_cast<long long>(y)); 
+        }
+        if (row.size() != problem_instance.n + 1) {
+            std::cerr << "Error: row " << i << " has " << row.size() << " columns, expected " << problem_instance.n + 1 << "\n";
         }
         drone_matrix.push_back(row);
     }

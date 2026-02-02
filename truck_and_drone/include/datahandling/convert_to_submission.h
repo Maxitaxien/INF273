@@ -5,4 +5,4 @@
 /*
  * Converts solutions to submission format to input into website.
  */
-std::string convert_submission(Solution solution);
+std::string convert_to_submission(const Solution& solution);

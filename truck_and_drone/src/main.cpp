@@ -1,32 +1,23 @@
 #include <iostream>
 #include "datahandling/reader.h"
+#include "datahandling/convert_to_submission.h"
 #include "datahandling/datasets.h"
 #include "algorithms/nearest_neighbour.h"
 #include "algorithms/greedy_drone_cover.h"
+#include "verification/feasibility_check.h"
 
 int main() {
-    Instance problem_instance = read_instance(datasets::toy);
+    Instance problem_instance = read_instance(datasets::contest);
     Solution initial_solution = nearest_neighbour(problem_instance);
 
-
-    for (int i: initial_solution.truck_route) {
-        std::cout << i << " ";
-    }
-
-    std::cout << "\n";
     Solution drone_cover_solution = greedy_drone_cover(problem_instance, initial_solution);
-    for (int i: drone_cover_solution.truck_route) {
-        std::cout << i << " ";
-    }
 
-    for (const auto& [key, vec] : drone_cover_solution.drone_map) {
-    std::cout << "Key: " << key << "\n";
-    for (const auto& tup : vec) {
-        int first = std::get<0>(tup);
-        int second = std::get<1>(tup);
-        std::cout << "  Tuple: (" << first << ", " << second << ")\n";
-    }
-}
-
+    std::string submission1 = convert_to_submission(initial_solution);
+    std::string submission2 = convert_to_submission(drone_cover_solution);
     
+    std::cout << submission1 << "\n";
+    std::cout << submission2 << "\n";
+    std::cout << includes_all_nodes(problem_instance.n, submission2) << "\n";
+
+    std::cout << all_drone_flights_under_lim(problem_instance, drone_cover_solution);
 }

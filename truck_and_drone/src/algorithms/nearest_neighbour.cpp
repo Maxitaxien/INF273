@@ -38,7 +38,7 @@ Solution nearest_neighbour(const Instance& problem_instance) {
     // Build empty drone map
     s.drone_map = std::unordered_map<int, std::vector<std::tuple<int,int>>>();
     
-    for (int j = 0; j <= problem_instance.n + 1; ++j) {
+    for (int j = 0; j <= problem_instance.n; ++j) {
         s.drone_map[j] = std::vector<std::tuple<int, int>>(problem_instance.m, std::make_tuple(-1, -1));
     }
 
