@@ -24,7 +24,12 @@ bool includes_all_nodes(int n, const std::string& submission) {
         for (const std::string& c : split(s, ',')) {
             if (c != "-1") {
                 int node = std::stoi(c);
-                is_covered[node] = true;
+                if (c != "0") {
+                    is_covered[node] = !is_covered[node];
+                }
+                else {
+                    is_covered[node] = true;
+                }
             }
         }
     }
@@ -35,7 +40,7 @@ bool includes_all_nodes(int n, const std::string& submission) {
     else {
         for (int i = 0; i < is_covered.size(); i++) {
             if (!is_covered[i]) {
-                std::cout << is_covered[i] << " not covered.\n";
+                std::cout << is_covered[i] << " not covered or covered multiple times.\n";
             }
         }
     }
@@ -73,5 +78,34 @@ bool all_drone_flights_under_lim(const Instance& problem_instance, const Solutio
         }
     }
 
+    return all_ok;
+}
+
+bool drone_flights_consistent(const Solution& solution) {
+    // Build index lookup for all nodes
+    std::unordered_map<int, int> node_position;
+    for (int i = 0; i < solution.truck_route.size() - 1; i++) {
+        node_position[solution.truck_route[i]] = i;
+    }
+
+    bool all_ok = true;
+    for (const auto& [launch, vec] : solution.drone_map) {
+        for (const auto& tup : vec) {
+            int deliver = std::get<0>(tup);
+            int land = std::get<1>(tup);
+            
+            if (deliver == -1 && land == -1) continue;
+            
+            int truck_start = node_position[launch];
+            int truck_end = node_position[land];
+            if (truck_end <= truck_start) {
+                std::cout << "Found illegal drone launch: "
+                          << launch << " -> " << deliver << " -> " << land << "\n"; 
+                std::cout << "Launch node " << launch << " visited at time: " << truck_start << "\n";
+                std::cout << "Land node " << land  << " visited at time: " << truck_end << "\n";
+                all_ok = false;
+            }
+        }
+    }
     return all_ok;
 }

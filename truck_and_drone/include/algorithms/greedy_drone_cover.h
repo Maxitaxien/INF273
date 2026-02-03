@@ -27,4 +27,4 @@ bool is_feasible(int lim, long long ab, long long bc);
  * @return New solution with possible greedy drone coverings.
  * 
  */
-Solution greedy_drone_cover(const Instance& problem_instance, Solution truck_solution);
+Solution greedy_drone_cover(const Instance& inst, const Solution base);
