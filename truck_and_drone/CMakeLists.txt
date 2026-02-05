@@ -12,6 +12,7 @@ add_executable(truck_and_drone
     src/algorithms/nearest_neighbour.cpp
     src/algorithms/greedy_drone_cover.cpp
     src/verification/feasibility_check.cpp
+    src/verification/objective_value.cpp
 )
 
 target_include_directories(truck_and_drone

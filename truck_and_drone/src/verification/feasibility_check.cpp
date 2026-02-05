@@ -13,7 +13,7 @@ std::vector<std::string> split(const std::string& s, char delimiter) {
     return tokens;
 }
 
-bool includes_all_nodes(int n, const std::string& submission) {
+bool includes_all_nodes(int n, const std::string& submission, bool debug) {
     std::vector<bool> is_covered(n + 1, false);
 
     auto parts = split(submission, '|');
@@ -37,7 +37,7 @@ bool includes_all_nodes(int n, const std::string& submission) {
     if (std::all_of(is_covered.begin(), is_covered.end(), [](bool b) { return b; })) {
         return true;
     }
-    else {
+    if (debug) {
         for (int i = 0; i < is_covered.size(); i++) {
             if (!is_covered[i]) {
                 std::cout << is_covered[i] << " not covered or covered multiple times.\n";
@@ -47,7 +47,7 @@ bool includes_all_nodes(int n, const std::string& submission) {
     return false;
 }
 
-bool all_drone_flights_under_lim(const Instance& problem_instance, const Solution& solution) {
+bool all_drone_flights_under_lim(const Instance& problem_instance, const Solution& solution, bool debug) {
     bool all_ok = true;
 
     for (const auto& [launch_node, drone_flights] : solution.drone_map) {
@@ -66,12 +66,14 @@ bool all_drone_flights_under_lim(const Instance& problem_instance, const Solutio
                 long long effective_drone_time = std::max(drone_time, truck_arrival_at_landing);
 
                 if (effective_drone_time > problem_instance.lim) {
-                    std::cout << "Found illegal drone tour: "
+                    if (debug) {
+                                            std::cout << "Found illegal drone tour: "
                               << launch_node << " -> " << target << " -> " << landing << "\n";
                     std::cout << "Lim: " << problem_instance.lim
                               << ", effective drone time: " << effective_drone_time
                               << " (drone time: " << drone_time
                               << ", truck arrival: " << truck_arrival_at_landing << ")\n\n";
+                    }
                     all_ok = false;
                 }
             }
@@ -81,7 +83,7 @@ bool all_drone_flights_under_lim(const Instance& problem_instance, const Solutio
     return all_ok;
 }
 
-bool drone_flights_consistent(const Solution& solution) {
+bool drone_flights_consistent(const Solution& solution, bool debug) {
     // Build index lookup for all nodes
     std::unordered_map<int, int> node_position;
     for (int i = 0; i < solution.truck_route.size() - 1; i++) {
@@ -90,22 +92,32 @@ bool drone_flights_consistent(const Solution& solution) {
 
     bool all_ok = true;
     for (const auto& [launch, vec] : solution.drone_map) {
-        for (const auto& tup : vec) {
-            int deliver = std::get<0>(tup);
-            int land = std::get<1>(tup);
+        for (const auto& p : vec) {
+            int deliver = p.first;
+            int land = p.second;
             
             if (deliver == -1 && land == -1) continue;
             
             int truck_start = node_position[launch];
             int truck_end = node_position[land];
             if (truck_end <= truck_start) {
-                std::cout << "Found illegal drone launch: "
-                          << launch << " -> " << deliver << " -> " << land << "\n"; 
-                std::cout << "Launch node " << launch << " visited at time: " << truck_start << "\n";
-                std::cout << "Land node " << land  << " visited at time: " << truck_end << "\n";
+                if (debug) {
+                    std::cout << "Found illegal drone launch: "
+                        << launch << " -> " << deliver << " -> " << land << "\n"; 
+                    std::cout << "Launch node " << launch << " visited at time: " << truck_start << "\n";
+                    std::cout << "Land node " << land  << " visited at time: " << truck_end << "\n";
+                }
                 all_ok = false;
             }
         }
     }
     return all_ok;
+}
+
+bool all_drone_flights_feasible(const Instance& problem_instance, const Solution& solution, bool debug) {
+    return false;
+}
+
+bool master_check(const Instance& problem_instance, const Solution& solution, bool debug) {
+    return false;
 }
