@@ -1,5 +1,5 @@
 #include "algorithms/greedy_drone_cover.h"
-#include <iostream>
+#include <vector>
 
 Solution greedy_drone_cover(const Instance& inst, Solution base) {
     Solution new_solution;
@@ -22,8 +22,8 @@ Solution greedy_drone_cover(const Instance& inst, Solution base) {
 
         new_truck_route.push_back(a);
 
-        if (effective_drone_time < inst.lim) {
-            base.drone_map[a][0] = {b, c};
+        if (effective_drone_time < inst.truck_matrix[a][b] + inst.truck_matrix[b][c] && effective_drone_time < lim) {
+            base.drone_map[a][0] = {b, c}; // we only use one drone
             i += 2;
         }
 

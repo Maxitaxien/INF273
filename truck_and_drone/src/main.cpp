@@ -17,9 +17,9 @@ int main() {
     
     std::cout << submission1 << "\n";
     std::cout << submission2 << "\n";
-    std::cout << includes_all_nodes(problem_instance.n, submission2) << "\n";
+    std::cout << includes_all_nodes(problem_instance.n, submission2, true) << "\n";
 
-    std::cout << all_drone_flights_under_lim(problem_instance, drone_cover_solution) << "\n";
+    std::cout << all_drone_flights_under_lim(problem_instance, drone_cover_solution, true) << "\n";
 
-    std::cout << drone_flights_consistent(drone_cover_solution);
+    std::cout << drone_flights_consistent(drone_cover_solution, true);
 }

@@ -1,4 +1,5 @@
 #pragma once
+
 #include "verification/solution.h"
 #include "datahandling/instance.h"
 
