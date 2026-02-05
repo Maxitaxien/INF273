@@ -6,11 +6,10 @@ for (std::vector<long long> line : problem_instance.drone_matrix) {
 }
 
 
-for (const auto& [key, vec] : drone_cover_solution.drone_map) {
-    std::cout << "Key: " << key << "\n";
-    for (const auto& tup : vec) {
-        int first = std::get<0>(tup);
-        int second = std::get<1>(tup);
-        std::cout << "  Tuple: (" << first << ", " << second << ")\n";
+for (const auto& [launch, vec] : drone_cover_solution.drone_map) {
+    for (const auto& p : vec) {
+        int deliver = p.first;
+        int land = p.second;
+        std::cout << "Launch: " << launch << " deliver: " << deliver << ", land: " << land << "\n";
     }
 }
