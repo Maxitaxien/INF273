@@ -35,12 +35,8 @@ Solution nearest_neighbour(const Instance& problem_instance) {
 
     s.truck_route = tour;
 
-    // Build empty drone map
-    s.drone_map = std::unordered_map<int, std::vector<std::pair<int,int>>>();
-    
-    for (int j = 0; j <= problem_instance.n; ++j) {
-        s.drone_map[j] = std::vector<std::pair<int, int>>(problem_instance.m, {-1, -1});
-    }
+    // Build empty drone trips
+    s.drones = std::vector<std::vector<DroneTrip>>();
 
     return s;
 }

@@ -13,6 +13,39 @@ std::vector<std::string> split(const std::string& s, char delimiter) {
     return tokens;
 }
 
+bool includes_all_nodes(int n, const Solution& solution, bool debug) {
+    std::vector<bool> is_covered(n + 1, false);
+
+    for (int i : solution.truck_route) {
+        if (i != 0) {
+            is_covered[i] = !is_covered[i];
+        }
+        else {
+            is_covered[i] = true;
+        }
+    }
+
+    for (const auto& drone_list : solution.drones) {
+        for (const auto& trip : drone_list) {
+            if (trip.delivery_node != -1) {
+                is_covered[trip.delivery_node] = true;
+            }
+        }
+    }
+
+    if (std::all_of(is_covered.begin(), is_covered.end(), [](bool b) { return b; })) {
+        return true;
+    }
+    if (debug) {
+        for (int i = 0; i < is_covered.size(); i++) {
+            if (!is_covered[i]) {
+                std::cout << is_covered[i] << " not covered or covered multiple times.\n";
+            }
+        }
+    }
+    return false;
+}
+
 bool includes_all_nodes(int n, const std::string& submission, bool debug) {
     std::vector<bool> is_covered(n + 1, false);
 
@@ -47,77 +80,67 @@ bool includes_all_nodes(int n, const std::string& submission, bool debug) {
     return false;
 }
 
-bool all_drone_flights_under_lim(const Instance& problem_instance, const Solution& solution, bool debug) {
+bool all_drone_flights_under_lim(const Instance& problem_instance, const Solution& solution, bool debug = false) {
     bool all_ok = true;
 
-    for (const auto& [launch_node, drone_flights] : solution.drone_map) {
-        for (const auto& tup : drone_flights) {
-            int target = std::get<0>(tup);
-            int landing = std::get<1>(tup);
+    for (const auto& drone_list : solution.drones) {
+        for (const auto& trip : drone_list) {
+            int launch = trip.launch_node;
+            int deliver = trip.delivery_node;
+            int land = trip.land_node;
 
-            // Only consider assigned flights
-            if (target != -1 && landing != -1) {
-                long long drone_time = problem_instance.drone_matrix[launch_node][target] +
-                                       problem_instance.drone_matrix[target][landing];
+            long long drone_time = problem_instance.drone_matrix[launch][deliver] +
+                                   problem_instance.drone_matrix[deliver][land];
 
-                long long truck_arrival_at_landing = problem_instance.truck_matrix[launch_node][landing];
+            long long truck_arrival = problem_instance.truck_matrix[launch][land];
 
-                // Effective drone time includes waiting for truck if it arrives late
-                long long effective_drone_time = std::max(drone_time, truck_arrival_at_landing);
+            long long effective_drone_time = std::max(drone_time, truck_arrival);
 
-                if (effective_drone_time > problem_instance.lim) {
-                    if (debug) {
-                                            std::cout << "Found illegal drone tour: "
-                              << launch_node << " -> " << target << " -> " << landing << "\n";
-                    std::cout << "Lim: " << problem_instance.lim
-                              << ", effective drone time: " << effective_drone_time
-                              << " (drone time: " << drone_time
-                              << ", truck arrival: " << truck_arrival_at_landing << ")\n\n";
-                    }
-                    all_ok = false;
-                }
-            }
-        }
-    }
-
-    return all_ok;
-}
-
-bool drone_flights_consistent(const Solution& solution, bool debug) {
-    // Build index lookup for all nodes
-    std::unordered_map<int, int> node_position;
-    for (int i = 0; i < solution.truck_route.size() - 1; i++) {
-        node_position[solution.truck_route[i]] = i;
-    }
-
-    bool all_ok = true;
-    for (const auto& [launch, vec] : solution.drone_map) {
-        for (const auto& p : vec) {
-            int deliver = p.first;
-            int land = p.second;
-            
-            if (deliver == -1 && land == -1) continue;
-            
-            int truck_start = node_position[launch];
-            int truck_end = node_position[land];
-            if (truck_end <= truck_start) {
+            if (effective_drone_time > problem_instance.lim) {
                 if (debug) {
-                    std::cout << "Found illegal drone launch: "
-                        << launch << " -> " << deliver << " -> " << land << "\n"; 
-                    std::cout << "Launch node " << launch << " visited at time: " << truck_start << "\n";
-                    std::cout << "Land node " << land  << " visited at time: " << truck_end << "\n";
+                    std::cout << "Illegal drone trip: "
+                              << launch << " -> " << deliver << " -> " << land << "\n"
+                              << "Lim: " << problem_instance.lim
+                              << ", effective drone time: " << effective_drone_time
+                              << " (drone: " << drone_time
+                              << ", truck: " << truck_arrival << ")\n";
                 }
                 all_ok = false;
             }
         }
     }
+
     return all_ok;
 }
 
+bool drone_flights_consistent(const Solution& solution, bool debug = false) {
+    for (const auto& drone_list : solution.drones) {
+        for (const auto& trip : drone_list) {
+            if (trip.launch_index == -1 || trip.land_index == -1) continue;
+            if (trip.land_index <= trip.launch_index) {
+                if (debug) {
+                    std::cout << "Drone trip inconsistent: launch_index = " 
+                              << trip.launch_index << ", land_index = "
+                              << trip.land_index << "\n";
+                }
+                return false;
+            }
+            if (trip.launch_node == trip.land_node) {
+                if (debug) {
+                    std::cout << "Drone trip invalid: launch_node == land_node (" 
+                              << trip.launch_node << ")\n";
+                }
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 bool all_drone_flights_feasible(const Instance& problem_instance, const Solution& solution, bool debug) {
-    return false;
+    return (all_drone_flights_under_lim(problem_instance, solution, debug) && drone_flights_consistent(solution, debug));
 }
 
 bool master_check(const Instance& problem_instance, const Solution& solution, bool debug) {
-    return false;
+    return (all_drone_flights_feasible(problem_instance, solution, debug) && includes_all_nodes(problem_instance.n, solution, debug));
 }

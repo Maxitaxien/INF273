@@ -1,11 +1,19 @@
 #pragma once
 #include<vector>
-#include<unordered_map>
 
+struct DroneTrip {
+    int launch_node;     
+    int delivery_node;  
+    int land_node;      
+
+    // Cached indices for fast feasibility checks
+    int launch_index = -1;
+    int land_index = -1;
+};
 
 struct Solution {
     // @brief A vector of ints representing the current truck route
     std::vector<int> truck_route;
-    // @brief A map of vectors with keys: n and length of values in each: m, featuring entries like: {0: [(-1, -1), (-1, -1)]} to hold drone info.
-    std::unordered_map<int, std::vector<std::pair<int,int>>> drone_map;
+    // @brief A single array of drone trips
+    std::vector<std::vector<DroneTrip>> drones; 
 };

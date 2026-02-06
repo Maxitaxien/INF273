@@ -5,12 +5,4 @@
 /**
  * Calculates the sum of waiting times in minutes, which is the competition metric.
  */
-long long calculateTotalWaitingTime(const Instance& problem_instance, const Solution& solution);
-
-
-
-/**
- * Slightly simplified objective value which is equivalent to the total wait time,
- * but will generate smaller values and can be useful for intermediate checks.
- */
-long long getFinalArrivalTime(const Instance& problem_instance, const Solution& solution);
+long long calculate_total_waiting_time(const Instance& problem_instance, const Solution& solution);
