@@ -1,98 +1,79 @@
 #include "algorithms/random_valid_solution.h"
 #include <algorithm>
+#include <vector>
+#include <random>
+#include <iostream>
+#include <numeric>
 
 const int SEED = 42;
-const int DRONES = 2;
+std::mt19937 gen(SEED);
+
+int randInt(int a, int b) {
+    std::uniform_int_distribution<> dist(a, b);
+    return dist(gen);
+}
 
 template <typename T>
 std::vector<T> random_sample(const std::vector<T>& vec, size_t k) {
-    if (k > vec.size()) throw std::runtime_error("Sample size larger than vector size");
-
-    std::vector<T> copy = vec; 
-    std::random_device rd;
-    std::mt19937 gen(SEED);
-
-    std::shuffle(copy.begin(), copy.end(), gen);
-    return std::vector<T>(copy.begin(), copy.begin() + k); 
-}
-
-
-template <typename T>
-std::vector<std::vector<T>> random_split(const std::vector<T>& vec, size_t k) {
-    if (k > vec.size())
-        throw std::runtime_error("Sample size larger than vector size");
-
     std::vector<T> copy = vec;
-    std::random_device rd;
-    std::mt19937 gen(SEED);
-
     std::shuffle(copy.begin(), copy.end(), gen);
-
-    std::vector<std::vector<T>> result;
-    result.emplace_back(copy.begin(), copy.begin() + k);
-    result.emplace_back(copy.begin() + k, copy.end());
-
-    return result;
+    copy.resize(k);
+    return copy;
 }
 
-// Note: Make sure not to assign drone launch -> land sequences in such a way that it is impossible to assign all drones.
-// To fix this, we could start from the back - assign the landing spaces first as a random selection.
-// Then, assign the start spaces.
-// This will always work even in the "worst" case: Let's say we assign all values at the start of the tour to land.
-// Then, simply assign 0 to launch, 1 to launch on next, ... -> n to launch and land on n + 1
 Solution random_valid_solution(int n) {
-    Solution random_solution;
+    Solution sol;
 
-    // ----- Truck route generation -----
-    std::vector<bool> available(n + 1, true);
-    std::mt19937 gen(SEED);
-    std::uniform_int_distribution<> dist((int) ((n / 3) + 1), n);
-
-    // Create list of available nodes
+    // ----- Truck route -----
     std::vector<int> nodes(n);
-    std::iota(std::begin(nodes), std::end(nodes), 1);
-    
-    random_solution.truck_route.push_back(0); // start from depot in all cases
-    available[0] = false;
+    std::iota(nodes.begin(), nodes.end(), 1);
 
-    std::vector<int> add_to_truck = random_sample(nodes, dist(gen));
-    
-    for (int val : add_to_truck) {
-        random_solution.truck_route.push_back(val);
-        available[val] = false;
-    }
+    int k_truck = randInt(n / 3, n);
+    std::vector<int> truck_nodes = random_sample(nodes, k_truck);
 
-    // ----- Drone generation -----
-    // Drone coverings: Get remaining nodes, shuffle and give first k to first drone, rest to second drone
+    sol.truck_route.push_back(0);
+    sol.truck_route.insert(sol.truck_route.end(), truck_nodes.begin(), truck_nodes.end());
+    sol.truck_route.push_back(0);
+
+    // ----- Drone delivery nodes -----
     std::vector<int> remaining;
-    for (int val: nodes) {
-        if (available[val]) {
-            remaining.push_back(val);
-        }
+    for (int node : nodes) {
+        if (std::find(truck_nodes.begin(), truck_nodes.end(), node) == truck_nodes.end())
+            remaining.push_back(node);
+    }
+    std::shuffle(remaining.begin(), remaining.end(), gen);
+
+    sol.drones.resize(2);
+
+    int drone_counter = 0;
+    while (!remaining.empty()) {
+        int delivery_node = remaining.back();
+        remaining.pop_back();
+
+        // Choose launch and land nodes from truck (excluding depot)
+        std::vector<int> truck_mid(sol.truck_route.begin() + 1, sol.truck_route.end() - 1);
+        std::shuffle(truck_mid.begin(), truck_mid.end(), gen);
+
+        int launch_node = truck_mid[0];
+        int land_node = truck_mid[1];
+        if (launch_node == land_node) land_node = truck_mid[1 % truck_mid.size()];
+
+        int launch_idx = std::find(sol.truck_route.begin(), sol.truck_route.end(), launch_node) - sol.truck_route.begin();
+        int land_idx   = std::find(sol.truck_route.begin(), sol.truck_route.end(), land_node) - sol.truck_route.begin();
+        if (launch_idx > land_idx) std::swap(launch_idx, land_idx), std::swap(launch_node, land_node);
+
+        DroneTrip trip;
+        trip.delivery_node = delivery_node;
+        trip.launch_node = launch_node;
+        trip.land_node = land_node;
+        trip.launch_index = launch_idx;
+        trip.land_index = land_idx;
+
+        // Assign trip to one of the drones randomly
+        int d = drone_counter % 2;
+        sol.drones[d].push_back(trip);
+        drone_counter++;
     }
 
-    std::vector<std::vector<int>> assigned;
-    assigned = random_split(remaining, dist(gen));
-
-    // Generate random permutation of landing spots for each drone customer serving
-    // Then, generate launching spots conditionally on this
-    std::vector<bool> is_available_for_drone[DRONES];
-    std::mt19937 gen(SEED);
-    std::uniform_int_distribution<> dist((int) ((n / 3) + 1), n);
-
-    for (std::vector<int> drone_cover : assigned) {
-        for (int i : drone_cover) {
-
-        }
-    }
-
-
-
-
-
-
-
-
-
-    random_solution.truck_route.push_back(0); // end at depot in all cases
+    return sol;
 }
