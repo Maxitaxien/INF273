@@ -9,6 +9,9 @@ add_executable(truck_and_drone
     src/main.cpp
     src/datahandling/reader.cpp
     src/datahandling/convert_to_submission.cpp
+    src/datahandling/save_to_csv.cpp
+    src/algorithms/simple_initial_solution.cpp
+    src/algorithms/helpers.cpp
     src/algorithms/nearest_neighbour.cpp
     src/algorithms/greedy_drone_cover.cpp
     src/verification/feasibility_check.cpp
