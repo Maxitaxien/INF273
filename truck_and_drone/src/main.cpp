@@ -1,34 +1,65 @@
 #include <iostream>
+#include <chrono>
 #include "datahandling/reader.h"
 #include "datahandling/convert_to_submission.h"
 #include "datahandling/datasets.h"
+#include "datahandling/save_to_csv.h"
+#include "algorithms/simple_initial_solution.h"
 #include "algorithms/nearest_neighbour.h"
 #include "algorithms/greedy_drone_cover.h"
 #include "algorithms/random_valid_solution.h"
+#include "algorithms/blind_random_search.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 
+const long long INF = 4e18;
+
+using namespace datasets;
 int main() {
-    Instance problem_instance = read_instance(datasets::contest);
-    Solution initial_solution = nearest_neighbour(problem_instance);
+    // RUN BLIND RANDOM SEARCH
+    int amnt_iter = 10;
+    std::vector<std::string> datasets = {f10, f20, f50, f100, r10, r20, r50, r100};
+    long long best;
+    long double avg;
+    double avg_runtime;
+    Instance instance;
+    Solution initial;
 
-    Solution drone_cover_solution = greedy_drone_cover(problem_instance, initial_solution);
-    // Solution random_solution = random_valid_solution(problem_instance.n); TODO-Fix
+    for (std::string dataset : datasets) {
+        best = INF;
+        avg = 0;
+        avg_runtime = 0;
 
-    
-    std::string submission1 = convert_to_submission(initial_solution);
-    std::string submission2 = convert_to_submission(drone_cover_solution);
-    
+        for (int i = 0; i < amnt_iter; i++) {
+            auto start = std::chrono::high_resolution_clock::now();
+            instance = read_instance(dataset);
+            initial = simple_initial_solution(instance.n);
+            
+            Solution best_random = blind_random_search(
+                instance,
+                initial,
+                calculate_total_waiting_time
+            );
+            auto stop = std::chrono::high_resolution_clock::now();
+            long long final_val = calculate_total_waiting_time(instance, best_random);
 
-    std::cout << submission1 << "\n";
-    std::cout << submission2 << "\n";
+            avg += final_val;
+            best = std::min(final_val, best);
+            
+            std::chrono::duration<double> duration = stop - start;
+            avg_runtime += duration.count();
+        }
+
+        avg_runtime = avg_runtime / amnt_iter;
+        avg = avg / amnt_iter;
+        long long initial_objective = calculate_total_waiting_time(instance, initial);
+        double improvement_percent = 100 * (initial_objective - best) / static_cast<double>(initial_objective);
 
 
-    std::cout << includes_all_nodes(problem_instance.n, submission2, true) << "\n";
+        bool result = save_to_csv("Random Search", dataset, avg, best, improvement_percent, avg_runtime);
+        if (!result) {
+            std::cout << "Error..." << "\n";
+        }
+    }
 
-    std::cout << all_drone_flights_under_lim(problem_instance, drone_cover_solution, true) << "\n";
-
-    std::cout << drone_flights_consistent(drone_cover_solution, true) << "\n";
-
-    std::cout << calculateTotalWaitingTime(problem_instance, drone_cover_solution) << "\n";
 }
