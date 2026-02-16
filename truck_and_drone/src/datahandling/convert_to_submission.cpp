@@ -11,7 +11,8 @@ std::string convert_to_submission(const Solution& solution) {
     for (int n : solution.truck_route) {
         submission += std::to_string(n) + ",";
     }
-    submission.pop_back(); // remove last comma
+    if (!submission.empty())
+        submission.pop_back(); // remove last comma
     submission += "|";
 
     constexpr int DRONES = 2;
@@ -23,6 +24,8 @@ std::string convert_to_submission(const Solution& solution) {
 
     // Sort each drone’s trips by launch index
     for (int d = 0; d < DRONES; d++) {
+        if (d >= solution.drones.size()) continue;
+
         for (auto& trip : solution.drones[d]) {
             deliver_nodes[d].push_back(trip.delivery_node);
             launch_indices[d].push_back(trip.launch_index + 1);
@@ -45,21 +48,24 @@ std::string convert_to_submission(const Solution& solution) {
     append_deliveries(0);
     submission += "-1,"; // separator
     append_deliveries(1);
-    submission.pop_back();
+    if (!submission.empty())
+        submission.pop_back();
     submission += "|";
 
     // ---- Launch ----
     for (int x : launch_indices[0]) submission += std::to_string(x) + ",";
     submission += "-1,";
     for (int x : launch_indices[1]) submission += std::to_string(x) + ",";
-    submission.pop_back();
+    if (!submission.empty())
+        submission.pop_back();
     submission += "|";
 
     // ---- Land ----
     for (int x : land_indices[0]) submission += std::to_string(x) + ",";
     submission += "-1,";
     for (int x : land_indices[1]) submission += std::to_string(x) + ",";
-    submission.pop_back();
+    if (!submission.empty())
+        submission.pop_back();
 
     return submission;
 }

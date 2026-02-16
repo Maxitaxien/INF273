@@ -37,10 +37,10 @@ Solution greedy_drone_cover(const Instance& inst, Solution base) {
 
             new_solution.drones[d].push_back(trip);
 
-            i += 2; // skip b
+            i += 2; 
         } else {
             new_solution.truck_route.push_back(b);
-            i += 2; // move forward normally
+            i += 2; 
         }
     }
 

@@ -4,6 +4,7 @@
 namespace datasets {
     inline const std::string toy     = "../data/toy_example/toy_example.txt";
     inline const std::string contest = "../data/contest/contest.txt";
+    inline const std::string contest2 = "../data/contest/contest_new.txt";
     inline const std::string f10     = "../data/test_instances/F_10.txt";
     inline const std::string f20 = "../data/test_instances/F_20.txt"; 
     inline const std::string f50 = "../data/test_instances/F_50.txt"; 
