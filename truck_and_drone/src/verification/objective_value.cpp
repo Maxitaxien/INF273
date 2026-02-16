@@ -44,31 +44,32 @@ long long calculate_total_waiting_time(
         for (auto [d, t] : drone_returns_at[i]) {
             const DroneCollection& c = solution.drones[d];
 
-            int launch_idx   = c.launch_indices[t];
-            int launch_node  = route[launch_idx];        // lookup in truck route
+            int launch_idx = c.launch_indices[t];
+            int launch_node = route[launch_idx];
             int deliver_node = c.deliver_nodes[t];
+            int land_node = route[c.land_indices[t]]; 
 
             long long out_time  = instance.drone_matrix[launch_node][deliver_node];
-            long long back_time = instance.drone_matrix[deliver_node][curr];
+            long long back_time = instance.drone_matrix[deliver_node][land_node];
 
-            // Drone can launch after truck arrives and after drone itself is available
-            long long launch_time    = std::max(truck_arrival[launch_idx], drone_available[d]);
-            long long drone_arrival  = launch_time + out_time;
-            long long drone_return   = drone_arrival + back_time;
+            // Drone can launch after truck arrives at launch and after drone is available
+            long long launch_time = std::max(truck_arrival[launch_idx], drone_available[d]);
+            long long drone_arrival = launch_time + out_time;
+            long long drone_return = drone_arrival + back_time;
 
             drone_available[d] = drone_return; // update availability
             drone_returns_this_stop.push_back(drone_return);
 
-            total += drone_arrival; // add drone waiting (UNCHANGED)
+            total += drone_arrival; // add drone waiting
         }
 
         truck_departure[i] = drone_returns_this_stop.empty()
             ? truck_arrival[i]
             : std::max(truck_arrival[i], *std::max_element(drone_returns_this_stop.begin(), drone_returns_this_stop.end()));
 
-        if (curr != 0)
-            total += truck_arrival[i]; // add truck waiting (UNCHANGED)
+        if (curr != 0) // depot is 0
+            total += truck_arrival[i]; // add truck waiting
     }
 
-    return total / 100;
+    return total / 100; // adjust units
 }

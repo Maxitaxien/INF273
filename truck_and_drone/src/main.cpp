@@ -17,7 +17,7 @@ const long long INF = 4e18;
 using namespace datasets;
 
 int main() {
-    Instance instance = read_instance(datasets::contest);
+    Instance instance = read_instance(datasets::contest2);
     Solution random = random_valid_solution(instance.n);
 
     bool feasible = master_check(instance, random, false);
@@ -27,13 +27,10 @@ int main() {
 
     Solution drone = greedy_drone_cover(instance, truck);
 
-    for (int i : drone.drones[0].launch_indices) {
-        std::cout << i << "\n";
-    }
-
     std::cout << convert_to_submission(truck) << "\n";
     std::cout << convert_to_submission(drone) << "\n";
 
-    std::cout << master_check(instance, drone, false) << "\n";
+    std::cout << master_check(instance, drone, true) << "\n";
+    std::cout << calculate_total_waiting_time(instance, drone) << "\n";
 
 }
