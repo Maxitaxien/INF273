@@ -26,10 +26,15 @@ std::string convert_to_submission(const Solution& solution) {
     for (int d = 0; d < DRONES; d++) {
         if (d >= solution.drones.size()) continue;
 
-        for (auto& trip : solution.drones[d]) {
-            deliver_nodes[d].push_back(trip.delivery_node);
-            launch_indices[d].push_back(trip.launch_index + 1);
-            land_indices[d].push_back(trip.land_index + 1);
+        DroneCollection c = solution.drones[d];
+        deliver_nodes[d] = c.deliver_nodes;
+
+        for (int launch_idx : c.launch_indices) {
+            launch_indices[d].push_back(launch_idx + 1);
+        }
+
+        for (int land_idx : c.land_indices) {
+            land_indices[d].push_back(land_idx + 1);
         }
     }
 

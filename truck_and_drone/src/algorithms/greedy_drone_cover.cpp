@@ -1,13 +1,18 @@
 #include "algorithms/greedy_drone_cover.h"
-#include "algorithms/helpers.h"
 #include <vector>
+#include <unordered_map>
 
 const int DRONES = 2;
 
 Solution greedy_drone_cover(const Instance& inst, Solution base) {
+    // To store new solution
     Solution new_solution;
     new_solution.truck_route.clear();
     new_solution.drones.resize(DRONES);
+
+    // For storing temporary drone movements before recomputing indices
+    std::vector<DroneCollection> copy;
+    copy.resize(DRONES);
 
     int lim = inst.lim;
     int n = base.truck_route.size();
@@ -26,16 +31,14 @@ Solution greedy_drone_cover(const Instance& inst, Solution base) {
         new_solution.truck_route.push_back(a);
 
         if (effective_drone_time < inst.truck_matrix[a][b] + inst.truck_matrix[b][c] && effective_drone_time < lim) {
-            // Assign to alternating drones
             int d = drone_counter % DRONES;
             drone_counter++;
 
-            DroneTrip trip;
-            trip.launch_node = a;
-            trip.delivery_node = b;
-            trip.land_node = c;
-
-            new_solution.drones[d].push_back(trip);
+            // Add concrete nodes first, need to adjust indices later anyway
+            DroneCollection& drone_collection = copy[d];
+            drone_collection.launch_indices.push_back(a); // actually represents node      
+            drone_collection.deliver_nodes.push_back(b);
+            drone_collection.land_indices.push_back(c);
 
             i += 2; 
         } else {
@@ -50,8 +53,24 @@ Solution greedy_drone_cover(const Instance& inst, Solution base) {
         i++;
     }
 
-    // Recompute cached indices
-    recompute_indices(new_solution);
+    // get indices for nodes
+    std::unordered_map<int, int> node_to_idx;
+    for (int i = 0; i < new_solution.truck_route.size(); i++) {
+        node_to_idx[new_solution.truck_route[i]] = i;
+    }
+
+    // Fix indices for drone trips
+    for (int d = 0; d < DRONES; d++) {
+        for (int i = 0; i < copy[d].launch_indices.size(); i++) {
+            int launch_idx = node_to_idx[copy[d].launch_indices[i]];
+            int deliver = copy[d].deliver_nodes[i];
+            int land_idx = node_to_idx[copy[d].land_indices[i]];
+
+            new_solution.drones[d].launch_indices.push_back(launch_idx);
+            new_solution.drones[d].deliver_nodes.push_back(deliver);
+            new_solution.drones[d].land_indices.push_back(land_idx);
+        } 
+    }
 
     return new_solution;
 }

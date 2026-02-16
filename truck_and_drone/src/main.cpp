@@ -17,14 +17,23 @@ const long long INF = 4e18;
 using namespace datasets;
 
 int main() {
-    Instance instance = read_instance(datasets::contest2);
-    Solution initial = nearest_neighbour(instance);
-    Solution drone_cover = greedy_drone_cover(instance, initial);
+    Instance instance = read_instance(datasets::contest);
+    Solution random = random_valid_solution(instance.n);
 
-    bool feasible = master_check(instance, drone_cover, true);
+    bool feasible = master_check(instance, random, false);
     std::cout << feasible << "\n";
 
-    std::string sub = convert_to_submission(drone_cover);
+    Solution truck = nearest_neighbour(instance);
 
-    std::cout << sub << "\n";
+    Solution drone = greedy_drone_cover(instance, truck);
+
+    for (int i : drone.drones[0].launch_indices) {
+        std::cout << i << "\n";
+    }
+
+    std::cout << convert_to_submission(truck) << "\n";
+    std::cout << convert_to_submission(drone) << "\n";
+
+    std::cout << master_check(instance, drone, false) << "\n";
+
 }

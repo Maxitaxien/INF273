@@ -59,19 +59,14 @@ Solution random_valid_solution(int n) {
         if (launch_node == land_node) land_node = truck_mid[1 % truck_mid.size()];
 
         int launch_idx = std::find(sol.truck_route.begin(), sol.truck_route.end(), launch_node) - sol.truck_route.begin();
-        int land_idx   = std::find(sol.truck_route.begin(), sol.truck_route.end(), land_node) - sol.truck_route.begin();
+        int land_idx = std::find(sol.truck_route.begin(), sol.truck_route.end(), land_node) - sol.truck_route.begin();
         if (launch_idx > land_idx) std::swap(launch_idx, land_idx), std::swap(launch_node, land_node);
-
-        DroneTrip trip;
-        trip.delivery_node = delivery_node;
-        trip.launch_node = launch_node;
-        trip.land_node = land_node;
-        trip.launch_index = launch_idx;
-        trip.land_index = land_idx;
 
         // Assign trip to one of the drones randomly
         int d = drone_counter % 2;
-        sol.drones[d].push_back(trip);
+        sol.drones[d].launch_indices.push_back(launch_idx);
+        sol.drones[d].deliver_nodes.push_back(delivery_node);
+        sol.drones[d].land_indices.push_back(land_idx);
         drone_counter++;
     }
 

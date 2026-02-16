@@ -36,7 +36,7 @@ Solution nearest_neighbour(const Instance& problem_instance) {
     s.truck_route = tour;
 
     // Build empty drone trips
-    s.drones = std::vector<std::vector<DroneTrip>>();
+    s.drones = std::vector<DroneCollection>();
 
     return s;
 }
