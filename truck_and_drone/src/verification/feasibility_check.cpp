@@ -17,21 +17,21 @@ bool includes_all_nodes(int n, const Solution& solution, bool debug) {
     std::vector<bool> is_covered(n + 1, false);
 
     for (int node : solution.truck_route) {
-        if (node != 0) {
-            is_covered[node] = !is_covered[node];
+        if (!is_covered[node]) {
+            is_covered[node] = true;
         }
         else {
-            is_covered[node] = true;
+            std::cout << is_covered[node] << " not covered or covered multiple times.\n";
         }
     }
 
     for (DroneCollection c : solution.drones) {
         for (int node : c.deliver_nodes) {
-            if (node != 0) {
+            if (!is_covered[node]) {
                 is_covered[node] = true;
             }
             else {
-                is_covered[node] = true;
+                std::cout << is_covered[node] << " not covered or covered multiple times.\n";
             }
         }
     }

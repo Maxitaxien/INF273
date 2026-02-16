@@ -8,7 +8,8 @@ long long calculate_total_waiting_time(
 ) {
     long long total = 0;
 
-    const auto& route = solution.truck_route;
+    std::vector<int> route = solution.truck_route;
+    route.push_back(0);
     int m = route.size();
 
     std::vector<long long> truck_arrival(m, 0);

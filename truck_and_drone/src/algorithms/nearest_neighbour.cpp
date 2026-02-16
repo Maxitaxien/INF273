@@ -7,7 +7,7 @@ Solution nearest_neighbour(const Instance& problem_instance) {
     Solution s;
     std::vector<bool> visited(problem_instance.n + 1, false);
 
-    std::vector<int> tour(problem_instance.n + 2);
+    std::vector<int> tour(problem_instance.n + 1);
     tour[0] = 0; // always begin at depot
     visited[0] = true;
 
