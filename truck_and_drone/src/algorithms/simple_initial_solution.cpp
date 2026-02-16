@@ -12,7 +12,5 @@ Solution simple_initial_solution(int n) {
         simple_solution.truck_route.emplace_back(val);
     }
 
-    simple_solution.truck_route.emplace_back(0);
-
     return simple_solution;
 }

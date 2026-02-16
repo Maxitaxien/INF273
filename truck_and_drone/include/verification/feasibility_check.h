@@ -20,6 +20,17 @@ bool includes_all_nodes(int n, const Solution& solution, bool debug);
  */
 bool includes_all_nodes(int n, const std::string& submission, bool debug);
 
+std::vector<long long> get_truck_arrival_times_at_node(
+    const Instance& instance,
+    const Solution& solution,
+    std::vector<long long>& drone_available
+);
+
+bool specific_drone_flight_under_lim(const Instance& instance,
+                                     const Solution& solution,
+                                     int drone_idx,       // which drone in solution.drones
+                                     int flight_idx);
+
 /**
  * Check whether all drone flights are all under the flight limit.
  * (Should mainly be used for debugging. For feasibility checks, prefer all_drone_flights_feasible,

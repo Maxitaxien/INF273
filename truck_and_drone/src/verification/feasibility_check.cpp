@@ -25,7 +25,7 @@ bool includes_all_nodes(int n, const Solution& solution, bool debug) {
         }
     }
 
-    for (DroneCollection c : solution.drones) {
+    for (const DroneCollection& c : solution.drones) {
         for (int node : c.deliver_nodes) {
             if (!is_covered[node]) {
                 is_covered[node] = true;
@@ -83,32 +83,121 @@ bool includes_all_nodes(int n, const std::string& submission, bool debug) {
     return false;
 }
 
-bool all_drone_flights_under_lim(const Instance& problem_instance, const Solution& solution, bool debug = false) {
+bool specific_drone_flight_under_lim(const Instance& instance,
+                                     const Solution& solution,
+                                     int drone_idx, int flight_idx) {
+    const DroneCollection& c = solution.drones[drone_idx];
+    int launch_idx = c.launch_indices[flight_idx];
+    int land_idx   = c.land_indices[flight_idx];
+    int deliver    = c.deliver_nodes[flight_idx];
+
+    if (launch_idx == -1 || land_idx == -1 || deliver == -1) return false;
+
+    std::vector<long long> drone_available;
+    std::vector<long long> truck_arrival = get_truck_arrival_times_at_node(instance, solution, drone_available);
+
+    long long launch_time_allowed = std::max(truck_arrival[launch_idx], drone_available[drone_idx]);
+
+    long long drone_flight_duration = instance.drone_matrix[solution.truck_route[launch_idx]][deliver] +
+                                      instance.drone_matrix[deliver][solution.truck_route[land_idx]];
+
+    // Check flight duration against the limit (independent of previous waits)
+    return drone_flight_duration <= instance.lim;
+}
+
+// Returns truck arrival times at each node and updates drone availability dynamically
+std::vector<long long> get_truck_arrival_times_at_node(
+    const Instance& instance,
+    const Solution& solution,
+    std::vector<long long>& drone_available // output parameter
+) {
+    int m = solution.truck_route.size();
+    std::vector<long long> truck_arrival(m, 0);
+    std::vector<long long> truck_departure(m, 0);
+
+    drone_available.assign(solution.drones.size(), 0);
+    long long latest_drone_return_so_far = 0;
+
+    // Precompute which drones land at which truck index
+    std::vector<std::vector<std::pair<int,int>>> drone_returns_at(m);
+    for (int d = 0; d < solution.drones.size(); ++d) {
+        const DroneCollection& c = solution.drones[d];
+        for (int t = 0; t < c.launch_indices.size(); ++t) {
+            if (c.deliver_nodes[t] != -1 && c.land_indices[t] != -1) {
+                drone_returns_at[c.land_indices[t]].emplace_back(d, t);
+            }
+        }
+    }
+
+    for (int i = 1; i < m; ++i) {
+        int prev = solution.truck_route[i-1];
+        int curr = solution.truck_route[i];
+
+        truck_arrival[i] = truck_departure[i-1] + instance.truck_matrix[prev][curr];
+
+        // Update drones landing at this stop
+        for (auto [d, t] : drone_returns_at[i]) {
+            const DroneCollection& c = solution.drones[d];
+
+            int launch_idx   = c.launch_indices[t];
+            int launch_node  = solution.truck_route[launch_idx];
+            int deliver_node = c.deliver_nodes[t];
+            int land_node    = curr;
+
+            long long out_time  = instance.drone_matrix[launch_node][deliver_node];
+            long long back_time = instance.drone_matrix[deliver_node][land_node];
+
+            long long launch_time   = std::max(truck_arrival[launch_idx], drone_available[d]);
+            long long drone_return  = launch_time + out_time + back_time;
+
+            drone_available[d] = drone_return;
+            latest_drone_return_so_far = std::max(latest_drone_return_so_far, drone_return);
+        }
+
+        truck_departure[i] = std::max(truck_arrival[i], latest_drone_return_so_far);
+    }
+
+    return truck_arrival;
+}
+
+
+bool all_drone_flights_under_lim(const Instance& instance,
+                                 const Solution& solution,
+                                 bool debug = false) {
+    std::vector<long long> drone_available;
+    std::vector<long long> truck_arrival = get_truck_arrival_times_at_node(instance, solution, drone_available);
+
     bool all_ok = true;
 
-    for (DroneCollection c : solution.drones) {
-        for (int i = 0; i < c.launch_indices.size(); i++) {
-            int deliver = c.deliver_nodes[i];
-            int launch = solution.truck_route[c.launch_indices[i]];
-            int land = solution.truck_route[c.land_indices[i]];
-            long long drone_time = problem_instance.drone_matrix[launch][deliver] +
-                                   problem_instance.drone_matrix[deliver][land];
+    for (int d = 0; d < solution.drones.size(); ++d) {
+        const DroneCollection& c = solution.drones[d];
+        for (int i = 0; i < c.launch_indices.size(); ++i) {
+            int launch_idx = c.launch_indices[i];
+            int land_idx   = c.land_indices[i];
+            int deliver    = c.deliver_nodes[i];
 
-            long long truck_arrival = problem_instance.truck_matrix[launch][land];
+            if (launch_idx == -1 || land_idx == -1 || deliver == -1) continue;
 
-            long long effective_drone_time = std::max(drone_time, truck_arrival);
+            long long launch_time_allowed = std::max(truck_arrival[launch_idx], drone_available[d]);
+            
+            // **Effective flight duration = time actually in the air**
+            long long drone_flight_duration = instance.drone_matrix[solution.truck_route[launch_idx]][deliver] +
+                                              instance.drone_matrix[deliver][solution.truck_route[land_idx]];
 
-            if (effective_drone_time > problem_instance.lim) {
+            // check if it can be done within the limit
+            if (drone_flight_duration > instance.lim) {
                 if (debug) {
-                    std::cout << "Illegal drone trip: "
-                              << launch << " -> " << deliver << " -> " << land << "\n"
-                              << "Lim: " << problem_instance.lim
-                              << ", effective drone time: " << effective_drone_time
-                              << " (drone: " << drone_time
-                              << ", truck: " << truck_arrival << ")\n";
+                    std::cout << "Illegal drone trip (duration too long): "
+                              << solution.truck_route[launch_idx] << " -> " << deliver << " -> "
+                              << solution.truck_route[land_idx] << "\n"
+                              << "Lim: " << instance.lim
+                              << ", drone flight duration: " << drone_flight_duration << "\n";
                 }
                 all_ok = false;
             }
+
+            // Update drone availability: earliest it can launch next
+            drone_available[d] = launch_time_allowed + drone_flight_duration;
         }
     }
 
