@@ -9,28 +9,18 @@
 #include "algorithms/greedy_drone_cover.h"
 #include "algorithms/random_valid_solution.h"
 #include "algorithms/blind_random_search.h"
+#include "runners/all_blind_random.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 
-const long long INF = 4e18;
 
 using namespace datasets;
 
 int main() {
-    Instance instance = read_instance(datasets::contest2);
-    Solution random = random_valid_solution(instance.n);
+    // all_blind_random();
+    Instance instance = read_instance(datasets::contest);
+    Solution initial = nearest_neighbour(instance);
 
-    bool feasible = master_check(instance, random, false);
-    std::cout << feasible << "\n";
-
-    Solution truck = nearest_neighbour(instance);
-
-    Solution drone = greedy_drone_cover(instance, truck);
-
-    std::cout << convert_to_submission(truck) << "\n";
-    std::cout << convert_to_submission(drone) << "\n";
-
-    std::cout << master_check(instance, drone, true) << "\n";
+    Solution drone = greedy_drone_cover(instance, initial);
     std::cout << calculate_total_waiting_time(instance, drone) << "\n";
-
 }

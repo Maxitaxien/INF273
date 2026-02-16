@@ -7,5 +7,6 @@ bool save_to_csv(
     long double avg, 
     long long best, 
     double improvement_percent, 
-    long double avg_runtime
+    long double avg_runtime,
+    std::string solution_str
 );

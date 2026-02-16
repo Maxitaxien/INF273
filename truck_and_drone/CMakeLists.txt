@@ -15,6 +15,7 @@ add_executable(truck_and_drone
     src/algorithms/greedy_drone_cover.cpp
     src/algorithms/random_valid_solution.cpp
     src/algorithms/blind_random_search.cpp
+    src/runners/all_blind_random.cpp
     src/verification/feasibility_check.cpp
     src/verification/objective_value.cpp
 )

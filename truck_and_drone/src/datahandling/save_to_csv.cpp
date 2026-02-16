@@ -9,7 +9,9 @@
 
 #include <filesystem>
 
-std::string BASE = std::filesystem::current_path().parent_path().string() + "/runs/";
+namespace fs = std::filesystem;
+
+std::string BASE = fs::current_path().parent_path().string() + "/runs/";
 
 std::string clean_dataset(const std::string& dataset) {
     size_t last_slash = dataset.find_last_of("/\\"); 
@@ -28,7 +30,7 @@ std::string get_current_time_string() {
 
     std::stringstream ss;
     // Replace space with '_' and ':' with '-'
-    ss << std::put_time(local_tm, "%Y-%m-%d_%H-%M-%S");
+    ss << std::put_time(local_tm, "%d-%m-%Y_%H");;
     return ss.str();
 }
 
@@ -38,19 +40,38 @@ bool save_to_csv(
     long double avg, 
     long long best, 
     double improvement_percent, 
-    long double avg_runtime
+    long double avg_runtime,
+    std::string solution_str
 ) {
-    std::string file_path = BASE + clean_dataset(dataset) + "_" + get_current_time_string() + ".csv";
-    std::ofstream file(file_path);
+    std::string DIR = BASE + get_current_time_string();
 
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file at:" << file_path << "\n";
+    if (fs::create_directory(DIR)) {
+        std::cout << "Directory '" << DIR << "' created successfully.\n";
+    } else {
+        std::cout << "Directory '" << DIR << "' already exists or failed to create.\n";
+    }
+
+    std::string csv_path = DIR + "/" + clean_dataset(dataset) + ".csv";
+    std::ofstream csvfile(csv_path);
+
+    std::string solution_path = DIR + "/" + clean_dataset(dataset) + ".txt";
+    std::ofstream solutionfile(solution_path);
+
+    if (!csvfile.is_open()) {
+        std::cerr << "Failed to open file at:" << csv_path << "\n";
         return false;
     }
 
-    file << clean_dataset(dataset) << ",,,,\n";
-    file << " ,Average objective,Best Objective,Improvement (%),Average running time (in seconds)\n";
-    file << algo_name << "," << avg << "," << best << "," << improvement_percent << "," << avg_runtime << "\n";
+    csvfile << clean_dataset(dataset) << ",,,,\n";
+    csvfile << " ,Average objective,Best Objective,Improvement (%),Average running time (in seconds)\n";
+    csvfile << algo_name << "," << avg << "," << best << "," << improvement_percent << "," << avg_runtime << "\n";
+
+    if (!solutionfile.is_open()) {
+        std::cerr << "Failed to open file at:" << solution_path << "\n";
+        return false;
+    }
+
+    solutionfile << solution_str << "\n";
 
     return true;
 }

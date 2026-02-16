@@ -1,3 +1,17 @@
+#include <iostream>
+#include <chrono>
+#include "runners/all_blind_random.h"
+#include "datahandling/reader.h"
+#include "datahandling/convert_to_submission.h"
+#include "datahandling/save_to_csv.h"
+#include "datahandling/datasets.h"
+#include "algorithms/simple_initial_solution.h"
+#include "algorithms/blind_random_search.h"
+#include "verification/objective_value.h"
+
+const long long INF = 4e18;
+
+using namespace datasets;
 
 void all_blind_random() {
     // RUN BLIND RANDOM SEARCH
@@ -8,6 +22,7 @@ void all_blind_random() {
     double avg_runtime;
     Instance instance;
     Solution initial;
+    Solution best_random;
 
     for (std::string dataset : datasets) {
         best = INF;
@@ -19,7 +34,7 @@ void all_blind_random() {
             instance = read_instance(dataset);
             initial = simple_initial_solution(instance.n);
             
-            Solution best_random = blind_random_search(
+            best_random = blind_random_search(
                 instance,
                 initial,
                 calculate_total_waiting_time
@@ -40,7 +55,7 @@ void all_blind_random() {
         double improvement_percent = 100 * (initial_objective - best) / static_cast<double>(initial_objective);
 
 
-        bool result = save_to_csv("Random Search", dataset, avg, best, improvement_percent, avg_runtime);
+        bool result = save_to_csv("Random Search", dataset, avg, best, improvement_percent, avg_runtime, convert_to_submission(best_random));
         if (!result) {
             std::cout << "Error..." << "\n";
         }
