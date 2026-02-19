@@ -9,18 +9,25 @@
 #include "algorithms/greedy_drone_cover.h"
 #include "algorithms/random_valid_solution.h"
 #include "algorithms/blind_random_search.h"
+#include "operators/one_reinsert.h"
 #include "runners/all_blind_random.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 
-
 using namespace datasets;
 
 int main() {
-    // all_blind_random();
+    //all_blind_random();
     Instance instance = read_instance(datasets::contest);
     Solution initial = nearest_neighbour(instance);
-
     Solution drone = greedy_drone_cover(instance, initial);
-    std::cout << calculate_total_waiting_time(instance, drone) << "\n";
+
+    std::cout << convert_to_submission(drone) << "\n";
+
+    Solution edited = one_reinsert(instance, drone, 1, 1, 6);
+
+    std::cout << convert_to_submission(edited) << "\n";
+
+    std::cout << master_check(instance, edited, true) << "\n";
+    std::cout << calculate_total_waiting_time(instance, edited) << "\n";
 }
