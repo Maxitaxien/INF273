@@ -123,8 +123,11 @@ std::vector<long long> get_truck_arrival_times_at_node(
     for (int d = 0; d < solution.drones.size(); ++d) {
         const DroneCollection& c = solution.drones[d];
         for (int t = 0; t < c.launch_indices.size(); ++t) {
-            if (c.deliver_nodes[t] != -1 && c.land_indices[t] != -1) {
+            if (c.land_indices[t] >= 0 && c.land_indices[t] < m) {
                 drone_returns_at[c.land_indices[t]].emplace_back(d, t);
+            } else {
+                std::cerr << "Skipping drone landing at invalid truck index "
+                        << c.land_indices[t] << " (truck route size: " << m << ")\n";
             }
         }
     }

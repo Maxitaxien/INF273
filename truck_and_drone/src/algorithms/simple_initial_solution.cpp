@@ -1,15 +1,24 @@
 #include "algorithms/simple_initial_solution.h"
 #include <numeric>
 
+
 Solution simple_initial_solution(int n) {
     Solution simple_solution;
 
+    // Initialize truck route
     simple_solution.truck_route.emplace_back(0);
     std::vector<int> numbers(n);
     std::iota(numbers.begin(), numbers.end(), 1);
-    
-    for (int val: numbers) {
+    for (int val : numbers) {
         simple_solution.truck_route.emplace_back(val);
+    }
+
+    simple_solution.drones.resize(2);  // create 2 drones
+
+    for (auto& d : simple_solution.drones) {
+        d.launch_indices.clear();
+        d.deliver_nodes.clear();
+        d.land_indices.clear();
     }
 
     return simple_solution;

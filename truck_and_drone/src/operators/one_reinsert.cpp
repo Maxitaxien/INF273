@@ -39,7 +39,7 @@ Solution one_reinsert(const Instance& instance, Solution& solution, int pop, int
         if (idx > 0 && idx < solution.truck_route.size())
         {
             std::swap(solution.truck_route[solution.truck_route.size() - 1], solution.truck_route[idx]);
-            // TODO: Any drones with a route overlapping the insertion index may be infeasible now, as they may
+            // Any drones with a route overlapping the insertion index may be infeasible now, as they may
             // have to travel further. Fix the solution in this case.
             for (int c = 0; c < solution.drones.size(); c++) {
                 std::set<Interval> drone_intervals = get_intervals(solution, c);

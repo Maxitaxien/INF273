@@ -9,6 +9,8 @@
 #include "algorithms/greedy_drone_cover.h"
 #include "algorithms/random_valid_solution.h"
 #include "algorithms/blind_random_search.h"
+#include "algorithms/local_search.h"
+#include "operators/operator.h"
 #include "operators/one_reinsert.h"
 #include "runners/all_blind_random.h"
 #include "verification/feasibility_check.h"
@@ -24,10 +26,22 @@ int main() {
 
     std::cout << convert_to_submission(drone) << "\n";
 
-    Solution edited = one_reinsert(instance, drone, 1, 1, 6);
 
-    std::cout << convert_to_submission(edited) << "\n";
+    Solution result = local_search(instance, simple_initial_solution(instance.n), one_reinsert_operator, calculate_total_waiting_time);
 
-    std::cout << master_check(instance, edited, true) << "\n";
-    std::cout << calculate_total_waiting_time(instance, edited) << "\n";
+    std::cout << convert_to_submission(result) << "\n";
+
+    std::cout << master_check(instance, result, true) << "\n";
+    std::cout << calculate_total_waiting_time(instance, result) << "\n";
+
+
+    // now run local search from greedy drone cover!
+    Solution result2 = local_search(instance, drone, one_reinsert_operator, calculate_total_waiting_time);
+
+    std::cout << convert_to_submission(result2) << "\n";
+
+    std::cout << master_check(instance, result2, true) << "\n";
+    std::cout << calculate_total_waiting_time(instance, result2) << "\n";
+
+    
 }

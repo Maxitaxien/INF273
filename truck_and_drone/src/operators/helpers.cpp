@@ -155,7 +155,7 @@ std::pair<bool, Solution> assign_launch_and_land(const Instance& instance, Solut
 
             bool overlap = overlaps(drone_intervals, pos1, pos2);
 
-            if (flying_distance <= instance.lim && !overlap) {
+            if (flying_distance <= instance.lim && !overlap && pos2 < solution.truck_route.size() && pos2 < (int)solution.truck_route.size() - 1) {
                 solution.drones[drone].launch_indices.push_back(pos1);
                 solution.drones[drone].deliver_nodes.push_back(new_deliver);
                 solution.drones[drone].land_indices.push_back(pos2);
@@ -169,6 +169,7 @@ std::pair<bool, Solution> assign_launch_and_land(const Instance& instance, Solut
 
 Solution fix_feasibility_for_drone(const Instance& instance, Solution& solution, int drone) {
     DroneCollection& c = solution.drones[drone];
+
     std::set<Interval> intervals = get_intervals(solution, drone);
 
     for (int i = 0; i < c.launch_indices.size(); ) {
@@ -184,9 +185,7 @@ Solution fix_feasibility_for_drone(const Instance& instance, Solution& solution,
         if (!specific_drone_flight_under_lim(instance, solution, drone, i))
             bad = true;
 
-        // Rebuild intervals each iteration (minimal correctness)
-        std::set<Interval> intervals = get_intervals(solution, drone);
-
+        // Rebuild intervals
         Interval self{launch_idx, land_idx};
         auto it = intervals.find(self);
         if (it != intervals.end())
@@ -200,8 +199,10 @@ Solution fix_feasibility_for_drone(const Instance& instance, Solution& solution,
             if (!fix.first) {
                 remove_drone_flight(solution, drone, i);
 
-                int truck_pos = launch_idx + 1;
+                int truck_pos = std::min(launch_idx + 1, (int)solution.truck_route.size());
                 solution.truck_route.insert(solution.truck_route.begin() + truck_pos, deliver);
+
+                intervals = get_intervals(solution, drone);
 
                 continue; // vector shifted
             }

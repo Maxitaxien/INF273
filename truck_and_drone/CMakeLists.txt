@@ -16,6 +16,7 @@ add_library(core
     src/algorithms/blind_random_search.cpp
     src/algorithms/local_search.cpp
     src/operators/helpers.cpp
+    src/operators/operator.cpp
     src/operators/one_reinsert.cpp
     src/verification/feasibility_check.cpp
     src/verification/objective_value.cpp
