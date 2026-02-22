@@ -10,6 +10,7 @@
 #include "algorithms/random_valid_solution.h"
 #include "algorithms/blind_random_search.h"
 #include "algorithms/local_search.h"
+#include "algorithms/simulated_annealing.h"
 #include "operators/operator.h"
 #include "operators/one_reinsert.h"
 #include "runners/all_blind_random.h"
@@ -26,22 +27,28 @@ int main() {
 
     std::cout << convert_to_submission(drone) << "\n";
 
+    Solution result = simulated_annealing(instance, simple_initial_solution(instance.n), one_reinsert_random, 0.1, calculate_total_waiting_time);
 
+
+
+
+    /*
     Solution result = local_search(instance, simple_initial_solution(instance.n), one_reinsert_operator, calculate_total_waiting_time);
+    */
 
     std::cout << convert_to_submission(result) << "\n";
 
     std::cout << master_check(instance, result, true) << "\n";
     std::cout << calculate_total_waiting_time(instance, result) << "\n";
 
-
     // now run local search from greedy drone cover!
+    /*
     Solution result2 = local_search(instance, drone, one_reinsert_operator, calculate_total_waiting_time);
 
     std::cout << convert_to_submission(result2) << "\n";
 
     std::cout << master_check(instance, result2, true) << "\n";
     std::cout << calculate_total_waiting_time(instance, result2) << "\n";
-
+    */
     
 }

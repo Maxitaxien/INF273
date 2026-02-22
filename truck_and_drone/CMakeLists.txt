@@ -15,6 +15,7 @@ add_library(core
     src/algorithms/random_valid_solution.cpp
     src/algorithms/blind_random_search.cpp
     src/algorithms/local_search.cpp
+    src/algorithms/simulated_annealing.cpp
     src/operators/helpers.cpp
     src/operators/operator.cpp
     src/operators/one_reinsert.cpp
