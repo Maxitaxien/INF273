@@ -7,31 +7,27 @@
 
 extern std::mt19937 gen;  // reuse global generator
 
+// Generate all valid neighbors (optional, may be expensive)
 std::vector<Solution> one_reinsert_operator(const Instance& instance, const Solution& sol) {
     std::vector<Solution> neighbors;
 
     for (int pop = 1; pop <= 3; pop++) {
         for (int insert = 1; insert <= 3; insert++) {
-            Solution s = sol;
-
-            // Determine valid truck size after pop
-            int truck_size_after_pop = s.truck_route.size();
-            if (pop == 1 && !s.truck_route.empty()) {
-                truck_size_after_pop--; // last node will be popped
-            }
+            int truck_size_after_pop = sol.truck_route.size();
+            if (pop == 1 && !sol.truck_route.empty()) truck_size_after_pop--;
 
             for (int idx = 1; idx <= truck_size_after_pop; ++idx) {
-                Solution neighbor = s;
-                
-                // Skip if drone index would be invalid
-                if (pop > 1 && (pop-2 >= neighbor.drones.size() || neighbor.drones[pop-2].deliver_nodes.empty()))
+                // Skip invalid drone pop/insert
+                if (pop > 1 && (pop - 2 >= sol.drones.size() || sol.drones[pop - 2].deliver_nodes.empty()))
                     continue;
-                if (insert > 1 && (insert-2 >= neighbor.drones.size()))
+                if (insert > 1 && (insert - 2 >= sol.drones.size()))
                     continue;
 
-                neighbor = one_reinsert(instance, neighbor, pop, insert, idx);
-                if (master_check(instance, neighbor, false)) {
-                    neighbors.push_back(neighbor);
+                Solution neighbor = sol;  // one copy per trial
+                if (one_reinsert(instance, neighbor, pop, insert, idx)) {
+                    if (master_check(instance, neighbor, false)) {
+                        neighbors.push_back(neighbor);
+                    }
                 }
             }
         }
@@ -40,17 +36,13 @@ std::vector<Solution> one_reinsert_operator(const Instance& instance, const Solu
     return neighbors;
 }
 
-
-Solution one_reinsert_random(const Instance& instance, const Solution& sol) {
-    Solution neighbor = sol;
-
-    // Random pop and insert
+// Generate a single random neighbor
+bool one_reinsert_random(const Instance& instance, Solution& sol) {
     std::uniform_int_distribution<int> pop_dist(1, 3);
     std::uniform_int_distribution<int> insert_dist(1, 3);
 
     int pop, insert;
 
-    // Ensure valid pop/insert
     do {
         pop = pop_dist(gen);
         insert = insert_dist(gen);
@@ -59,23 +51,13 @@ Solution one_reinsert_random(const Instance& instance, const Solution& sol) {
         (insert > 1 && insert - 2 >= sol.drones.size())
     );
 
-    // Compute truck size after pop
     int truck_size_after_pop = sol.truck_route.size();
-    if (pop == 1 && !sol.truck_route.empty()) {
-        truck_size_after_pop--;
-    }
+    if (pop == 1 && !sol.truck_route.empty()) truck_size_after_pop--;
 
-    // Guard against invalid truck size
-    if (truck_size_after_pop <= 1) {
-        return sol; // fallback: return original
-    }
+    if (truck_size_after_pop <= 1) return false; // cannot pop/insert
 
-    // Random insertion index
     std::uniform_int_distribution<int> idx_dist(1, truck_size_after_pop);
     int idx = idx_dist(gen);
 
-    // Apply move
-    neighbor = one_reinsert(instance, neighbor, pop, insert, idx);
-
-    return neighbor;
+    return one_reinsert(instance, sol, pop, insert, idx); // in-place
 }

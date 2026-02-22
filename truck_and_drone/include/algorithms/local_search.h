@@ -10,6 +10,6 @@
 Solution local_search(
     const Instance& instance,
     const Solution& initial,
-    Operator op,
+    std::function<bool(const Instance&, Solution&)> op,
     std::function<long long(const Instance&, const Solution&)> objective
 );

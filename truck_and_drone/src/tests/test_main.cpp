@@ -10,8 +10,6 @@
 #include "operators/one_reinsert.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
-#include <vector>
-
 #include "datahandling/instance.h"
 
 using namespace datasets;
@@ -43,8 +41,12 @@ void test_one_reinsert_validity() {
     Instance instance = read_instance(datasets::contest);
     Solution initial = nearest_neighbour(instance);
     Solution drone = greedy_drone_cover(instance, initial);
-    Solution edited = one_reinsert(instance, drone, 2, 2, 12);
+
+    Solution edited = drone; // copy
+    bool success = one_reinsert(instance, edited, 2, 2, 12);
+    assert(success);
     assert(master_check(instance, edited, true));
+
     std::cout << "✓ test_one_reinsert_validity passed\n";
 }
 
@@ -52,8 +54,12 @@ void test_one_reinsert_bounds() {
     Instance instance = read_instance(datasets::contest);
     Solution initial = nearest_neighbour(instance);
     Solution drone = greedy_drone_cover(instance, initial);
-    Solution edited = one_reinsert(instance, drone, 1, 1, 5);
+
+    Solution edited = drone;
+    bool success = one_reinsert(instance, edited, 1, 1, 5);
+    assert(success);
     assert(edited.truck_route.size() <= drone.truck_route.size() + 1);
+
     std::cout << "✓ test_one_reinsert_bounds passed\n";
 }
 
@@ -61,10 +67,16 @@ void test_objective_improvement() {
     Instance instance = read_instance(datasets::contest);
     Solution initial = nearest_neighbour(instance);
     Solution drone = greedy_drone_cover(instance, initial);
+
     double initial_cost = calculate_total_waiting_time(instance, drone);
-    Solution edited = one_reinsert(instance, drone, 2, 2, 12);
+
+    Solution edited = drone;
+    bool success = one_reinsert(instance, edited, 2, 2, 12);
+    assert(success);
+
     double edited_cost = calculate_total_waiting_time(instance, edited);
     assert(edited_cost <= initial_cost * 1.01);
+
     std::cout << "✓ test_objective_improvement passed\n";
 }
 
@@ -72,8 +84,13 @@ void test_solution_consistency() {
     Instance instance = read_instance(datasets::contest);
     Solution initial = nearest_neighbour(instance);
     Solution drone = greedy_drone_cover(instance, initial);
-    Solution edited = one_reinsert(instance, drone, 2, 2, 12);
+
+    Solution edited = drone;
+    bool success = one_reinsert(instance, edited, 2, 2, 12);
+    assert(success);
+
     assert(!convert_to_submission(edited).empty());
+
     std::cout << "✓ test_solution_consistency passed\n";
 }
 

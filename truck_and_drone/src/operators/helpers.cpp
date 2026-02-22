@@ -167,51 +167,34 @@ std::pair<bool, Solution> assign_launch_and_land(const Instance& instance, Solut
     return {false, solution};
 }
 
-Solution fix_feasibility_for_drone(const Instance& instance, Solution& solution, int drone) {
-    DroneCollection& c = solution.drones[drone];
-
-    std::set<Interval> intervals = get_intervals(solution, drone);
+Solution& fix_feasibility_for_drone(const Instance& instance, Solution& sol, int drone) {
+    DroneCollection& c = sol.drones[drone];
+    std::set<Interval> intervals = get_intervals(sol, drone);
 
     for (int i = 0; i < c.launch_indices.size(); ) {
         int launch_idx = c.launch_indices[i];
         int land_idx   = c.land_indices[i];
         int deliver    = c.deliver_nodes[i];
+        bool bad = (launch_idx >= land_idx) || !specific_drone_flight_under_lim(instance, sol, drone, i);
 
-        bool bad = false;
-
-        if (launch_idx >= land_idx)
-            bad = true;
-
-        if (!specific_drone_flight_under_lim(instance, solution, drone, i))
-            bad = true;
-
-        // Rebuild intervals
         Interval self{launch_idx, land_idx};
-        auto it = intervals.find(self);
-        if (it != intervals.end())
-            intervals.erase(it);
+        intervals.erase(self);
 
-        if (overlaps(intervals, launch_idx, land_idx))
-            bad = true;
+        if (overlaps(intervals, launch_idx, land_idx)) bad = true;
 
         if (bad) {
-            auto fix = assign_launch_and_land(instance, solution, deliver, drone);
-            if (!fix.first) {
-                remove_drone_flight(solution, drone, i);
-
-                int truck_pos = std::min(launch_idx + 1, (int)solution.truck_route.size());
-                solution.truck_route.insert(solution.truck_route.begin() + truck_pos, deliver);
-
-                intervals = get_intervals(solution, drone);
-
-                continue; // vector shifted
+            auto [success, _] = assign_launch_and_land(instance, sol, deliver, drone);
+            if (!success) {
+                remove_drone_flight(sol, drone, i);
+                int truck_pos = std::min(launch_idx + 1, (int)sol.truck_route.size());
+                sol.truck_route.insert(sol.truck_route.begin() + truck_pos, deliver);
+                intervals = get_intervals(sol, drone);
+                continue;
             }
         }
-
         i++;
     }
-
-    return solution;
+    return sol;
 }
 
 Solution fix_overall_feasibility(const Instance& instance, Solution& solution) {

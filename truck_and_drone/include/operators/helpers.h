@@ -76,7 +76,7 @@ std::pair<bool, Solution> assign_launch_and_land(const Instance &instance, Solut
  * 
  * If we're lucky
  */
-Solution fix_feasibility_for_drone(const Instance &instance, Solution &solution, int drone);
+Solution& fix_feasibility_for_drone(const Instance& instance, Solution& sol, int drone);
 
 /**
  * To be used when both drones are infeasible, to handle both at the same time.

@@ -5,7 +5,7 @@
 
 Solution local_search(const Instance& instance,
                       const Solution& initial,
-                      Operator op,
+                      std::function<bool(const Instance&, Solution&)> op,
                       std::function<long long(const Instance&, const Solution&)> objective) {
 
     Solution current = initial;
@@ -18,12 +18,14 @@ Solution local_search(const Instance& instance,
         improved = false;
         amnt_iterations++;
 
-        Solution s = op(instance, current);   
-        
-        long long cost = objective(instance, s);
+        Solution candidate = current;           // copy current solution
+        bool success = op(instance, candidate); // apply operator in-place
+        if (!success) continue;                 // skip if move was invalid
+
+        long long cost = objective(instance, candidate);
         if (cost < best_cost) {
             best_cost = cost;
-            current = s;
+            current = candidate; // accept improvement
             improved = true;
         }
     }

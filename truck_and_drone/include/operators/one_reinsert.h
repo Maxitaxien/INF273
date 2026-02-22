@@ -10,4 +10,4 @@
  * 
  * Afterwards, fixes drone flights to ensure consistency.
  */
-Solution one_reinsert(const Instance& problem_instance, Solution& solution, int pop, int insert, int idx);
+bool one_reinsert(const Instance& instance, Solution& sol, int pop, int insert, int idx);

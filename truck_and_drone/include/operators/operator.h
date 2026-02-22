@@ -4,7 +4,7 @@
 #include <functional>
 #include <vector>
 
-using Operator = std::function<Solution(const Instance&, const Solution&)>;
+using Operator = std::function<bool(const Instance&, const Solution&)>;
 
 using FullNeighbourhoodOperator = std::function<std::vector<Solution>(const Instance&, const Solution&)>;
 
@@ -14,4 +14,4 @@ using FullNeighbourhoodOperator = std::function<std::vector<Solution>(const Inst
  */
 std::vector<Solution> one_reinsert_operator(const Instance& instance, const Solution& sol);
 
-Solution one_reinsert_random(const Instance& instance, const Solution& sol);
+bool one_reinsert_random(const Instance& instance, Solution& sol);

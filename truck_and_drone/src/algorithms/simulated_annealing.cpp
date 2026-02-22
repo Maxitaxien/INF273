@@ -1,4 +1,5 @@
 #include "algorithms/simulated_annealing.h"
+#include "algorithms/random_valid_solution.h"
 #include "verification/solution.h"
 #include "verification/feasibility_check.h"
 #include "operators/operator.h"
@@ -7,106 +8,95 @@
 #include <cmath>
 #include <random>
 
-const int SEED = 42;
-std::mt19937 gen(SEED);
+extern std::mt19937 gen;
+static std::uniform_real_distribution<double> dist(0.0, 1.0);
 
-int randInt(int a, int b) {
-    std::uniform_int_distribution<> dist(a, b);
-    return dist(gen);
-}
 
+// Warmup: return average delta, update incumbent & best properly
 double warmup_phase(
     const Instance& instance,
-    const Solution& solution,
-    long long best_cost,
-    Operator op,
+    Solution& incumbent,
+    long long& incumbent_cost,
+    Solution& best,
+    long long& best_cost,
+    std::function<bool(const Instance&, Solution&)> op,
     int warmup_amount,
     std::function<long long(const Instance&, const Solution&)> objective
 ) {
-    Solution best = solution;
-    Solution incumbent = solution;
-    long long incumbent_cost = objective(instance, incumbent);
-
-    long long delta_e;
     std::vector<long long> delta_ws; 
     delta_ws.reserve(warmup_amount);
-    
-    for (int w = 0; w < warmup_amount; w++) {
-        Solution s = op(instance, incumbent); 
 
-        long long cost = objective(instance, s);
+    for (int w = 0; w < warmup_amount; w++) {
+        Solution neighbor = incumbent; // try move on copy
+        if (!op(instance, neighbor)) continue;
+
+
+        if (!master_check(instance, neighbor, false)) continue;
+        long long cost = objective(instance, neighbor);
+
         long long delta_e = cost - incumbent_cost;
 
-        bool feasible = master_check(instance, s, false);
-        if (!feasible) continue;
-
         if (delta_e < 0) {
-            incumbent = s;
+            incumbent = neighbor;
             incumbent_cost = cost;
             if (cost < best_cost) {
-                best = s;
+                best = neighbor;
                 best_cost = cost;
             }
         } else {
-            std::uniform_real_distribution<double> dist(0.0, 1.0);
             if (dist(gen) < 0.8) {
-                incumbent = s;
-                incumbent_cost = cost; // also update cost here
+                incumbent = neighbor;
+                incumbent_cost = cost;
             }
             delta_ws.push_back(delta_e);
         }
     }
+
+    if (delta_ws.empty()) return 1.0; // prevent division by zero
     return std::accumulate(delta_ws.begin(), delta_ws.end(), 0.0) / delta_ws.size();
 }
 
 Solution simulated_annealing(
     const Instance& instance,
-    const Solution& initial,
-    Operator op,
+    Solution initial,
+    std::function<bool(const Instance&, Solution&)> op,
     double TF,
     std::function<long long(const Instance&, const Solution&)> objective
 ) 
 {
-    long long best_cost = objective(instance, initial);
-    int warmup_amount = 100;
-
-    double delta_avg = warmup_phase(instance, initial, best_cost, op, warmup_amount, objective);
-
     Solution incumbent = initial;
     Solution best = initial;
+    long long incumbent_cost = objective(instance, incumbent);
+    long long best_cost = incumbent_cost;
+
+    int warmup_amount = 100;
+    double delta_avg = warmup_phase(instance, incumbent, incumbent_cost, best, best_cost, op, warmup_amount, objective);
 
     int amnt_iterations = 10000 - warmup_amount;
-
     double T0 = -delta_avg / std::log(0.8);
     double alpha = pow(TF / T0, 1.0 / amnt_iterations);
-
     double T = T0;
 
-    long long delta_e;
-    long long incumbent_cost = objective(instance, incumbent);
-    
-
     for (int i = 0; i < amnt_iterations; i++) {
-        Solution s = op(instance, incumbent); 
+        Solution neighbor = incumbent;
+        if (!op(instance, neighbor)) continue;
 
-        long long cost = objective(instance, s);
+        if (!master_check(instance, neighbor, false)) continue;
+        long long cost = objective(instance, neighbor);
+
         long long delta_e = cost - incumbent_cost;
 
-        bool feasible = master_check(instance, s, false);
-        if (!feasible) continue;
-
         if (delta_e < 0) {
-            incumbent = s;
+            incumbent = neighbor;
             incumbent_cost = cost;
             if (cost < best_cost) {
-                best = s;
+                best = neighbor;
                 best_cost = cost;
             }
         } else {
             double p = exp(-delta_e / T);
-            std::uniform_real_distribution<double> dist(0.0, 1.0);
             if (dist(gen) < p) {
-                incumbent = s;
+                incumbent = neighbor;
                 incumbent_cost = cost;
             }
         }
