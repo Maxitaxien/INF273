@@ -27,7 +27,7 @@ int main() {
         {"Simulated Annealing 1-insert", sa_wrapper},
     };
     for (const auto& [name, wrapper] : algos) {
-        run_algorithm(name, wrapper, one_reinsert_random, compute_total_wait_time);
+        run_algorithm(name, wrapper, one_reinsert_random, objective_function_impl);
     }
     
     /*

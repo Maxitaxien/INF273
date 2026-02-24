@@ -98,11 +98,11 @@ bool specific_drone_flight_under_lim(const Instance& instance,
 
     long long launch_time_allowed = std::max(truck_arrival[launch_idx], drone_available[drone_idx]);
 
-    long long drone_flight_duration = instance.drone_matrix[solution.truck_route[launch_idx]][deliver] +
-                                      instance.drone_matrix[deliver][solution.truck_route[land_idx]];
+    long long drone_total_duration = (launch_time_allowed - truck_arrival[launch_idx]) // waiting for truck
+                                    + instance.drone_matrix[solution.truck_route[launch_idx]][deliver] // out
+                                    + instance.drone_matrix[deliver][solution.truck_route[land_idx]]; // back
 
-    // Check flight duration against the limit (independent of previous waits)
-    return drone_flight_duration <= instance.lim;
+    return drone_total_duration <= instance.lim;
 }
 
 // Returns truck arrival times at each node and updates drone availability dynamically
@@ -181,27 +181,25 @@ bool all_drone_flights_under_lim(const Instance& instance,
 
             if (launch_idx == -1 || land_idx == -1 || deliver == -1) continue;
 
-            long long launch_time_allowed = std::max(truck_arrival[launch_idx], drone_available[d]);
-            
-            // **Effective flight duration = time actually in the air**
-            long long drone_flight_duration = instance.drone_matrix[solution.truck_route[launch_idx]][deliver] +
-                                              instance.drone_matrix[deliver][solution.truck_route[land_idx]];
+           long long launch_time_allowed = std::max(truck_arrival[launch_idx], drone_available[d]);
 
-            // check if it can be done within the limit
-            if (drone_flight_duration > instance.lim) {
-                if (debug) {
-                    std::cout << "Illegal drone trip (duration too long): "
-                              << solution.truck_route[launch_idx] << " -> " << deliver << " -> "
-                              << solution.truck_route[land_idx] << "\n"
-                              << "Lim: " << instance.lim
-                              << ", drone flight duration: " << drone_flight_duration << "\n";
-                }
+            long long drone_total_duration = (launch_time_allowed - truck_arrival[launch_idx])
+                                            + instance.drone_matrix[solution.truck_route[launch_idx]][deliver]
+                                            + instance.drone_matrix[deliver][solution.truck_route[land_idx]];
+
+            if (drone_total_duration > instance.lim) {
                 all_ok = false;
+                if (debug) {
+                    std::cout << "Drone flight exceeds limit including wait: "
+                            << solution.truck_route[launch_idx] << " -> " << deliver << " -> "
+                            << solution.truck_route[land_idx]
+                            << ", duration: " << drone_total_duration
+                            << ", limit: " << instance.lim << "\n";
+                }
             }
-
-            // Update drone availability: earliest it can launch next
-            drone_available[d] = launch_time_allowed + drone_flight_duration;
-        }
+            drone_available[d] = launch_time_allowed + instance.drone_matrix[solution.truck_route[launch_idx]][deliver]
+                                                + instance.drone_matrix[deliver][solution.truck_route[land_idx]];
+                    }
     }
 
     return all_ok;
