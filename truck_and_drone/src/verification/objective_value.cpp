@@ -115,8 +115,10 @@ long long objective_function_impl(const Instance& instance, const Solution& solu
             }
         }
 
-        // Truck contribution: only arrival at node (same as Python)
-        total_time += t_arrival[i];
+        // Truck contribution: only arrival at node
+        if (curr_node != 0) {
+            total_time += t_arrival[i];
+        }
     }
 
     return total_time / 100; // scale units

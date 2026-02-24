@@ -1,7 +1,7 @@
 # 0,7,4,8,1,9,6,10,3|5,2,-1|2,6,-1|4,7,-1
 # 0,5,7,8,4,9,1,2,6|10,-1,3|6,-1,2|8,-1,4
 from pathlib import Path
-from data_handler import load_data
+# from data_handler import load_data
 
 DATA_PATH = Path("provided/test/f10.txt")
 
