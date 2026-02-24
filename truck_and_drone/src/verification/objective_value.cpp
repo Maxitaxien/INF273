@@ -82,44 +82,21 @@ struct DroneFlight {
 /**
  */
 long long objective_function_impl(const Instance& instance, const Solution& solution) {
-    long long total_time = 0;
-    int D = solution.drones.size();
+    std::vector<long long> drone_available;
+    long long total_drone_arrival = 0;
 
-    std::vector<long long> drone_available(D, 0);
-    std::vector<long long> t_arrival = get_truck_arrival_times_at_node(instance, solution, drone_available);
+    // Compute truck arrival times and accumulate drone arrival times
+    std::vector<long long> t_arrival = get_truck_arrival_times_at_node(
+        instance, solution, drone_available, total_drone_arrival
+    );
 
-    for (int i = 1; i < solution.truck_route.size(); ++i) {
-        int curr_node = solution.truck_route[i];
+    long long total_time = total_drone_arrival;
 
-        long long latest_drone_return = 0;
-
-        for (int d = 0; d < D; ++d) {
-            const DroneCollection& c = solution.drones[d];
-            for (size_t f = 0; f < c.deliver_nodes.size(); ++f) {
-                if (c.land_indices[f] == i) {
-                    int launch_node = solution.truck_route[c.launch_indices[f]];
-                    int cust_node   = c.deliver_nodes[f];
-
-                    long long out_time  = instance.drone_matrix[launch_node][cust_node];
-                    long long back_time = instance.drone_matrix[cust_node][curr_node];
-
-                    long long actual_launch = std::max(t_arrival[c.launch_indices[f]], drone_available[d]);
-                    long long drone_arrival = actual_launch + out_time;
-                    long long drone_return  = drone_arrival + back_time;
-
-                    total_time += drone_arrival;
-                    latest_drone_return = std::max(latest_drone_return, drone_return);
-
-                    drone_available[d] = drone_return;
-                }
-            }
-        }
-
-        // Truck contribution: only arrival at node
-        if (curr_node != 0) {
-            total_time += t_arrival[i];
-        }
+    // Add truck arrival times (excluding depot)
+    for (int i = 1; i < static_cast<int>(solution.truck_route.size()); ++i) {
+        total_time += t_arrival[i];
     }
 
-    return total_time / 100; // scale units
+    // Scale units (same as Python's division by 100.0, but integer truncation here)
+    return total_time / 100;
 }
