@@ -23,38 +23,20 @@ std::string clean_dataset(const std::string& dataset) {
     return dataset.substr(start, length);
 }
 
-std::string get_current_time_string() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
-    std::tm* local_tm = std::localtime(&now_time);
-
-    std::stringstream ss;
-    // Replace space with '_' and ':' with '-'
-    ss << std::put_time(local_tm, "%d-%m-%Y_%H");;
-    return ss.str();
-}
-
 bool save_to_csv(
-    std::string algo_name,
-    std::string dataset, 
-    long double avg, 
-    long long best, 
-    double improvement_percent, 
+    const std::string& run_dir,
+    const std::string& algo_name,
+    const std::string& dataset,
+    long double avg,
+    long long best,
+    double improvement_percent,
     long double avg_runtime,
-    std::string solution_str
+    const std::string& solution_str
 ) {
-    std::string DIR = BASE + get_current_time_string();
-
-    if (fs::create_directory(DIR)) {
-        std::cout << "Directory '" << DIR << "' created successfully.\n";
-    } else {
-        std::cout << "Directory '" << DIR << "' already exists or failed to create.\n";
-    }
-
-    std::string csv_path = DIR + "/" + clean_dataset(dataset) + ".csv";
+    std::string csv_path = run_dir + "/" + clean_dataset(dataset) + ".csv";
     std::ofstream csvfile(csv_path);
 
-    std::string solution_path = DIR + "/" + clean_dataset(dataset) + ".txt";
+    std::string solution_path = run_dir + "/" + clean_dataset(dataset) + ".txt";
     std::ofstream solutionfile(solution_path);
 
     if (!csvfile.is_open()) {

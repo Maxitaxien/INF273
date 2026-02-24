@@ -7,3 +7,11 @@ cmake --build .
 (Optionally: make -j$(nproc) to use all cpu cores in build)
 
 Remember to include new files as dependencies in CMakeLists.txt!
+
+
+How to reset:
+rm -rf build
+mkdir build
+cd build
+cmake ..
+make -j$(nproc)

@@ -8,8 +8,9 @@ struct DroneCollection {
 };
 
 struct Solution {
-    // @brief A vector of ints representing the current truck route
+    // @brief A vector of ints representing the current truck route. Includes depot (0) at start, but implicitly ends at depot as well
     std::vector<int> truck_route;
-    // @brief A single array of drone trips for each drone
+    // @brief A single array of drone trips for each drone. Has indices within truck route for launch and land,  
+    // and deliver nodes indicating the nodes delivered to which are not covered by truck.
     std::vector<DroneCollection> drones; 
 };

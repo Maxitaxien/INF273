@@ -13,43 +13,31 @@
 #include "algorithms/simulated_annealing.h"
 #include "operators/operator.h"
 #include "operators/one_reinsert.h"
-#include "runners/all_blind_random.h"
+#include "runners/run_algorithm.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
+#include <map>
 
 using namespace datasets;
 
 int main() {
-    //all_blind_random();
-    Instance instance = read_instance(datasets::f100);
+    std::map<std::string, Algorithm> algos = {
+        {"Random Search", blind_random_wrapper},
+        {"Local Search 1-insert", local_search_wrapper},
+        {"Simulated Annealing 1-insert", sa_wrapper},
+    };
+    for (const auto& [name, wrapper] : algos) {
+        run_algorithm(name, wrapper, one_reinsert_random, compute_total_wait_time);
+    }
+    
+    /*
+    
+    Instance instance = read_instance(contest);
     Solution initial = nearest_neighbour(instance);
+
     Solution drone = greedy_drone_cover(instance, initial);
 
-    std::cout << calculate_total_waiting_time(instance, drone) << "\n";
-
-
-
-    Solution result = simulated_annealing(instance, simple_initial_solution(instance.n), one_reinsert_random, 0.1, calculate_total_waiting_time);
-    // Solution result = simulated_annealing(instance, drone, one_reinsert_random, 0.1, calculate_total_waiting_time);
-
-
-    /*
-    Solution result = local_search(instance, simple_initial_solution(instance.n), one_reinsert_operator, calculate_total_waiting_time);
+    long long res = objective_function_impl(instance, drone);
+    std::cout << res << "\n";
     */
-
-    std::cout << convert_to_submission(result) << "\n";
-
-    std::cout << master_check(instance, result, true) << "\n";
-    std::cout << calculate_total_waiting_time(instance, result) << "\n";
-
-    // run local search from greedy drone cover
-    /*
-    Solution result2 = local_search(instance, drone, one_reinsert_operator, calculate_total_waiting_time);
-
-    std::cout << convert_to_submission(result2) << "\n";
-
-    std::cout << master_check(instance, result2, true) << "\n";
-    std::cout << calculate_total_waiting_time(instance, result2) << "\n";
-    */
-    
 }

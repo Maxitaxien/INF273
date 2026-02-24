@@ -1,5 +1,6 @@
 #include "algorithms/local_search.h"
 #include "verification/solution.h"
+#include "verification/feasibility_check.h"
 #include "operators/operator.h"
 #include "datahandling/instance.h"
 
@@ -12,10 +13,8 @@ Solution local_search(const Instance& instance,
     long long best_cost = objective(instance, current);
 
     int amnt_iterations = 0;
-    bool improved = true;
 
-    while (improved && amnt_iterations < 10000) {
-        improved = false;
+    while (amnt_iterations < 10000) {
         amnt_iterations++;
 
         Solution candidate = current;           // copy current solution
@@ -23,10 +22,9 @@ Solution local_search(const Instance& instance,
         if (!success) continue;                 // skip if move was invalid
 
         long long cost = objective(instance, candidate);
-        if (cost < best_cost) {
+        if (cost < best_cost && master_check(instance, candidate, false)) {
             best_cost = cost;
             current = candidate; // accept improvement
-            improved = true;
         }
     }
 

@@ -9,6 +9,7 @@ add_library(core
     src/datahandling/reader.cpp
     src/datahandling/convert_to_submission.cpp
     src/datahandling/save_to_csv.cpp
+    src/datahandling/file_helpers.cpp
     src/algorithms/simple_initial_solution.cpp
     src/algorithms/nearest_neighbour.cpp
     src/algorithms/greedy_drone_cover.cpp
@@ -21,6 +22,8 @@ add_library(core
     src/operators/one_reinsert.cpp
     src/verification/feasibility_check.cpp
     src/verification/objective_value.cpp
+    src/runners/run_algorithm.cpp
+    src/runners/wrappers.cpp
 )
 
 target_include_directories(core PUBLIC include)

@@ -1,0 +1,31 @@
+#include "runners/wrappers.h"
+#include "algorithms/blind_random_search.h"
+#include "algorithms/simulated_annealing.h"
+#include "algorithms/local_search.h"
+
+Solution blind_random_wrapper(
+    const Instance& instance,
+    Solution initial,
+    std::function<bool(const Instance&, Solution&)> op,
+    std::function<long long(const Instance&, const Solution&)> objective
+) {
+    return blind_random_search(instance, initial, objective);
+}
+
+Solution sa_wrapper(
+    const Instance& instance,
+    Solution initial,
+    std::function<bool(const Instance&, Solution&)> op,
+    std::function<long long(const Instance&, const Solution&)> objective
+) {
+    return simulated_annealing(instance, initial, op, 0.1, objective);
+}
+
+Solution local_search_wrapper(
+    const Instance& instance,
+    Solution initial,
+    std::function<bool(const Instance&, Solution&)> op,
+    std::function<long long(const Instance&, const Solution&)> objective
+) {
+    return local_search(instance, initial, op, objective);
+}
