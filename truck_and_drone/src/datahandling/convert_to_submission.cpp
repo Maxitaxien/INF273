@@ -13,6 +13,7 @@ std::string convert_to_submission(const Solution& solution) {
     }
     if (!submission.empty())
         submission.pop_back(); // remove last comma
+    submission.push_back(0);
     submission += "|";
 
     constexpr int DRONES = 2;
