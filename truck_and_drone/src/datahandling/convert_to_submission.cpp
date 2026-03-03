@@ -11,9 +11,7 @@ std::string convert_to_submission(const Solution& solution) {
     for (int n : solution.truck_route) {
         submission += std::to_string(n) + ",";
     }
-    if (!submission.empty())
-        submission.pop_back(); // remove last comma
-    submission.push_back(0);
+    submission.push_back('0');
     submission += "|";
 
     constexpr int DRONES = 2;

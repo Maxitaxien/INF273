@@ -20,13 +20,6 @@ bool includes_all_nodes(int n, const Solution& solution, bool debug);
  */
 bool includes_all_nodes(int n, const std::string& submission, bool debug);
 
-std::vector<long long> get_truck_arrival_times_at_node(
-    const Instance& instance,
-    const Solution& solution,
-    std::vector<long long>& drone_available,
-    long long& total_drone_arrival      // new output parameter
-);
-
 bool specific_drone_flight_under_lim(const Instance& instance,
                                      const Solution& solution,
                                      int drone_idx,      

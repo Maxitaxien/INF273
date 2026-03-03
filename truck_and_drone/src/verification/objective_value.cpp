@@ -1,5 +1,6 @@
 #include "verification/objective_value.h"
 #include "verification/feasibility_check.h"
+#include "general/get_truck_arrival_times.h"
 #include <vector>
 #include <algorithm>
 #include <map>
@@ -86,7 +87,7 @@ long long objective_function_impl(const Instance& instance, const Solution& solu
     long long total_drone_arrival = 0;
 
     // Compute truck arrival times and accumulate drone arrival times
-    std::vector<long long> t_arrival = get_truck_arrival_times_at_node(
+    std::vector<long long> t_arrival = get_truck_arrival_times(
         instance, solution, drone_available, total_drone_arrival
     );
 

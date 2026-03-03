@@ -2,6 +2,7 @@
 #include "algorithms/simple_initial_solution.h"
 #include "verification/feasibility_check.h"
 #include "operators/helpers.h"
+#include "operators/solution_fixers.h"
 #include <iostream>
 #include <algorithm>
 

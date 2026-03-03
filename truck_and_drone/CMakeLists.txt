@@ -17,9 +17,13 @@ add_library(core
     src/algorithms/blind_random_search.cpp
     src/algorithms/local_search.cpp
     src/algorithms/simulated_annealing.cpp
+    src/general/get_truck_arrival_times.cpp
+    src/general/split.cpp
     src/operators/helpers.cpp
+    src/operators/interval_helpers.cpp
     src/operators/operator.cpp
     src/operators/one_reinsert.cpp
+    src/operators/solution_fixers.cpp
     src/verification/feasibility_check.cpp
     src/verification/objective_value.cpp
     src/runners/run_algorithm.cpp
