@@ -6,40 +6,56 @@
 #include <iostream>
 #include <algorithm>
 
-bool one_reinsert(const Instance& instance, Solution& sol, int pop, int insert, int idx) {
+bool one_reinsert(const Instance &instance, Solution &sol, int pop, int insert, int idx)
+{
     std::pair<bool, bool> drone_breaks_feasibility = {false, false};
     std::pair<bool, bool> drone_is_invalid = {false, false};
 
     int to_insert;
 
     // POP
-    if (pop == 1) { // truck
-        if (sol.truck_route.empty()) return false;
+    if (pop == 1)
+    { // truck
+        if (sol.truck_route.empty())
+            return false;
         to_insert = sol.truck_route.back();
         sol.truck_route.pop_back();
         drone_is_invalid = drone_landed_at_back(sol);
-    } else if (pop > 1 && pop < 4) { // drone
+    }
+    else if (pop > 1 && pop < 4)
+    { // drone
         int drone = pop - 2;
-        DroneCollection& dc = sol.drones[drone];
-        if (dc.deliver_nodes.empty()) return false;
+        DroneCollection &dc = sol.drones[drone];
+        if (dc.deliver_nodes.empty())
+            return false;
         to_insert = dc.deliver_nodes.back();
         dc.launch_indices.pop_back();
         dc.deliver_nodes.pop_back();
         dc.land_indices.pop_back();
-    } else return false;
+    }
+    else
+        return false;
 
     // REINSERT
-    if (insert == 1) { // truck
+    if (insert == 1)
+    { // truck
         sol.truck_route.push_back(to_insert);
-        if (idx > 0 && idx < sol.truck_route.size()) {
+        if (idx > 0 && idx < sol.truck_route.size())
+        {
             std::swap(sol.truck_route.back(), sol.truck_route[idx]);
-        } else return false;
-
-    } else if (insert > 1 && insert < 4) { // drone
+        }
+        else
+            return false;
+    }
+    else if (insert > 1 && insert < 4)
+    { // drone
         int drone = insert - 2;
-        auto [success, _] = assign_launch_and_land(instance, sol, to_insert, drone);
-        if (!success) return false;
-    } else return false;
+        auto [success, _] = greedy_assign_launch_and_land(instance, sol, to_insert, drone);
+        if (!success)
+            return false;
+    }
+    else
+        return false;
 
     // fix feasibility & validity in-place
     if (drone_breaks_feasibility.first && drone_breaks_feasibility.second)

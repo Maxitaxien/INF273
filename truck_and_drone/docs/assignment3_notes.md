@@ -1,5 +1,3 @@
-maybe structure with a /runs folder which includes logs and output
-create tables
-possibility to combine entries into a submission table
+possible that the launch -> deliver -> land are not in the correct sorted order - affects some operators! For instance, in the maximum lookahead check, it may be the case that the launch -> deliver -> land is not sorted.
 
-possible that the launch -> deliver -> land are not in the correct sorted order
+greedy insert as one operation is allowed - you can abuse this to perform efficient iteration steps
