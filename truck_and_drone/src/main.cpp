@@ -17,21 +17,17 @@
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <map>
+#include <filesystem>
 
 using namespace datasets;
+namespace fs = std::filesystem;
 
-int main() {
-    std::map<std::string, Algorithm> algos = {
-        {"Random Search", blind_random_wrapper},
-        {"Local Search 1-insert", local_search_wrapper},
-        {"Simulated Annealing 1-insert", sa_wrapper},
-    };
-    for (const auto& [name, wrapper] : algos) {
-        run_algorithm(name, wrapper, one_reinsert_random, objective_function_impl);
-    }
-    
+int main()
+{
+    run_all_algos();
+
     /*
-    
+
     Instance instance = read_instance(contest);
     Solution initial = nearest_neighbour(instance);
 

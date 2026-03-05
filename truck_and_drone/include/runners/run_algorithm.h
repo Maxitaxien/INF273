@@ -5,14 +5,19 @@
 #include "verification/solution.h"
 #include "runners/wrappers.h"
 
-
-
 /**
  * Runs a generalized Algorithm.
+ *
+ * @param base_dir is "" when running directly, creation will be handled automatically
  */
 void run_algorithm(
-    const std::string& algo_name,
+    const std::string &algo_name,
     Algorithm algo,
-    std::function<bool(const Instance&, Solution&)> op,
-    std::function<long long(const Instance&, const Solution&)> objective
-);
+    std::function<bool(const Instance &, Solution &)> op,
+    std::function<long long(const Instance &, const Solution &)> objective,
+    const std::string &base_dir);
+
+/**
+ * Runs all algorithms from algorithms namespace.
+ */
+void run_all_algos();

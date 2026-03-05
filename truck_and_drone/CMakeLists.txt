@@ -10,6 +10,7 @@ add_library(core
     src/datahandling/convert_to_submission.cpp
     src/datahandling/save_to_csv.cpp
     src/datahandling/file_helpers.cpp
+    src/datahandling/create_markdown_tables.cpp
     src/algorithms/simple_initial_solution.cpp
     src/algorithms/nearest_neighbour.cpp
     src/algorithms/greedy_drone_cover.cpp
