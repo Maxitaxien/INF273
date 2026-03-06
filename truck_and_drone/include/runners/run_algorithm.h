@@ -21,3 +21,8 @@ void run_algorithm(
  * Runs all algorithms from algorithms namespace.
  */
 void run_all_algos();
+
+/**
+ * Runs construction algorithms.
+ */
+void run_construction_algos();

@@ -24,16 +24,6 @@ namespace fs = std::filesystem;
 
 int main()
 {
-    run_all_algos();
-
-    /*
-
-    Instance instance = read_instance(contest);
-    Solution initial = nearest_neighbour(instance);
-
-    Solution drone = greedy_drone_cover(instance, initial);
-
-    long long res = objective_function_impl(instance, drone);
-    std::cout << res << "\n";
-    */
+    run_construction_algos();
+    // run_all_algos();
 }

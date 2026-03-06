@@ -26,10 +26,10 @@ void run_algorithm(
     Algorithm algo,
     std::function<bool(const Instance &, Solution &)> op,
     std::function<long long(const Instance &, const Solution &)> objective,
-    const std::string &base_dir)
+    const std::string &base_dir,
+    int amnt_iter = 10)
 {
     const long long INF = 4e18;
-    int amnt_iter = 10;
     std::vector<std::string> datasets = {f10, f20, f50, f100, r10, r20, r50, r100};
 
     std::string run_dir = create_algo_directory(base_dir, algo_name);
@@ -83,10 +83,23 @@ void run_algorithm(
 
 void run_all_algos()
 {
+    int amnt_iter = 10;
     std::string base_dir = create_run_directory();
     for (const auto &[name, wrapper] : algorithms::all)
     {
-        run_algorithm(name, wrapper, one_reinsert_random, objective_function_impl, base_dir);
+        run_algorithm(name, wrapper, one_reinsert_random, objective_function_impl, base_dir, amnt_iter);
+    }
+    create_markdown_tables(base_dir);
+}
+
+void run_construction_algos()
+{
+    int amnt_iter = 1; // construction is deterministc
+    std::string base_dir = create_run_directory();
+
+    for (const auto &[name, wrapper] : algorithms::construction)
+    {
+        run_algorithm(name, wrapper, one_reinsert_random, objective_function_impl, base_dir, amnt_iter);
     }
     create_markdown_tables(base_dir);
 }

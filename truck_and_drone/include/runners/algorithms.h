@@ -10,4 +10,9 @@ namespace algorithms
         {"Local Search 1-insert", local_search_wrapper},
         {"Simulated Annealing 1-insert", sa_wrapper},
     };
+
+    inline const std::map<std::string, Algorithm> construction = {
+        {"Nearest Neighbour", nearest_neighbour_wrapper},
+        {"Construction", construction_wrapper}
+    };
 }
