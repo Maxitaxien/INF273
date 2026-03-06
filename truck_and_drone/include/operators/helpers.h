@@ -6,9 +6,14 @@
 #include <unordered_map>
 
 /**
- * Remove truck delivery at index in truck route
+ * Remove truck delivery at index in truck route, returns it
  */
-void remove_truck_delivery(Solution &solution, int i);
+int pop_truck_delivery(Solution &solution, int i);
+
+/**
+ * Insert truck delivery at index
+ */
+void insert_truck_delivery(Solution &solution, int new_delivery, int i);
 
 /**
  * Remove drone flight at back index.

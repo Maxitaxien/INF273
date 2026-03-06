@@ -4,14 +4,29 @@
 #include <functional>
 #include <vector>
 
-using Operator = std::function<bool(const Instance&, const Solution&)>;
+using Operator = std::function<bool(const Instance &, Solution &)>;
 
-using FullNeighbourhoodOperator = std::function<std::vector<Solution>(const Instance&, const Solution&)>;
+using FullNeighbourhoodOperator = std::function<std::vector<Solution>(const Instance &, const Solution &)>;
 
 /**
  * Generates all feasible one reinsert options.
  * Too slow for practical use.
  */
-std::vector<Solution> one_reinsert_operator(const Instance& instance, const Solution& sol);
+std::vector<Solution> one_reinsert_operator(const Instance &instance, const Solution &sol);
 
-bool one_reinsert_random(const Instance& instance, Solution& sol);
+/**
+ * Picks a random remove and reinsert candidate.
+ */
+bool one_reinsert_random(const Instance &instance, Solution &sol);
+
+/**
+ * Generate a one_reinsert candidate by first randomly selecting the candidate to remove.
+ * Then evaluate all insertion candidates, greedily pick the best
+ */
+bool one_reinsert_greedy(const Instance &instance, Solution &sol);
+
+/**
+ * Then, evaluate all substitutions within the truck route for both drones.
+ * Perform the best.
+ */
+bool substitute_truck_delivery_greedy(const Instance &instance, Solution &sol);

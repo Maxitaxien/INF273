@@ -1,11 +1,15 @@
 #include "datahandling/instance.h"
 #include "verification/solution.h"
 #include "operators/one_reinsert.h"
+#include "operators/substitute_truck_delivery.h"
 #include "verification/feasibility_check.h"
+#include "verification/objective_value.h"
 #include <vector>
 #include <random>
+#include <iostream>
 
 extern std::mt19937 gen; // reuse global generator
+const long long INF = 4e18;
 
 // Generate all valid neighbors (optional, may be expensive)
 std::vector<Solution> one_reinsert_operator(const Instance &instance, const Solution &sol)
@@ -80,8 +84,33 @@ bool one_reinsert_greedy(const Instance &instance, Solution &sol)
 
 bool substitute_truck_delivery_greedy(const Instance &instance, Solution &sol)
 {
-    std::uniform_int_distribution<int> truck_idx_candidates(1, sol.truck_route.size() - 1);
+    bool success = false;
+    long long best_cost = INF;
+    int best_i = -1, best_drone = -1;
 
-    // evaluate all candidates
+    for (int drone = 0; drone < (int)sol.drones.size(); ++drone)
+    {
+        for (int i = 1; i < (int)sol.truck_route.size(); ++i)
+        {
+            Solution copy = sol; // fresh copy each time
+            if (substitute_truck_delivery(instance, copy, i, drone) &&
+                master_check(instance, copy, false)) // check the candidate
+            {
+                long long cost = objective_function_impl(instance, copy);
+                if (cost < best_cost)
+                {
+                    best_cost = cost;
+                    best_i = i;
+                    best_drone = drone;
+                    success = true;
+                }
+            }
+        }
+    }
 
+    if (success)
+    {
+        substitute_truck_delivery(instance, sol, best_i, best_drone);
+    }
+    return success;
 }

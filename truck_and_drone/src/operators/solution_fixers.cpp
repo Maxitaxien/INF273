@@ -11,6 +11,8 @@
 std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &inst, Solution &sol, int idx, int new_deliver, int drone, int look_ahead)
 {
     int maximum_lookahead;
+    // estimate how many positions ahead to consider; if there are existing launch
+    // indices we don't want to overlap them, otherwise just use the lookahead
     if (sol.drones[drone].launch_indices.size() < look_ahead)
     {
         maximum_lookahead = look_ahead;
@@ -18,11 +20,15 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &ins
     else
     {
         int i = 0;
-        while (i < sol.drones[drone].launch_indices.size() && sol.drones[drone].launch_indices[i] < idx)
+        while (i < (int)sol.drones[drone].launch_indices.size() && sol.drones[drone].launch_indices[i] < idx)
         {
             i++;
         }
-        maximum_lookahead = std::max(sol.drones[drone].launch_indices[i], look_ahead);
+        // clamp at next existing launch (or look_ahead, whichever is smaller)
+        if (i == sol.drones[drone].launch_indices.size())
+            maximum_lookahead = look_ahead;
+        else
+            maximum_lookahead = std::min(sol.drones[drone].launch_indices[i] - idx, look_ahead);
     }
 
     std::vector<long long> drone_available;
@@ -39,8 +45,12 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &ins
     int launch_idx = idx;
     long long launch_time_allowed = std::max(truck_arrival[launch_idx], drone_available[drone]);
 
-    for (int land_idx = 0; land_idx < maximum_lookahead; land_idx++)
+    // search forward from the launch position; `maximum_lookahead` is a count, not
+    // an absolute index.  clamp it so we never go past the end of the route.
+    int max_offset = std::min(maximum_lookahead, (int)sol.truck_route.size() - launch_idx - 1);
+    for (int offset = 1; offset <= max_offset; ++offset)
     {
+        int land_idx = launch_idx + offset;
         long long drone_total_duration = (launch_time_allowed - truck_arrival[launch_idx]) + inst.drone_matrix[sol.truck_route[launch_idx]][new_deliver] + inst.drone_matrix[new_deliver][sol.truck_route[land_idx]];
         if (drone_total_duration <= inst.lim)
         {

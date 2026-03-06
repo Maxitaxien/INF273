@@ -1,6 +1,7 @@
 #pragma once
 
 #include "verification/solution.h"
+#include "datahandling/instance.h"
 
 /**
  * Substitute a truck delivery with a drone delivery
@@ -14,4 +15,4 @@
  * @param drone: 0 or 1, indicating which drone we replace with
  *
  */
-bool substitute_truck_delivery(Solution &sol, int idx, int drone);
+bool substitute_truck_delivery(const Instance &instance, Solution &sol, int idx, int drone);

@@ -9,10 +9,17 @@
 #include <set>
 #include <unordered_map>
 
-void remove_truck_delivery(Solution &solution, int i)
+int pop_truck_delivery(Solution &solution, int i)
 {
+    int popped = solution.truck_route[i];
     solution.truck_route.erase(
         solution.truck_route.begin() + i);
+    return popped;
+}
+
+void insert_truck_delivery(Solution &solution, int new_delivery, int i)
+{
+    solution.truck_route.insert(solution.truck_route.begin() + i, new_delivery);
 }
 
 void remove_drone_flight(Solution &solution, int drone, int i)
