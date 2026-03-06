@@ -159,6 +159,35 @@ Solution &fix_feasibility_for_drone(const Instance &instance, Solution &sol, int
     return sol;
 }
 
+Solution &fix_feasibility_for_drone_alternative(const Instance &instance,
+                                                Solution &sol, int drone)
+{
+    DroneCollection &c = sol.drones[drone];
+    std::set<Interval> intervals = get_intervals(sol, drone);
+
+    for (int i = 0; i < c.launch_indices.size(); ++i)
+    {
+        int launch = c.launch_indices[i];
+        int land = c.land_indices[i];
+        bool bad = (launch >= land) ||
+                   !specific_drone_flight_under_lim(instance, sol, drone, i) ||
+                   overlaps(intervals, launch, land);
+        if (!bad)
+            continue;
+
+        auto [ok, newsol] = greedy_assign_launch_and_land(instance, sol, c.deliver_nodes[i], drone);
+        if (!ok)
+        {
+            remove_drone_flight(sol, drone, i);
+            sol.truck_route.insert(sol.truck_route.begin() + std::min(launch + 1, (int)sol.truck_route.size()),
+                                   c.deliver_nodes[i]);
+        }
+        // we've modified the structure; give caller a fresh check
+        return fix_feasibility_for_drone(instance, sol, drone);
+    }
+    return sol;
+}
+
 Solution simple_fix_validity(Solution &solution)
 {
     int final_index = solution.truck_route.size() - 1;

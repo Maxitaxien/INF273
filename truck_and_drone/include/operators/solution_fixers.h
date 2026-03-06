@@ -26,6 +26,13 @@ std::pair<bool, Solution> greedy_assign_launch_and_land(const Instance &instance
 Solution &fix_feasibility_for_drone(const Instance &instance, Solution &sol, int drone);
 
 /**
+ * A potentially faster individual drone feasibility fixer.
+ * Should be tested in practice
+ */
+Solution &fix_feasibility_for_drone_alternative(const Instance &instance,
+                                                Solution &sol, int drone);
+
+/**
  * To be used when both drones are infeasible, to handle both at the same time.
  */
 Solution fix_overall_feasibility(const Instance &instance, Solution &solution);

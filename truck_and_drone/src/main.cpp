@@ -26,6 +26,6 @@ namespace fs = std::filesystem;
 int main()
 {
     // run_construction_algos();
-    // run_all_algos(one_reinsert_random);
-    run_all_algos(substitute_truck_delivery_greedy);
+    run_all_algos(one_reinsert_random);
+    // run_all_algos(substitute_truck_delivery_greedy);
 }

@@ -6,67 +6,69 @@
 #include <iostream>
 #include <algorithm>
 
-bool one_reinsert(const Instance &instance, Solution &sol, int pop, int insert, int idx)
+bool one_reinsert(const Instance &inst, Solution &sol,
+                  int pop, int insert, int idx)
 {
-    std::pair<bool, bool> drone_breaks_feasibility = {false, false};
-    std::pair<bool, bool> drone_is_invalid = {false, false};
+    int value; // the node we’re moving
 
-    int to_insert;
-
-    // POP
+    /* --- 1. remove the element --- */
     if (pop == 1)
-    { // truck
+    { // truck tail
         if (sol.truck_route.empty())
             return false;
-        to_insert = sol.truck_route.back();
-        sol.truck_route.pop_back();
-        drone_is_invalid = drone_landed_at_back(sol);
+        value = pop_truck_delivery(sol, sol.truck_route.size() - 1);
     }
-    else if (pop > 1 && pop < 4)
-    { // drone
-        int drone = pop - 2;
-        DroneCollection &dc = sol.drones[drone];
-        if (dc.deliver_nodes.empty())
+    else if (pop >= 2 && pop <= 3)
+    { // drone 0 or 1
+        int d = pop - 2;
+        if (d >= (int)sol.drones.size() ||
+            sol.drones[d].deliver_nodes.empty())
             return false;
-        to_insert = dc.deliver_nodes.back();
-        dc.launch_indices.pop_back();
-        dc.deliver_nodes.pop_back();
-        dc.land_indices.pop_back();
+        value = sol.drones[d].deliver_nodes.back();
+        remove_drone_flight(sol, d); // helper erases all three vectors
     }
     else
+    {
         return false;
+    }
 
-    // REINSERT
+    /* --- 2. insert the value --- */
+    bool inserted = false;
     if (insert == 1)
-    { // truck
-        sol.truck_route.push_back(to_insert);
-        if (idx > 0 && idx < sol.truck_route.size())
+    { // truck insertion
+        // move last element to idx
+        if (idx <= 0 || idx >= (int)sol.truck_route.size())
         {
-            std::swap(sol.truck_route.back(), sol.truck_route[idx]);
+            inserted = false;
         }
         else
-            return false;
+        {
+            sol.truck_route.push_back(value);
+            std::swap(sol.truck_route[idx], sol.truck_route.back());
+            inserted = true;
+        }
     }
-    else if (insert > 1 && insert < 4)
-    { // drone
-        int drone = insert - 2;
-        auto [success, _] = greedy_assign_launch_and_land(instance, sol, to_insert, drone);
-        if (!success)
-            return false;
+    else if (insert >= 2 && insert <= 3)
+    { // drone insertion
+        int d = insert - 2;
+        if (d < (int)sol.drones.size())
+        {
+            auto [ok, _] = greedy_assign_launch_and_land(inst, sol, value, d);
+            inserted = ok;
+        }
     }
-    else
+
+    if (!inserted)
+    { // restore original state
+        if (pop == 1)
+            sol.truck_route.push_back(value);
+        else
+            greedy_assign_launch_and_land(inst, sol, value, pop - 2);
         return false;
+    }
 
-    // fix feasibility & validity in-place
-    if (drone_breaks_feasibility.first && drone_breaks_feasibility.second)
-        fix_overall_feasibility(instance, sol);
-    else if (drone_breaks_feasibility.first)
-        fix_feasibility_for_drone(instance, sol, 0);
-    else if (drone_breaks_feasibility.second)
-        fix_feasibility_for_drone(instance, sol, 1);
-
-    if (drone_is_invalid.first || drone_is_invalid.second)
-        simple_fix_validity(sol);
-
+    /* --- 3. keep the solution feasible/valid --- */
+    fix_overall_feasibility(inst, sol); // cheap enough to always run
+    simple_fix_validity(sol);
     return true;
 }
