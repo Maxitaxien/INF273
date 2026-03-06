@@ -26,6 +26,7 @@ add_library(core
     src/operators/operator.cpp
     src/operators/one_reinsert.cpp
     src/operators/substitute_truck_delivery.cpp
+    src/operators/two_opt.cpp
     src/operators/solution_fixers.cpp
     src/verification/feasibility_check.cpp
     src/verification/objective_value.cpp

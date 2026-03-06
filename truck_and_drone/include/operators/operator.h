@@ -30,3 +30,10 @@ bool one_reinsert_greedy(const Instance &instance, Solution &sol);
  * Perform the best.
  */
 bool substitute_truck_delivery_greedy(const Instance &instance, Solution &sol);
+
+/**
+ * Perform 2-opt on random indexes except from depot
+ *
+ * @return Non-meaningfull bool to conform - should always be valid move
+ */
+bool two_opt_random(const Instance &inst, Solution &sol);

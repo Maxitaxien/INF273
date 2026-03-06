@@ -2,6 +2,7 @@
 #include "verification/solution.h"
 #include "operators/one_reinsert.h"
 #include "operators/substitute_truck_delivery.h"
+#include "operators/two_opt.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <vector>
@@ -113,4 +114,22 @@ bool substitute_truck_delivery_greedy(const Instance &instance, Solution &sol)
         substitute_truck_delivery(instance, sol, best_i, best_drone);
     }
     return success;
+}
+
+bool two_opt_random(const Instance &inst, Solution &sol)
+{
+    // Random i, j, different from eachother, each in range 1 -> sol.truck_route.size() - 1
+    if (sol.truck_route.size() < 4)
+        return false; // Need at least 4 nodes for meaningful 2-opt
+
+    std::uniform_int_distribution<int> dist(1, sol.truck_route.size() - 1);
+    int i = dist(gen);
+    int j = dist(gen);
+    while (i == j)
+    {
+        j = dist(gen);
+    }
+
+    two_opt(inst, sol, i, j);
+    return true;
 }

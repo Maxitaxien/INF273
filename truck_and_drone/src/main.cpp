@@ -12,8 +12,7 @@
 #include "algorithms/local_search.h"
 #include "algorithms/simulated_annealing.h"
 #include "operators/operator.h"
-#include "operators/one_reinsert.h"
-#include "operators/substitute_truck_delivery.h"
+#include "operators/two_opt.h"
 #include "runners/run_algorithm.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
@@ -26,6 +25,7 @@ namespace fs = std::filesystem;
 int main()
 {
     // run_construction_algos();
-    run_all_algos(one_reinsert_random);
+    //  run_all_algos(one_reinsert_random);
     // run_all_algos(substitute_truck_delivery_greedy);
+    run_all_algos(two_opt_random);
 }
