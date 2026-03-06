@@ -8,8 +8,6 @@
  * Runs a best-first local search
  */
 Solution local_search(
-    const Instance& instance,
-    const Solution& initial,
-    std::function<bool(const Instance&, Solution&)> op,
-    std::function<long long(const Instance&, const Solution&)> objective
-);
+    const Instance &instance,
+    const Solution &initial,
+    std::function<bool(const Instance &, Solution &)> op);

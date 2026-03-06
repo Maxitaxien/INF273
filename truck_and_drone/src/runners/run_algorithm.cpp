@@ -10,6 +10,7 @@
 #include "algorithms/blind_random_search.h"
 #include "algorithms/local_search.h"
 #include "algorithms/simulated_annealing.h"
+#include "operators/operator.h"
 #include "verification/objective_value.h"
 #include "runners/wrappers.h"
 #include "runners/algorithms.h"
@@ -24,8 +25,7 @@ using namespace algorithms;
 void run_algorithm(
     const std::string &algo_name,
     Algorithm algo,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective,
+    Operator op,
     const std::string &base_dir,
     int amnt_iter = 10)
 {
@@ -53,13 +53,13 @@ void run_algorithm(
 
             if (i == 0)
             {
-                initial_obj = objective(instance, initial);
+                initial_obj = objective_function_impl(instance, initial);
             }
 
-            Solution sol = algo(instance, initial, op, objective);
+            Solution sol = algo(instance, initial, op);
             auto stop = std::chrono::high_resolution_clock::now();
 
-            long long val = objective(instance, sol);
+            long long val = objective_function_impl(instance, sol);
             avg += val;
             avg_runtime += std::chrono::duration<double>(stop - start).count();
 
@@ -81,13 +81,13 @@ void run_algorithm(
     }
 }
 
-void run_all_algos()
+void run_all_algos(Operator op)
 {
     int amnt_iter = 10;
     std::string base_dir = create_run_directory();
     for (const auto &[name, wrapper] : algorithms::all)
     {
-        run_algorithm(name, wrapper, one_reinsert_random, objective_function_impl, base_dir, amnt_iter);
+        run_algorithm(name, wrapper, op, base_dir, amnt_iter);
     }
     create_markdown_tables(base_dir);
 }
@@ -99,7 +99,7 @@ void run_construction_algos()
 
     for (const auto &[name, wrapper] : algorithms::construction)
     {
-        run_algorithm(name, wrapper, one_reinsert_random, objective_function_impl, base_dir, amnt_iter);
+        run_algorithm(name, wrapper, one_reinsert_random, base_dir, amnt_iter);
     }
     create_markdown_tables(base_dir);
 }

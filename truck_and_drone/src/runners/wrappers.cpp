@@ -8,35 +8,31 @@
 Solution blind_random_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective)
+    std::function<bool(const Instance &, Solution &)> op)
 {
-    return blind_random_search(instance, initial, objective);
+    return blind_random_search(instance, initial);
 }
 
 Solution sa_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective)
+    std::function<bool(const Instance &, Solution &)> op)
 {
-    return simulated_annealing(instance, initial, op, 0.1, objective);
+    return simulated_annealing(instance, initial, op, 0.1);
 }
 
 Solution local_search_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective)
+    std::function<bool(const Instance &, Solution &)> op)
 {
-    return local_search(instance, initial, op, objective);
+    return local_search(instance, initial, op);
 }
 
 Solution nearest_neighbour_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective)
+    std::function<bool(const Instance &, Solution &)> op)
 {
     return nearest_neighbour(instance);
 }
@@ -44,8 +40,7 @@ Solution nearest_neighbour_wrapper(
 Solution construction_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective)
+    std::function<bool(const Instance &, Solution &)> op)
 {
     Solution nn = nearest_neighbour(instance);
     return greedy_drone_cover(instance, nn);

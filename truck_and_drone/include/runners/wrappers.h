@@ -6,35 +6,29 @@
 using Algorithm = std::function<Solution(
     const Instance &,
     Solution,
-    std::function<bool(const Instance &, Solution &)>,
-    std::function<long long(const Instance &, const Solution &)>)>;
+    std::function<bool(const Instance &, Solution &)>)>;
 
 Solution blind_random_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective);
+    std::function<bool(const Instance &, Solution &)> op);
 
 Solution sa_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective);
+    std::function<bool(const Instance &, Solution &)> op);
 
 Solution local_search_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective);
+    std::function<bool(const Instance &, Solution &)> op);
 
 Solution nearest_neighbour_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective);
+    std::function<bool(const Instance &, Solution &)> op);
 
 Solution construction_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
-    std::function<long long(const Instance &, const Solution &)> objective);
+    std::function<bool(const Instance &, Solution &)> op);
