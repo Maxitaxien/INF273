@@ -1,0 +1,3 @@
+TODO in final phase: Optimize feasibility and objective value checks
+Use DP for this.
+Ref.: https://chatgpt.com/c/69ab141f-3790-8391-90aa-e3a46dcaf50b

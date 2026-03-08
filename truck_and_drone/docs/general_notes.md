@@ -7,3 +7,9 @@ the value of replacing with drone likely increases as the solution intensifies. 
 we can capitalize on this by only performing this only when the algorithm has already run for a little bit.
 
 note that it might be decent to just have some kind of shuffling/random operator to do exploration
+
+TODO-list:
+
+- Solution visualizer
+- Graph for tracking objective value fluctuation/improvement
+- Implement deterministic drone assigner (simplifies quite a lot)
