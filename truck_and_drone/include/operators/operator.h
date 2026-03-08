@@ -3,8 +3,20 @@
 #include "verification/solution.h"
 #include <functional>
 #include <vector>
+#include <string>
 
 using Operator = std::function<bool(const Instance &, Solution &)>;
+
+/**
+ * Named operator wrapper.
+ *
+ * This allows us to store a human-readable name for an operator and use it
+ * when generating output folders / CSV headers.
+ */
+struct NamedOperator {
+    std::string name;
+    Operator op;
+};
 
 using FullNeighbourhoodOperator = std::function<std::vector<Solution>(const Instance &, const Solution &)>;
 
@@ -26,10 +38,10 @@ bool one_reinsert_random(const Instance &instance, Solution &sol);
 bool one_reinsert_greedy(const Instance &instance, Solution &sol);
 
 /**
- * Then, evaluate all substitutions within the truck route for both drones.
+ * Then, evaluate all replacements within the truck route for both drones.
  * Perform the best.
  */
-bool substitute_truck_delivery_greedy(const Instance &instance, Solution &sol);
+bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol);
 
 /**
  * Perform 2-opt on random indexes except from depot
@@ -37,3 +49,11 @@ bool substitute_truck_delivery_greedy(const Instance &instance, Solution &sol);
  * @return Non-meaningfull bool to conform - should always be valid move
  */
 bool two_opt_random(const Instance &inst, Solution &sol);
+
+/** 
+ * Perform nearest neighbour reassignment from a random index. Then swaps the chosen one within the route
+ *
+ * @return Non-meaningfull bool to conform - should always be valid move
+ * 
+ */
+bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol);

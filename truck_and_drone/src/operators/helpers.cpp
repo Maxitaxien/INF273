@@ -70,12 +70,13 @@ std::unordered_map<int, int> get_node_positions(const Solution &solution)
     return positions;
 }
 
-std::vector<int> sort_by_distance_to_point(const Instance &instance, const Solution &solution, int point)
+std::vector<int> sort_by_distance_to_point_drone(const Instance &instance, const Solution &solution, int point)
 {
     std::vector<int> points;
     std::unordered_set<int> truck_set(solution.truck_route.begin(), solution.truck_route.end());
+    int customer;
 
-    for (int i = 0; i < instance.n; i++)
+    for (int i = 1; i < instance.n; i++)
     {
         if (i != point && truck_set.find(i) != truck_set.end())
         {
@@ -88,6 +89,29 @@ std::vector<int> sort_by_distance_to_point(const Instance &instance, const Solut
               [&](int a, int b)
               {
                   return instance.drone_matrix[point][a] < instance.drone_matrix[point][b];
+              });
+
+    return points;
+}
+
+std::vector<int> sort_by_distance_to_point_truck(const Instance &instance, const Solution &solution, int point)
+{
+    std::vector<int> points;
+    std::unordered_set<int> truck_set(solution.truck_route.begin(), solution.truck_route.end());
+
+    for (int i = 1; i < instance.n; i++)
+    {
+        if (i != point && truck_set.find(i) != truck_set.end())
+        {
+            points.push_back(i);
+        }
+    }
+
+    // Sort indices by distance
+    std::sort(points.begin(), points.end(),
+              [&](int a, int b)
+              {
+                  return instance.truck_matrix[point][a] < instance.truck_matrix[point][b];
               });
 
     return points;

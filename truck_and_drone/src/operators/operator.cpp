@@ -1,8 +1,9 @@
 #include "datahandling/instance.h"
 #include "verification/solution.h"
 #include "operators/one_reinsert.h"
-#include "operators/substitute_truck_delivery.h"
+#include "operators/replace_truck_delivery.h"
 #include "operators/two_opt.h"
+#include "operators/nearest_neighbour_reassign.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <vector>
@@ -83,7 +84,7 @@ bool one_reinsert_greedy(const Instance &instance, Solution &sol)
     return false;
 }
 
-bool substitute_truck_delivery_greedy(const Instance &instance, Solution &sol)
+bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
 {
     bool success = false;
     long long best_cost = INF;
@@ -94,7 +95,7 @@ bool substitute_truck_delivery_greedy(const Instance &instance, Solution &sol)
         for (int i = 1; i < (int)sol.truck_route.size(); ++i)
         {
             Solution copy = sol; // fresh copy each time
-            if (substitute_truck_delivery(instance, copy, i, drone) &&
+            if (replace_truck_delivery(instance, copy, i, drone) &&
                 master_check(instance, copy, false)) // check the candidate
             {
                 long long cost = objective_function_impl(instance, copy);
@@ -111,7 +112,7 @@ bool substitute_truck_delivery_greedy(const Instance &instance, Solution &sol)
 
     if (success)
     {
-        substitute_truck_delivery(instance, sol, best_i, best_drone);
+        replace_truck_delivery(instance, sol, best_i, best_drone);
     }
     return success;
 }
@@ -131,5 +132,15 @@ bool two_opt_random(const Instance &inst, Solution &sol)
     }
 
     two_opt(inst, sol, i, j);
+    return true;
+}
+
+
+bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol) 
+{
+    std::uniform_int_distribution<int> dist(1, sol.truck_route.size() - 1);
+    int i = dist(gen);
+
+    nearest_neighbour_reassign(inst, sol, i);
     return true;
 }

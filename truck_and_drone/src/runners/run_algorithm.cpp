@@ -25,14 +25,15 @@ using namespace algorithms;
 void run_algorithm(
     const std::string &algo_name,
     Algorithm algo,
-    Operator op,
+    const NamedOperator &op,
     const std::string &base_dir,
-    int amnt_iter = 10)
+    int amnt_iter)
 {
     const long long INF = 4e18;
     std::vector<std::string> datasets = {f10, f20, f50, f100, r10, r20, r50, r100};
 
-    std::string run_dir = create_algo_directory(base_dir, algo_name);
+    const std::string algo_op_name = algo_name + " " + op.name;
+    std::string run_dir = create_algo_directory(base_dir, algo_op_name);
 
     for (const auto &dataset : datasets)
     {
@@ -56,7 +57,7 @@ void run_algorithm(
                 initial_obj = objective_function_impl(instance, initial);
             }
 
-            Solution sol = algo(instance, initial, op);
+            Solution sol = algo(instance, initial, op.op);
             auto stop = std::chrono::high_resolution_clock::now();
 
             long long val = objective_function_impl(instance, sol);
@@ -76,18 +77,43 @@ void run_algorithm(
 
         double improvement = 100.0 * (initial_obj - best) / initial_obj;
 
-        save_to_csv(run_dir, algo_name, dataset, avg, best, improvement, avg_runtime,
+        save_to_csv(run_dir, algo_op_name, dataset, avg, best, improvement, avg_runtime,
                     convert_to_submission(best_solution));
     }
 }
 
-void run_all_algos(Operator op)
+void run_all_algos(const NamedOperator &op)
+{
+    run_all_algos(std::vector<NamedOperator>{op});
+}
+
+NamedOperator make_no_op_operator()
+{
+    return NamedOperator{"", [](const Instance &, Solution &) {
+        return false;
+    }};
+}
+
+void run_all_algos()
+{
+    run_all_algos(make_no_op_operator());
+}
+
+void run_all_algos(const std::vector<NamedOperator> &ops)
 {
     int amnt_iter = 10;
     std::string base_dir = create_run_directory();
     for (const auto &[name, wrapper] : algorithms::all)
     {
-        run_algorithm(name, wrapper, op, base_dir, amnt_iter);
+        for (const auto &op : ops)
+        {
+            if (name != "Random Search") {
+                run_algorithm(name, wrapper, op, base_dir, amnt_iter);
+            }
+            else {
+                run_algorithm(name, wrapper, make_no_op_operator(), base_dir, amnt_iter);
+            }
+        }
     }
     create_markdown_tables(base_dir);
 }
@@ -97,9 +123,10 @@ void run_construction_algos()
     int amnt_iter = 1; // construction is deterministc
     std::string base_dir = create_run_directory();
 
+    NamedOperator noop = make_no_op_operator(); // dummy operator - will not be used
     for (const auto &[name, wrapper] : algorithms::construction)
     {
-        run_algorithm(name, wrapper, one_reinsert_random, base_dir, amnt_iter);
+        run_algorithm(name, wrapper, noop, base_dir, amnt_iter);
     }
     create_markdown_tables(base_dir);
 }

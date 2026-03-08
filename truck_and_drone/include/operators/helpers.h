@@ -34,10 +34,15 @@ void remove_drone_flight(Solution &solution, int drone, int i);
 std::pair<bool, bool> drone_landed_at_back(const Solution &solution);
 
 /**
- * Sorts points in accordance to closeness, then returns the closest from the truck route
+ * Sorts points in accordance to closeness based on drone matrix, then returns the closest from the truck route
  * @param point: point to sort in relation to
  */
-std::vector<int> sort_by_distance_to_point(const Instance &instance, const Solution &solution, int point);
+std::vector<int> sort_by_distance_to_point_drone(const Instance &instance, const Solution &solution, int point);
+
+/**
+ * Sorts points in accordance to closeness based on truck matrix, returns them in sorted order
+ */
+std::vector<int> sort_by_distance_to_point_truck(const Instance &instance, const Solution &solution, int point);
 
 /**
  * Get index of each node within the truck route (getting their ordering)

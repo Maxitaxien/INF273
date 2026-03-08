@@ -26,6 +26,10 @@ int main()
 {
     // run_construction_algos();
     //  run_all_algos(one_reinsert_random);
-    // run_all_algos(substitute_truck_delivery_greedy);
-    run_all_algos(two_opt_random);
+    // run_all_algos(replace_truck_delivery_greedy);
+    // run_all_algos(two_opt_random);
+    run_all_algos(NamedOperator{"1-insert", one_reinsert_random});
+    run_all_algos(NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random});
+    run_all_algos(NamedOperator{"Two-Opt", two_opt_random});
+    run_all_algos(NamedOperator{"Replace Truck Delivery", replace_truck_delivery_greedy});
 }

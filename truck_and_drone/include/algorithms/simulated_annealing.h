@@ -15,7 +15,7 @@ double warmup_phase(
     long long &incumbent_cost,
     Solution &best,
     long long &best_cost,
-    std::function<bool(const Instance &, Solution &)> op,
+    Operator op,
     int warmup_amount);
 
 /**
@@ -25,5 +25,5 @@ double warmup_phase(
 Solution simulated_annealing(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op,
+    Operator op,
     double TF);

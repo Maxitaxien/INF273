@@ -80,7 +80,7 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &ins
 std::pair<bool, Solution> greedy_assign_launch_and_land(const Instance &instance, Solution &solution, int new_deliver, int drone)
 {
     std::unordered_map<int, int> node_positions = get_node_positions(solution);
-    std::vector<int> sorted_points = sort_by_distance_to_point(instance, solution, new_deliver);
+    std::vector<int> sorted_points = sort_by_distance_to_point_drone(instance, solution, new_deliver);
     std::set<Interval> drone_intervals = get_intervals(solution, drone);
 
     std::vector<long long> drone_available;
