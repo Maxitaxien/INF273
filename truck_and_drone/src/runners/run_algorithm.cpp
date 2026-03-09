@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include <map>
+#include <vector>
 #include "runners/run_algorithm.h"
 #include "datahandling/reader.h"
 #include "datahandling/convert_to_submission.h"
@@ -16,11 +17,36 @@
 #include "runners/algorithms.h"
 #include "datahandling/file_helpers.h"
 #include "datahandling/create_markdown_tables.h"
+#include "general/roulette_wheel_selection.h"
 
 const long long INF = 4e18;
 
 using namespace datasets;
 using namespace algorithms;
+
+Operator make_uniform_weighted_selector(const std::vector<NamedOperator> &ops)
+{
+    return [ops](const Instance &instance, Solution &sol) {
+        int idx = roulette_wheel_selection_uniform(static_cast<int>(ops.size()));
+        return ops[idx].op(instance, sol);
+    };
+}
+
+Operator make_tuned_weighted_selector(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights)
+{
+    std::vector<double> fitness = weights;
+    if (fitness.size() != ops.size())
+    {
+        fitness.assign(ops.size(), 1.0);
+    }
+
+    return [ops, fitness](const Instance &instance, Solution &sol) {
+        int idx = roulette_wheel_selection(fitness);
+        return ops[idx].op(instance, sol);
+    };
+}
 
 void run_algorithm(
     const std::string &algo_name,
@@ -32,7 +58,12 @@ void run_algorithm(
     const long long INF = 4e18;
     std::vector<std::string> datasets = {f10, f20, f50, f100, r10, r20, r50, r100};
 
-    const std::string algo_op_name = algo_name + " " + op.name;
+    std::string algo_op_name = algo_name;
+    if (!op.name.empty())
+    {
+        algo_op_name += " " + op.name;
+    }
+
     std::string run_dir = create_algo_directory(base_dir, algo_op_name);
 
     for (const auto &dataset : datasets)
@@ -56,6 +87,7 @@ void run_algorithm(
             {
                 initial_obj = objective_function_impl(instance, initial);
             }
+
 
             Solution sol = algo(instance, initial, op.op);
             auto stop = std::chrono::high_resolution_clock::now();
@@ -84,7 +116,7 @@ void run_algorithm(
 
 void run_all_algos(const NamedOperator &op)
 {
-    run_all_algos(std::vector<NamedOperator>{op});
+    run_all_algos(std::vector<NamedOperator>{op}, {});
 }
 
 NamedOperator make_no_op_operator()
@@ -99,21 +131,33 @@ void run_all_algos()
     run_all_algos(make_no_op_operator());
 }
 
-void run_all_algos(const std::vector<NamedOperator> &ops)
+void run_all_algos(const std::vector<NamedOperator> &ops, const std::vector<double> &weights)
 {
     int amnt_iter = 10;
     std::string base_dir = create_run_directory();
+
+    // Build a single operator that will be passed to each algorithm
+    NamedOperator run_op;
+    if (ops.empty())
+    {
+        run_op = make_no_op_operator();
+    }
+    else if (ops.size() == 1)
+    {
+        run_op = ops[0];
+    }
+    else
+    {
+        std::string suffix = weights.empty() ? "New Operators (Equal Weights)" : "New Operators (Tuned Weights)";
+        Operator selector = weights.empty()
+            ? make_uniform_weighted_selector(ops)
+            : make_tuned_weighted_selector(ops, weights);
+        run_op = NamedOperator{suffix, selector};
+    }
+
     for (const auto &[name, wrapper] : algorithms::all)
     {
-        for (const auto &op : ops)
-        {
-            if (name != "Random Search") {
-                run_algorithm(name, wrapper, op, base_dir, amnt_iter);
-            }
-            else {
-                run_algorithm(name, wrapper, make_no_op_operator(), base_dir, amnt_iter);
-            }
-        }
+        run_algorithm(name, wrapper, run_op, base_dir, amnt_iter);
     }
     create_markdown_tables(base_dir);
 }

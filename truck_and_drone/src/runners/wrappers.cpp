@@ -4,11 +4,12 @@
 #include "algorithms/blind_random_search.h"
 #include "algorithms/simulated_annealing.h"
 #include "algorithms/local_search.h"
+#include "operators/operator.h"
 
 Solution blind_random_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op)
+    Operator op)
 {
     return blind_random_search(instance, initial);
 }
@@ -16,7 +17,7 @@ Solution blind_random_wrapper(
 Solution sa_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op)
+    Operator op)
 {
     return simulated_annealing(instance, initial, op, 0.1);
 }
@@ -24,7 +25,7 @@ Solution sa_wrapper(
 Solution local_search_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op)
+    Operator op)
 {
     return local_search(instance, initial, op);
 }
@@ -32,7 +33,7 @@ Solution local_search_wrapper(
 Solution nearest_neighbour_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op)
+    Operator op)
 {
     return nearest_neighbour(instance);
 }
@@ -40,7 +41,7 @@ Solution nearest_neighbour_wrapper(
 Solution construction_wrapper(
     const Instance &instance,
     Solution initial,
-    std::function<bool(const Instance &, Solution &)> op)
+    Operator op)
 {
     Solution nn = nearest_neighbour(instance);
     return greedy_drone_cover(instance, nn);

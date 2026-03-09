@@ -2,7 +2,6 @@
 #include "verification/solution.h"
 #include "operators/operator.h"
 #include "datahandling/instance.h"
-
 /**
  * Runs warmup phase for warmup_amount iterations.
  * This gives a delta avg value to use in determining initial temperature

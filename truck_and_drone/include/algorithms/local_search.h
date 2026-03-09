@@ -10,4 +10,4 @@
 Solution local_search(
     const Instance &instance,
     const Solution &initial,
-    std::function<bool(const Instance &, Solution &)> op);
+    Operator op);

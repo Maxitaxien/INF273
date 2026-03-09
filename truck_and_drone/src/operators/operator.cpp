@@ -136,9 +136,16 @@ bool two_opt_random(const Instance &inst, Solution &sol)
 }
 
 
-bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol) 
+bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
 {
-    std::uniform_int_distribution<int> dist(1, sol.truck_route.size() - 1);
+    // The route has depot only at the start; the final entry is a customer.
+    // We must never select the last customer index because nearest_neighbour_reassign
+    // uses `i+1` and would overflow in that case.
+    if (sol.truck_route.size() <= 2)
+        return false;
+
+    int max_valid_idx = (int)sol.truck_route.size() - 2; // exclude last customer index
+    std::uniform_int_distribution<int> dist(1, max_valid_idx);
     int i = dist(gen);
 
     nearest_neighbour_reassign(inst, sol, i);

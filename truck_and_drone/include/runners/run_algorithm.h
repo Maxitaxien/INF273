@@ -33,8 +33,10 @@ void run_all_algos(const NamedOperator &op);
 
 /**
  * Runs all algorithms from algorithms namespace with multiple operators.
+ *
+ * If `weights` is empty, weights are uniform (equal).
  */
-void run_all_algos(const std::vector<NamedOperator> &ops);
+void run_all_algos(const std::vector<NamedOperator> &ops, const std::vector<double> &weights = {});
 
 /**
  * Runs construction algorithms.

@@ -21,6 +21,7 @@ add_library(core
     src/general/get_truck_arrival_times.cpp
     src/general/split.cpp
     src/general/sort_drone_collection.cpp
+    src/general/roulette_wheel_selection.cpp
     src/operators/helpers.cpp
     src/operators/interval_helpers.cpp
     src/operators/operator.cpp

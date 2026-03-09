@@ -24,12 +24,35 @@ namespace fs = std::filesystem;
 
 int main()
 {
-    // run_construction_algos();
-    //  run_all_algos(one_reinsert_random);
-    // run_all_algos(replace_truck_delivery_greedy);
-    // run_all_algos(two_opt_random);
+    /*
+    // Run with a single operator 
     run_all_algos(NamedOperator{"1-insert", one_reinsert_random});
     run_all_algos(NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random});
-    run_all_algos(NamedOperator{"Two-Opt", two_opt_random});
-    run_all_algos(NamedOperator{"Replace Truck Delivery", replace_truck_delivery_greedy});
+
+    // Run with multiple operators using uniform weights
+    run_all_algos(
+        {NamedOperator{"1-insert", one_reinsert_random}, NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random}});
+
+    // Run with multiple operators using tuned weights
+    run_all_algos(
+        {NamedOperator{"1-insert", one_reinsert_random}, NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random}},
+        {0.7, 0.3});
+    
+    run_all_algos(
+    {
+        NamedOperator{"Replace Truck Delivery", replace_truck_delivery_greedy}, 
+        NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random},
+        NamedOperator{"Two-Opt", two_opt_random}
+    });
+    
+    */
+    run_all_algos(
+    {
+        NamedOperator{"Replace Truck Delivery", replace_truck_delivery_greedy}, 
+        NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random},
+        NamedOperator{"Two-Opt", two_opt_random}
+    },
+    {0.1, 0.2, 0.7}
+    );
+    
 }

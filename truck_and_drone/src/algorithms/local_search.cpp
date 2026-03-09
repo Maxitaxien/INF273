@@ -4,16 +4,18 @@
 #include "verification/objective_value.h"
 #include "operators/operator.h"
 #include "datahandling/instance.h"
+#include <vector>
 
 Solution local_search(const Instance &instance,
                       const Solution &initial,
-                      std::function<bool(const Instance &, Solution &)> op)
+                      Operator op)
 {
 
     Solution current = initial;
     long long best_cost = objective_function_impl(instance, current);
 
     int amnt_iterations = 0;
+    Operator current_operator;
 
     while (amnt_iterations < 10000)
     {
