@@ -19,14 +19,14 @@ void test_instance_loading() {
     assert(!instance.truck_matrix.empty());
     assert(!instance.drone_matrix.empty());
     assert(instance.n > 0);
-    std::cout << "✓ test_instance_loading passed\n";
+    std::cout << "test_instance_loading passed\n";
 }
 
 void test_nearest_neighbour_validity() {
     Instance instance = read_instance(datasets::contest);
     Solution solution = nearest_neighbour(instance);
     assert(master_check(instance, solution, true));
-    std::cout << "✓ test_nearest_neighbour_validity passed\n";
+    std::cout << "test_nearest_neighbour_validity passed\n";
 }
 
 void test_greedy_drone_cover_validity() {
@@ -34,7 +34,7 @@ void test_greedy_drone_cover_validity() {
     Solution initial = nearest_neighbour(instance);
     Solution solution = greedy_drone_cover(instance, initial);
     assert(master_check(instance, solution, true));
-    std::cout << "✓ test_greedy_drone_cover_validity passed\n";
+    std::cout << "test_greedy_drone_cover_validity passed\n";
 }
 
 void test_one_reinsert_validity() {
@@ -47,7 +47,7 @@ void test_one_reinsert_validity() {
     assert(success);
     assert(master_check(instance, edited, true));
 
-    std::cout << "✓ test_one_reinsert_validity passed\n";
+    std::cout << "test_one_reinsert_validity passed\n";
 }
 
 void test_one_reinsert_bounds() {
@@ -60,7 +60,7 @@ void test_one_reinsert_bounds() {
     assert(success);
     assert(edited.truck_route.size() <= drone.truck_route.size() + 1);
 
-    std::cout << "✓ test_one_reinsert_bounds passed\n";
+    std::cout << "test_one_reinsert_bounds passed\n";
 }
 
 void test_objective_improvement() {
@@ -68,16 +68,16 @@ void test_objective_improvement() {
     Solution initial = nearest_neighbour(instance);
     Solution drone = greedy_drone_cover(instance, initial);
 
-    double initial_cost = calculate_total_waiting_time(instance, drone);
+    long long initial_cost = objective_function_impl(instance, drone);
 
     Solution edited = drone;
     bool success = one_reinsert(instance, edited, 2, 2, 12);
     assert(success);
 
-    double edited_cost = calculate_total_waiting_time(instance, edited);
+    long long edited_cost = objective_function_impl(instance, edited);
     assert(edited_cost <= initial_cost * 1.01);
 
-    std::cout << "✓ test_objective_improvement passed\n";
+    std::cout << "test_objective_improvement passed\n";
 }
 
 void test_solution_consistency() {
@@ -91,7 +91,7 @@ void test_solution_consistency() {
 
     assert(!convert_to_submission(edited).empty());
 
-    std::cout << "✓ test_solution_consistency passed\n";
+    std::cout << "test_solution_consistency passed\n";
 }
 
 int main() {
@@ -103,7 +103,7 @@ int main() {
         test_one_reinsert_bounds();
         test_objective_improvement();
         test_solution_consistency();
-        std::cout << "\n✓ All tests passed\n";
+        std::cout << "\nAll tests passed\n";
     } catch (const std::exception& e) {
         std::cerr << "Test failed: " << e.what() << "\n";
         return 1;

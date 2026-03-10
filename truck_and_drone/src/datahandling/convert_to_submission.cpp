@@ -1,6 +1,6 @@
 #include "datahandling/convert_to_submission.h"
+#include "general/sort_drone_collection.h"
 #include <vector>
-#include <algorithm>
 #include <tuple>
 #include <string>
 
@@ -16,37 +16,17 @@ std::string convert_to_submission(const Solution& solution) {
 
     constexpr int DRONES = 2;
 
-    // Prepare per-drone vectors
-    std::vector<int> deliver_nodes[DRONES];
-    std::vector<int> launch_indices[DRONES];
-    std::vector<int> land_indices[DRONES];
-
-    // Sort each drone’s trips by launch index
+    // Prepare per-drone collections, sorted by launch index
+    DroneCollection sorted[DRONES];
     for (int d = 0; d < DRONES; d++) {
         if (d >= solution.drones.size()) continue;
-
-        DroneCollection c = solution.drones[d];
-        deliver_nodes[d] = c.deliver_nodes;
-
-        for (int launch_idx : c.launch_indices) {
-            launch_indices[d].push_back(launch_idx + 1);
-        }
-
-        for (int land_idx : c.land_indices) {
-            land_indices[d].push_back(land_idx + 1);
-        }
+        sorted[d] = solution.drones[d];
+        sort_drone_collection(sorted[d]);
     }
 
-    // Sort launch and land indices numerically
-    for (int d = 0; d < DRONES; d++) {
-        std::sort(launch_indices[d].begin(), launch_indices[d].end());
-        std::sort(land_indices[d].begin(), land_indices[d].end());
-    }
-
-    
     // ---- Deliveries ----
     auto append_deliveries = [&](int d){
-        for (int node : deliver_nodes[d]) submission += std::to_string(node) + ",";
+        for (int node : sorted[d].deliver_nodes) submission += std::to_string(node) + ",";
     };
 
     append_deliveries(0);
@@ -57,17 +37,17 @@ std::string convert_to_submission(const Solution& solution) {
     submission += "|";
 
     // ---- Launch ----
-    for (int x : launch_indices[0]) submission += std::to_string(x) + ",";
+    for (int x : sorted[0].launch_indices) submission += std::to_string(x + 1) + ",";
     submission += "-1,";
-    for (int x : launch_indices[1]) submission += std::to_string(x) + ",";
+    for (int x : sorted[1].launch_indices) submission += std::to_string(x + 1) + ",";
     if (!submission.empty())
         submission.pop_back();
     submission += "|";
 
     // ---- Land ----
-    for (int x : land_indices[0]) submission += std::to_string(x) + ",";
+    for (int x : sorted[0].land_indices) submission += std::to_string(x + 1) + ",";
     submission += "-1,";
-    for (int x : land_indices[1]) submission += std::to_string(x) + ",";
+    for (int x : sorted[1].land_indices) submission += std::to_string(x + 1) + ",";
     if (!submission.empty())
         submission.pop_back();
 

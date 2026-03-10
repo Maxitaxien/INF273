@@ -4,12 +4,25 @@
 #include "operators/helpers.h"
 #include "operators/interval_helpers.h"
 #include "general/get_truck_arrival_times.h"
+#include <algorithm>
 #include <set>
 #include <unordered_map>
 #include <limits>
 
 std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &inst, Solution &sol, int idx, int new_deliver, int drone, int look_ahead)
 {
+    // Guard against invalid inputs (common when operators mutate route/drone tables)
+    if (drone < 0 || drone >= (int)sol.drones.size())
+        return {false, sol};
+    if (idx < 0 || idx >= (int)sol.truck_route.size())
+        return {false, sol};
+
+    // Avoid assigning a delivery that is already on the truck route (prevents duplicates)
+    if (std::find(sol.truck_route.begin(), sol.truck_route.end(), new_deliver) != sol.truck_route.end())
+        return {false, sol};
+
+    std::set<Interval> drone_intervals = get_intervals(sol, drone);
+
     int maximum_lookahead;
     // estimate how many positions ahead to consider; if there are existing launch
     // indices we don't want to overlap them, otherwise just use the lookahead
@@ -51,7 +64,18 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &ins
     for (int offset = 1; offset <= max_offset; ++offset)
     {
         int land_idx = launch_idx + offset;
-        long long drone_total_duration = (launch_time_allowed - truck_arrival[launch_idx]) + inst.drone_matrix[sol.truck_route[launch_idx]][new_deliver] + inst.drone_matrix[new_deliver][sol.truck_route[land_idx]];
+
+        // Never land at the final stop, as it's treated as the depot-return placeholder.
+        if (land_idx >= (int)sol.truck_route.size() - 1)
+            continue;
+
+        // Prevent overlapping an existing drone flight for this drone.
+        if (overlaps(drone_intervals, launch_idx, land_idx))
+            continue;
+
+        long long drone_total_duration = (launch_time_allowed - truck_arrival[launch_idx]) +
+                                         inst.drone_matrix[sol.truck_route[launch_idx]][new_deliver] +
+                                         inst.drone_matrix[new_deliver][sol.truck_route[land_idx]];
         if (drone_total_duration <= inst.lim)
         {
             long long truck_wait_time = drone_total_duration - (truck_arrival[land_idx] - truck_arrival[launch_idx]);
@@ -79,49 +103,89 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &ins
 
 std::pair<bool, Solution> greedy_assign_launch_and_land(const Instance &instance, Solution &solution, int new_deliver, int drone)
 {
-    std::unordered_map<int, int> node_positions = get_node_positions(solution);
-    std::vector<int> sorted_points = sort_by_distance_to_point_drone(instance, solution, new_deliver);
+    // We want to pick a launch/land pair (indices in the truck route) that:
+    //  - keeps the flight under the time limit
+    //  - does not overlap any existing flight of this drone
+    //  - does not land at the final truck stop (invalid in this model)
+    //  - does not attempt to deliver to a node that is already on the truck route
+
     std::set<Interval> drone_intervals = get_intervals(solution, drone);
 
     std::vector<long long> drone_available;
     long long total_drone_arrival;
-
     std::vector<long long> truck_arrival = get_truck_arrival_times(instance, solution, drone_available, total_drone_arrival);
 
-    // Two pointer for assignment
-    if (sorted_points.size() < 2)
+    const int route_size = (int)solution.truck_route.size();
+    if (route_size < 3)
         return {false, solution};
 
-    for (int l = 0; l < sorted_points.size(); l++)
+    // Build a list of candidate indices (excluding depot at index 0, and excluding final index).
+    // Also exclude any position where the truck already visits the delivery node.
+    std::vector<int> candidate_indices;
+    candidate_indices.reserve(route_size);
+
+    for (int idx = 1; idx < route_size - 1; ++idx)
     {
-        for (int r = l + 1; r < sorted_points.size(); r++)
+        if (solution.truck_route[idx] == new_deliver)
+            continue;
+        candidate_indices.push_back(idx);
+    }
+
+    if (candidate_indices.size() < 2)
+        return {false, solution};
+
+    // Sort candidates by drone distance from their node to the delivery node.
+    std::sort(candidate_indices.begin(), candidate_indices.end(),
+              [&](int a, int b) {
+                  return instance.drone_matrix[solution.truck_route[a]][new_deliver] <
+                         instance.drone_matrix[solution.truck_route[b]][new_deliver];
+              });
+
+    long long best_wait = std::numeric_limits<long long>::infinity();
+    int best_launch = -1;
+    int best_land = -1;
+
+    for (int i = 0; i < (int)candidate_indices.size(); ++i)
+    {
+        for (int j = i + 1; j < (int)candidate_indices.size(); ++j)
         {
+            int launch_idx = candidate_indices[i];
+            int land_idx = candidate_indices[j];
 
-            int p1 = sorted_points[l];
-            int p2 = sorted_points[r];
+            // Ensure the land event is not at the final truck stop.
+            if (land_idx >= route_size - 1)
+                continue;
 
-            int pos1 = node_positions.at(p1);
-            int pos2 = node_positions.at(p2);
-            if (pos1 > pos2)
-                std::swap(pos1, pos2);
+            long long launch_time_allowed = std::max(truck_arrival[launch_idx], drone_available[drone]);
 
-            long long launch_time_allowed = std::max(truck_arrival[pos1], drone_available[drone]);
+            long long drone_total_duration = (launch_time_allowed - truck_arrival[launch_idx]) +
+                                             instance.drone_matrix[solution.truck_route[launch_idx]][new_deliver] +
+                                             instance.drone_matrix[new_deliver][solution.truck_route[land_idx]];
 
-            long long drone_total_duration = (launch_time_allowed - truck_arrival[pos1]) + instance.drone_matrix[solution.truck_route[pos1]][new_deliver] + instance.drone_matrix[new_deliver][solution.truck_route[pos2]];
+            if (drone_total_duration > instance.lim)
+                continue;
 
-            bool overlap = overlaps(drone_intervals, pos1, pos2);
+            if (overlaps(drone_intervals, launch_idx, land_idx))
+                continue;
 
-            if (drone_total_duration <= instance.lim && !overlap && pos2 < solution.truck_route.size() && pos2 < (int)solution.truck_route.size() - 1)
+            long long truck_wait_time = drone_total_duration - (truck_arrival[land_idx] - truck_arrival[launch_idx]);
+            if (truck_wait_time < best_wait)
             {
-                solution.drones[drone].launch_indices.push_back(pos1);
-                solution.drones[drone].deliver_nodes.push_back(new_deliver);
-                solution.drones[drone].land_indices.push_back(pos2);
-                return {true, solution};
+                best_wait = truck_wait_time;
+                best_launch = launch_idx;
+                best_land = land_idx;
             }
         }
     }
 
-    return {false, solution};
+    if (best_launch == -1 || best_land == -1)
+        return {false, solution};
+
+    solution.drones[drone].launch_indices.push_back(best_launch);
+    solution.drones[drone].deliver_nodes.push_back(new_deliver);
+    solution.drones[drone].land_indices.push_back(best_land);
+
+    return {true, solution};
 }
 
 Solution &fix_feasibility_for_drone(const Instance &instance, Solution &sol, int drone)
@@ -183,7 +247,7 @@ Solution &fix_feasibility_for_drone_alternative(const Instance &instance,
                                    c.deliver_nodes[i]);
         }
         // we've modified the structure; give caller a fresh check
-        return fix_feasibility_for_drone(instance, sol, drone);
+        return fix_feasibility_for_drone_alternative(instance, sol, drone);
     }
     return sol;
 }
@@ -231,7 +295,7 @@ Solution fix_validity(const Instance &instance, Solution &solution, int drone)
 
 Solution fix_overall_feasibility(const Instance &instance, Solution &solution)
 {
-    solution = fix_feasibility_for_drone(instance, solution, 0);
+    solution = fix_feasibility_for_drone(instance, solution, 0); 
     solution = fix_feasibility_for_drone(instance, solution, 1);
     solution = simple_fix_validity(solution);
     return solution;

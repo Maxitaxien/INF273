@@ -11,6 +11,10 @@ void nearest_neighbour_reassign(const Instance &inst, Solution &sol, int i) {
     if (sol.truck_route.size() <= 2)
         return;
 
+    // Guard index bounds explicitly
+    if (i <= 0 || i >= (int)sol.truck_route.size() - 1)
+        return;
+
     // `i` is an index in the truck route; convert to the node id.
     int point_node = sol.truck_route[i];
 

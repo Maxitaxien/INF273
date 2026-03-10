@@ -14,28 +14,18 @@ std::vector<std::string> split(const std::string& s, char delimiter);
  */
 bool includes_all_nodes(int n, const Solution& solution, bool debug);
 
-/**
- * Alternative version of inclues_all_nodes - splits string to verify.
- * (Note that other feasibility checks are not setup to check strings)
- */
-bool includes_all_nodes(int n, const std::string& submission, bool debug);
-
 bool specific_drone_flight_under_lim(const Instance& instance,
                                      const Solution& solution,
-                                     int drone_idx,      
+                                     int drone_idx,
                                      int flight_idx);
 
 /**
- * Check whether all drone flights are all under the flight limit.
- * (Should mainly be used for debugging. For feasibility checks, prefer all_drone_flights_feasible,
- * which performs the role of both all_drone_flights_under_lim and drone_flights_consistent all in one)
+ * Check whether all drone flights are under the flight limit including truck waiting at the rendezvous.
  */
-bool all_drone_flights_under_lim(const Instance& problem_instance, const Solution& solution, bool debug);
+bool all_drone_flights_under_lim_with_wait(const Instance& problem_instance, const Solution& solution, bool debug);
 
 /**
  * Check whether all drones launch before they land.
- * (Should mainly be used for debugging. For feasibility checks, prefer all_drone_flights_feasible,
- * which performs the role of both all_drone_flights_under_lim and drone_flights_consistent all in one)
  */
 bool drone_flights_consistent(const Solution& solution, bool debug);
 

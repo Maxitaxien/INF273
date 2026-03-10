@@ -76,7 +76,7 @@ std::vector<int> sort_by_distance_to_point_drone(const Instance &instance, const
     std::unordered_set<int> truck_set(solution.truck_route.begin(), solution.truck_route.end());
     int customer;
 
-    for (int i = 1; i < instance.n; i++)
+    for (int i = 1; i <= instance.n; i++)
     {
         if (i != point && truck_set.find(i) != truck_set.end())
         {
@@ -99,7 +99,7 @@ std::vector<int> sort_by_distance_to_point_truck(const Instance &instance, const
     std::vector<int> points;
     std::unordered_set<int> truck_set(solution.truck_route.begin(), solution.truck_route.end());
 
-    for (int i = 1; i < instance.n; i++)
+    for (int i = 1; i <= instance.n; i++)
     {
         if (i != point && truck_set.find(i) != truck_set.end())
         {
