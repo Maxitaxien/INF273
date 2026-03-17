@@ -174,3 +174,11 @@ void run_construction_algos()
     }
     create_markdown_tables(base_dir);
 }
+
+/**
+ * TODO: Create 
+ */
+void run_gam_algo()
+{
+    
+}
