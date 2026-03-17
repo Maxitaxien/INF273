@@ -13,6 +13,8 @@ namespace algorithms
 
     inline const std::map<std::string, Algorithm> construction = {
         {"Nearest Neighbour", nearest_neighbour_wrapper},
-        {"Construction", construction_wrapper}
-    };
+        {"Construction", construction_wrapper}};
+
+    inline const std::vector<Algorithm> escape = {
+        random_escape_wrapper};
 }

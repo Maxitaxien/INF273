@@ -13,7 +13,8 @@ using Operator = std::function<bool(const Instance &, Solution &)>;
  * This allows us to store a human-readable name for an operator and use it
  * when generating output folders / CSV headers.
  */
-struct NamedOperator {
+struct NamedOperator
+{
     std::string name;
     Operator op;
 };
@@ -50,10 +51,16 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol);
  */
 bool two_opt_random(const Instance &inst, Solution &sol);
 
-/** 
+/**
  * Perform nearest neighbour reassignment from a random index. Then swaps the chosen one within the route
  *
  * @return Non-meaningfull bool to conform - should always be valid move
- * 
+ *
  */
 bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol);
+
+/**
+ * Composite operator of removal and insertion cycle for ALNS
+ *
+ */
+bool alns_composite(const Instance &inst, Solution &sol);
