@@ -1,6 +1,7 @@
 #include "operators/replace_truck_delivery.h"
 #include "operators/helpers.h"
 #include "operators/solution_fixers.h"
+#include "verification/feasibility_check.h"
 #include "verification/solution.h"
 #include "datahandling/instance.h"
 #include "general/sort_drone_collection.h"
@@ -54,5 +55,6 @@ bool replace_truck_delivery(const Instance &inst, Solution &sol, int idx, int dr
         return false;
     }
 
-    return true;
+    sol = fix_overall_feasibility(inst, sol);
+    return master_check(inst, sol, false);
 }

@@ -4,6 +4,7 @@
 #include "operators/helpers.h"
 #include "operators/interval_helpers.h"
 #include "general/get_truck_arrival_times.h"
+#include "operators/drone_planner.h"
 #include <algorithm>
 #include <set>
 #include <unordered_map>
@@ -295,8 +296,17 @@ Solution fix_validity(const Instance &instance, Solution &solution, int drone)
 
 Solution fix_overall_feasibility(const Instance &instance, Solution &solution)
 {
-    solution = fix_feasibility_for_drone(instance, solution, 0); 
+    auto [planner_obj, planned_solution] = drone_planner(instance, solution);
+    (void)planner_obj;
+
+    if (master_check(instance, planned_solution, false))
+    {
+        return planned_solution;
+    }
+
+    solution = fix_feasibility_for_drone(instance, solution, 0);
     solution = fix_feasibility_for_drone(instance, solution, 1);
     solution = simple_fix_validity(solution);
     return solution;
 }
+

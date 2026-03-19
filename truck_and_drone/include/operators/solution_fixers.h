@@ -33,7 +33,10 @@ Solution &fix_feasibility_for_drone_alternative(const Instance &instance,
                                                 Solution &sol, int drone);
 
 /**
- * To be used when both drones are infeasible, to handle both at the same time.
+ * Repairs the full solution after a route mutation.
+ *
+ * The drone planner is tried first. If it fails to produce a feasible solution,
+ * the legacy per-drone fixers are used as a fallback.
  */
 Solution fix_overall_feasibility(const Instance &instance, Solution &solution);
 

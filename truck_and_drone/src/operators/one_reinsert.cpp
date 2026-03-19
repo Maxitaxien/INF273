@@ -3,13 +3,13 @@
 #include "verification/feasibility_check.h"
 #include "operators/helpers.h"
 #include "operators/solution_fixers.h"
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 
 bool one_reinsert(const Instance &inst, Solution &sol,
                   int pop, int insert, int idx)
 {
-    int value; // the node we’re moving
+    int value; // the node we're moving
 
     /* --- 1. remove the element --- */
     if (pop == 1)
@@ -68,7 +68,6 @@ bool one_reinsert(const Instance &inst, Solution &sol,
     }
 
     /* --- 3. keep the solution feasible/valid --- */
-    fix_overall_feasibility(inst, sol); // cheap enough to always run
-    simple_fix_validity(sol);
-    return true;
+    sol = fix_overall_feasibility(inst, sol);
+    return master_check(inst, sol, false);
 }

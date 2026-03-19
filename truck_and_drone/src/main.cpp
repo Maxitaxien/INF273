@@ -37,7 +37,7 @@ int main()
     run_all_algos(
         {NamedOperator{"1-insert", one_reinsert_random}, NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random}},
         {0.7, 0.3});
-    */
+
     run_all_algos(
     {
         NamedOperator{"Replace Truck Delivery", replace_truck_delivery_greedy}, 
@@ -53,6 +53,16 @@ int main()
         NamedOperator{"Two-Opt", two_opt_random}
     },
     {0.1, 0.2, 0.7}
+    );
+    */
+
+    run_all_algos(
+    {
+        NamedOperator{"1-reinsert", one_reinsert_random}, 
+        NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random},
+        NamedOperator{"Two-Opt", two_opt_random}
+    },
+    {0.3, 0.3, 0.4} 
     );
     
 }
