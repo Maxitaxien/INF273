@@ -26,8 +26,11 @@ Solution local_search(const Instance &instance,
         if (!success)
             continue; // skip if move was invalid
 
+        if (!master_check(instance, candidate, false))
+            continue;
+
         long long cost = objective_function_impl(instance, candidate);
-        if (cost < best_cost && master_check(instance, candidate, false))
+        if (cost < best_cost)
         {
             best_cost = cost;
             current = candidate; // accept improvement

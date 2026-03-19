@@ -41,8 +41,8 @@ Solution &fix_feasibility_for_drone_alternative(const Instance &instance,
 Solution fix_overall_feasibility(const Instance &instance, Solution &solution);
 
 /**
- * We get invalidity through 1-insert if a drone was landing at the final index, and we remove it from the truck route.
- * Simple fix method: Just add it back in again.
+ * Cheap validity normalizer for drone flights with stale or unusable truck indices.
+ * Invalid flights are removed and their delivered customers are appended back to the truck route.
  */
 Solution simple_fix_validity(Solution &solution);
 
@@ -51,3 +51,4 @@ Solution simple_fix_validity(Solution &solution);
  * Remove the now invalid launch -> deliver -> land sequence, then use greedy_assign_launch_and_land method on the missing delivery.
  */
 Solution fix_validity(const Instance &instance, Solution &solution, int drone);
+

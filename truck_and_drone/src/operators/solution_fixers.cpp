@@ -1,3 +1,4 @@
+#include "operators/solution_fixers.h"
 #include "verification/solution.h"
 #include "verification/feasibility_check.h"
 #include "datahandling/instance.h"
@@ -22,6 +23,7 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &ins
     if (std::find(sol.truck_route.begin(), sol.truck_route.end(), new_deliver) != sol.truck_route.end())
         return {false, sol};
 
+    simple_fix_validity(sol);
     std::set<Interval> drone_intervals = get_intervals(sol, drone);
 
     int maximum_lookahead;
@@ -109,6 +111,10 @@ std::pair<bool, Solution> greedy_assign_launch_and_land(const Instance &instance
     //  - does not overlap any existing flight of this drone
     //  - does not land at the final truck stop (invalid in this model)
     //  - does not attempt to deliver to a node that is already on the truck route
+
+    simple_fix_validity(solution);
+    if (std::find(solution.truck_route.begin(), solution.truck_route.end(), new_deliver) != solution.truck_route.end())
+        return {false, solution};
 
     std::set<Interval> drone_intervals = get_intervals(solution, drone);
 
@@ -255,7 +261,8 @@ Solution &fix_feasibility_for_drone_alternative(const Instance &instance,
 
 Solution simple_fix_validity(Solution &solution)
 {
-    int final_index = solution.truck_route.size() - 1;
+    const int route_size = static_cast<int>(solution.truck_route.size());
+    const int final_index = route_size - 1;
     std::vector<int> to_reinsert;
 
     for (int c = 0; c < solution.drones.size(); c++)
@@ -264,12 +271,16 @@ Solution simple_fix_validity(Solution &solution)
 
         for (int i = 0; i < dc.deliver_nodes.size();)
         {
-            int landing = dc.land_indices[i];
-            if (landing == final_index)
-            {
-                int deliver = dc.deliver_nodes[i];
-                to_reinsert.push_back(deliver);
+            const int launch = dc.launch_indices[i];
+            const int landing = dc.land_indices[i];
+            const bool invalid_index =
+                launch < 0 || landing < 0 ||
+                launch >= route_size || landing >= route_size ||
+                launch >= landing || landing >= final_index;
 
+            if (invalid_index)
+            {
+                to_reinsert.push_back(dc.deliver_nodes[i]);
                 dc.launch_indices.erase(dc.launch_indices.begin() + i);
                 dc.land_indices.erase(dc.land_indices.begin() + i);
                 dc.deliver_nodes.erase(dc.deliver_nodes.begin() + i);
@@ -296,6 +307,12 @@ Solution fix_validity(const Instance &instance, Solution &solution, int drone)
 
 Solution fix_overall_feasibility(const Instance &instance, Solution &solution)
 {
+    solution = simple_fix_validity(solution);
+    if (master_check(instance, solution, false))
+    {
+        return solution;
+    }
+
     auto [planner_obj, planned_solution] = drone_planner(instance, solution);
     (void)planner_obj;
 
@@ -309,4 +326,5 @@ Solution fix_overall_feasibility(const Instance &instance, Solution &solution)
     solution = simple_fix_validity(solution);
     return solution;
 }
+
 
