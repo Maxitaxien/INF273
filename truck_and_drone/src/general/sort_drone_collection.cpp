@@ -2,6 +2,7 @@
 #include "verification/solution.h"
 #include <numeric>
 #include <algorithm>
+
 void sort_drone_collection(DroneCollection &drones)
 {
     size_t n = drones.launch_indices.size();

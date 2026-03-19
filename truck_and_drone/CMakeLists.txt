@@ -18,9 +18,12 @@ add_library(core
     src/algorithms/blind_random_search.cpp
     src/algorithms/local_search.cpp
     src/algorithms/simulated_annealing.cpp
+    src/general/get_customer_positions.cpp
+    src/general/get_not_covered_by_truck.cpp
     src/general/get_truck_arrival_times.cpp
     src/general/split.cpp
     src/general/sort_drone_collection.cpp
+    src/general/random.cpp
     src/general/roulette_wheel_selection.cpp
     src/operators/helpers.cpp
     src/operators/interval_helpers.cpp

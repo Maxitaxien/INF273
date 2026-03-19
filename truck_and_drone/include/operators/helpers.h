@@ -1,9 +1,8 @@
 #pragma once
 #include "verification/solution.h"
 #include "datahandling/instance.h"
-#include <vector>
 #include <set>
-#include <unordered_map>
+#include <vector>
 
 /**
  * Remove truck delivery at index in truck route, returns it
@@ -43,8 +42,3 @@ std::vector<int> sort_by_distance_to_point_drone(const Instance &instance, const
  * Sorts points in accordance to closeness based on truck matrix, returns them in sorted order
  */
 std::vector<int> sort_by_distance_to_point_truck(const Instance &instance, const Solution &solution, int point);
-
-/**
- * Get index of each node within the truck route (getting their ordering)
- */
-std::unordered_map<int, int> get_node_positions(const Solution &solution);

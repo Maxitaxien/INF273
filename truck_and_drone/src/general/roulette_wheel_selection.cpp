@@ -1,6 +1,6 @@
 #include "general/roulette_wheel_selection.h"
+#include "general/random.h"
 #include <vector>
-#include <random>
 int roulette_wheel_selection_uniform(int n) {
     if (n <= 0) return 0;
     double uniform_fitness = 1.0 / n;
@@ -15,11 +15,7 @@ int roulette_wheel_selection(const std::vector<double>& fitness) {
         total_fitness += f;
 
     // Generate random number
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dist(0.0, total_fitness);
-
-    double r = dist(gen);
+    double r = rand_double(0.0, total_fitness);
 
     // 3. Find selected individual
     double cumulative = 0.0;

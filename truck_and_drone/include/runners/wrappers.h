@@ -10,6 +10,7 @@ using Algorithm = std::function<Solution(
     Solution,
     Operator)>;
 
+
 Solution blind_random_wrapper(
     const Instance &instance,
     Solution initial,

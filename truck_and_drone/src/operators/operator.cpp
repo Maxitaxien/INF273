@@ -1,17 +1,70 @@
-#include "datahandling/instance.h"
-#include "verification/solution.h"
+#include "operators/operator.h"
+#include "operators/nearest_neighbour_reassign.h"
 #include "operators/one_reinsert.h"
 #include "operators/replace_truck_delivery.h"
 #include "operators/two_opt.h"
-#include "operators/nearest_neighbour_reassign.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
-#include <vector>
-#include <random>
 #include <iostream>
+#include <random>
+#include <utility>
+#include <vector>
 
 extern std::mt19937 gen; // reuse global generator
 const long long INF = 4e18;
+
+Operator make_alns_operator(const ALNSOperator &op)
+{
+    return [op](const Instance &instance, Solution &sol) {
+        Solution candidate = sol;
+
+        if (!op.removal || !op.insertion)
+        {
+            return false;
+        }
+
+        if (!op.removal(instance, candidate, op.neighbourhood_size))
+        {
+            return false;
+        }
+
+        if (!op.insertion(instance, candidate, op.neighbourhood_size, op.regret_k))
+        {
+            return false;
+        }
+
+        sol = std::move(candidate);
+        return true;
+    };
+}
+
+NamedOperator make_named_alns_operator(const NamedALNSOperator &op)
+{
+    return NamedOperator{op.name, make_alns_operator(op.op)};
+}
+
+std::vector<NamedOperator> combine_alns_operator_pairs(
+    const std::vector<NamedRemovalHeuristic> &removals,
+    const std::vector<NamedInsertionHeuristic> &insertions,
+    int neighbourhood_size,
+    int regret_k)
+{
+    std::vector<NamedOperator> combined;
+    combined.reserve(removals.size() * insertions.size());
+
+    for (const NamedRemovalHeuristic &removal : removals)
+    {
+        for (const NamedInsertionHeuristic &insertion : insertions)
+        {
+            combined.push_back(make_named_alns_operator({
+                removal.name + " + " + insertion.name,
+                ALNSOperator{removal.op, insertion.op, neighbourhood_size, regret_k},
+            }));
+        }
+    }
+
+    return combined;
+}
 
 // Generate all valid neighbors (optional, may be expensive)
 std::vector<Solution> one_reinsert_operator(const Instance &instance, const Solution &sol)
@@ -119,7 +172,7 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
 
 bool two_opt_random(const Instance &inst, Solution &sol)
 {
-    // Random i, j, different from eachother, each in range 1 -> sol.truck_route.size() - 1
+    // Random i, j, different from each other, each in range 1 -> sol.truck_route.size() - 1
     if (sol.truck_route.size() < 4)
         return false; // Need at least 4 nodes for meaningful 2-opt
 
@@ -134,7 +187,6 @@ bool two_opt_random(const Instance &inst, Solution &sol)
     two_opt(inst, sol, i, j);
     return true;
 }
-
 
 bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
 {

@@ -1,13 +1,12 @@
 #include "operators/helpers.h"
-#include "verification/solution.h"
 #include "datahandling/instance.h"
-#include "verification/feasibility_check.h"
+#include "general/get_customer_positions.h"
 #include "general/get_truck_arrival_times.h"
-#include <vector>
+#include "verification/feasibility_check.h"
+#include "verification/solution.h"
 #include <algorithm>
-#include <unordered_set>
 #include <set>
-#include <unordered_map>
+#include <vector>
 
 int pop_truck_delivery(Solution &solution, int i)
 {
@@ -59,26 +58,14 @@ std::pair<bool, bool> drone_landed_at_back(const Solution &solution)
     return {drone_is_invalid[0], drone_is_invalid[1]};
 }
 
-std::unordered_map<int, int> get_node_positions(const Solution &solution)
-{
-    std::unordered_map<int, int> positions;
-    for (int i = 0; i < solution.truck_route.size(); i++)
-    {
-        positions[solution.truck_route[i]] = i;
-    }
-
-    return positions;
-}
-
 std::vector<int> sort_by_distance_to_point_drone(const Instance &instance, const Solution &solution, int point)
 {
     std::vector<int> points;
-    std::unordered_set<int> truck_set(solution.truck_route.begin(), solution.truck_route.end());
-    int customer;
+    const std::unordered_map<int, int> customer_positions = get_customer_positions(solution);
 
     for (int i = 1; i <= instance.n; i++)
     {
-        if (i != point && truck_set.find(i) != truck_set.end())
+        if (i != point && customer_positions.find(i) != customer_positions.end())
         {
             points.push_back(i);
         }
@@ -97,11 +84,11 @@ std::vector<int> sort_by_distance_to_point_drone(const Instance &instance, const
 std::vector<int> sort_by_distance_to_point_truck(const Instance &instance, const Solution &solution, int point)
 {
     std::vector<int> points;
-    std::unordered_set<int> truck_set(solution.truck_route.begin(), solution.truck_route.end());
+    const std::unordered_map<int, int> customer_positions = get_customer_positions(solution);
 
     for (int i = 1; i <= instance.n; i++)
     {
-        if (i != point && truck_set.find(i) != truck_set.end())
+        if (i != point && customer_positions.find(i) != customer_positions.end())
         {
             points.push_back(i);
         }
