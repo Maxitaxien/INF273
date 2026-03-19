@@ -1,16 +1,17 @@
-#include <iostream>
 #include <cassert>
+#include <iostream>
 #include <vector>
-#include "datahandling/reader.h"
+#include "algorithms/greedy_drone_cover.h"
+#include "algorithms/nearest_neighbour.h"
+#include "algorithms/simple_initial_solution.h"
 #include "datahandling/convert_to_submission.h"
 #include "datahandling/datasets.h"
-#include "algorithms/simple_initial_solution.h"
-#include "algorithms/nearest_neighbour.h"
-#include "algorithms/greedy_drone_cover.h"
+#include "datahandling/instance.h"
+#include "datahandling/reader.h"
 #include "operators/one_reinsert.h"
+#include "operators/operator.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
-#include "datahandling/instance.h"
 
 using namespace datasets;
 
@@ -94,6 +95,75 @@ void test_solution_consistency() {
     std::cout << "test_solution_consistency passed\n";
 }
 
+void test_alns_operator_applies_remove_then_insert() {
+    Instance instance{};
+    Solution solution{{0, 1}, {}};
+    std::vector<int> call_order;
+
+    ALNSOperator alns_op{
+        [&](const Instance &, Solution &candidate, int n) {
+            call_order.push_back(1);
+            assert(n == 2);
+            candidate.truck_route.push_back(2);
+            return true;
+        },
+        [&](const Instance &, Solution &candidate, int n, int k) {
+            call_order.push_back(2);
+            assert(n == 2);
+            assert(k == 3);
+            candidate.truck_route.push_back(3);
+            return true;
+        },
+        2,
+        3};
+
+    bool success = make_alns_operator(alns_op)(instance, solution);
+
+    assert(success);
+    assert((call_order == std::vector<int>{1, 2}));
+    assert((solution.truck_route == std::vector<int>{0, 1, 2, 3}));
+
+    std::cout << "test_alns_operator_applies_remove_then_insert passed\n";
+}
+
+void test_alns_operator_rolls_back_failed_insert() {
+    Instance instance{};
+    Solution solution{{0, 1, 2}, {}};
+    Solution original = solution;
+
+    ALNSOperator alns_op{
+        [](const Instance &, Solution &candidate, int) {
+            candidate.truck_route.pop_back();
+            return true;
+        },
+        [](const Instance &, Solution &, int, int) {
+            return false;
+        }};
+
+    bool success = make_alns_operator(alns_op)(instance, solution);
+
+    assert(!success);
+    assert(solution.truck_route == original.truck_route);
+
+    std::cout << "test_alns_operator_rolls_back_failed_insert passed\n";
+}
+
+void test_alns_pair_combination_materializes_named_operators() {
+    std::vector<NamedRemovalHeuristic> removals = {
+        {"Random Removal", [](const Instance &, Solution &, int) { return true; }},
+        {"Worst Removal", [](const Instance &, Solution &, int) { return true; }}};
+    std::vector<NamedInsertionHeuristic> insertions = {
+        {"Greedy Insert", [](const Instance &, Solution &, int, int) { return true; }}};
+
+    std::vector<NamedOperator> combined = combine_alns_operator_pairs(removals, insertions, 4, 1);
+
+    assert(combined.size() == 2);
+    assert(combined[0].name == "Random Removal + Greedy Insert");
+    assert(combined[1].name == "Worst Removal + Greedy Insert");
+
+    std::cout << "test_alns_pair_combination_materializes_named_operators passed\n";
+}
+
 int main() {
     try {
         test_instance_loading();
@@ -103,6 +173,9 @@ int main() {
         test_one_reinsert_bounds();
         test_objective_improvement();
         test_solution_consistency();
+        test_alns_operator_applies_remove_then_insert();
+        test_alns_operator_rolls_back_failed_insert();
+        test_alns_pair_combination_materializes_named_operators();
         std::cout << "\nAll tests passed\n";
     } catch (const std::exception& e) {
         std::cerr << "Test failed: " << e.what() << "\n";

@@ -1,6 +1,6 @@
 #include "algorithms/greedy_drone_cover.h"
+#include "general/get_customer_positions.h"
 #include <vector>
-#include <unordered_map>
 
 const int DRONES = 2;
 
@@ -36,14 +36,14 @@ Solution greedy_drone_cover(const Instance& inst, Solution base) {
 
             // Add concrete nodes first, need to adjust indices later anyway
             DroneCollection& drone_collection = copy[d];
-            drone_collection.launch_indices.push_back(a); // actually represents node      
+            drone_collection.launch_indices.push_back(a); // actually represents node
             drone_collection.deliver_nodes.push_back(b);
             drone_collection.land_indices.push_back(c);
 
-            i += 2; 
+            i += 2;
         } else {
             new_solution.truck_route.push_back(b);
-            i += 2; 
+            i += 2;
         }
     }
 
@@ -53,23 +53,19 @@ Solution greedy_drone_cover(const Instance& inst, Solution base) {
         i++;
     }
 
-    // get indices for nodes
-    std::unordered_map<int, int> node_to_idx;
-    for (int i = 0; i < new_solution.truck_route.size(); i++) {
-        node_to_idx[new_solution.truck_route[i]] = i;
-    }
+    const std::unordered_map<int, int> customer_positions = get_customer_positions(new_solution);
 
     // Fix indices for drone trips
     for (int d = 0; d < DRONES; d++) {
         for (int i = 0; i < copy[d].launch_indices.size(); i++) {
-            int launch_idx = node_to_idx[copy[d].launch_indices[i]];
+            int launch_idx = customer_positions.at(copy[d].launch_indices[i]);
             int deliver = copy[d].deliver_nodes[i];
-            int land_idx = node_to_idx[copy[d].land_indices[i]];
+            int land_idx = customer_positions.at(copy[d].land_indices[i]);
 
             new_solution.drones[d].launch_indices.push_back(launch_idx);
             new_solution.drones[d].deliver_nodes.push_back(deliver);
             new_solution.drones[d].land_indices.push_back(land_idx);
-        } 
+        }
     }
 
     return new_solution;

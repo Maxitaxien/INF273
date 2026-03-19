@@ -20,10 +20,13 @@ Solution general_adaptive_metaheuristic_alns(
 
     while (amnt_iterations < 10000)
     {
+        /* TODO: Escape algo. Accepts all new solutions regardless of objective value.
         if (non_improving_iter > escape_condition)
         {
-            curr_solution = escape_algorithm(curr_solution);
+            curr_solution = escape_algorithm(inst, curr_solution,);
         }
+        */
+       
 
         amnt_iterations++;
     }

@@ -17,6 +17,10 @@ struct AdaptiveALNSCompositeOperator
 
     int current_n;
 
+    void normalize_weights(std::vector<double> weights) {
+
+    }
+
     bool operator()(const Instance &inst, Solution &sol)
     {
         iteration++;
@@ -34,7 +38,8 @@ struct AdaptiveALNSCompositeOperator
 
         if (iteration % segment_length == 0)
         {
-            // update weights here
+            // update weights
+
         }
 
         return true;

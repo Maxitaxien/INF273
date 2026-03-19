@@ -33,6 +33,7 @@ add_library(core
     src/operators/two_opt.cpp
     src/operators/nearest_neighbour_reassign.cpp
     src/operators/solution_fixers.cpp
+    src/operators/drone_planner.cpp
     src/verification/feasibility_check.cpp
     src/verification/objective_value.cpp
     src/runners/run_algorithm.cpp
