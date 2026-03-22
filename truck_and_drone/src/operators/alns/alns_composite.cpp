@@ -38,7 +38,7 @@ struct AdaptiveALNSCompositeOperator
 
         if (iteration % segment_length == 0)
         {
-            // update weights
+            // TODO: update weights
 
         }
 
