@@ -5,4 +5,4 @@
 /**
  * Removes n random elements from the solution.
  */
-bool random_removal(const Instance &inst, Solution &sol, int n);
+std::pair<bool, std::vector<int>> random_removal(const Instance &inst, Solution &sol, int n);

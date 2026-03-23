@@ -28,11 +28,11 @@ struct AdaptiveALNSCompositeOperator
         int r = roulette_wheel_selection(removal_weights);
         int i = roulette_wheel_selection(insertion_weights);
 
-        bool removed = removal_ops[r](inst, sol, current_n);
-        if (!removed)
+        std::pair<bool, std::vector<int>> removed = removal_ops[r](inst, sol, current_n);
+        if (!removed.first)
             return false;
 
-        bool inserted = insertion_ops[i](inst, sol, current_n, 0); // call with k = 0 always for now
+        bool inserted = insertion_ops[i](inst, sol, removed.second, 0); // call with k = 0 always for now
         if (!inserted)
             return false;
 
