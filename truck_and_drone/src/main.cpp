@@ -11,6 +11,7 @@
 #include "algorithms/blind_random_search.h"
 #include "algorithms/local_search.h"
 #include "algorithms/simulated_annealing.h"
+#include "operators/alns/alns_composite.h"
 #include "operators/operator.h"
 #include "operators/two_opt.h"
 #include "runners/run_algorithm.h"
@@ -57,12 +58,10 @@ int main()
     */
 
     run_all_algos(
-    {
-        NamedOperator{"1-reinsert", one_reinsert_random}, 
-        NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random},
-        NamedOperator{"Two-Opt", two_opt_random}
-    },
-    {0.3, 0.3, 0.4} 
+        NamedOperator{
+            "ALNS Composite Random Removal + Greedy Insert",
+            AdaptiveCompositeOperator(
+                alns_heuristic::removal,
+                alns_heuristic::insertion)}
     );
-    
 }

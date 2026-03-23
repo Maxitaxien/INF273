@@ -1,46 +1,54 @@
-#pragma once
 #include "operators/alns/random_removal.h"
 #include "datahandling/instance.h"
-#include "verification/solution.h"
 #include "general/random.h"
+#include "operators/helpers.h"
+#include "verification/solution.h"
 #include <vector>
 
-std::pair<bool, std::vector<int>> random_removal(const Instance &inst, Solution &sol, int n) {
-    std::vector<int> result;
-    for (int i = 0; i < n; i++) {
-        // First: Choose whether to remove from truck, drone 1 or drone 2
-        std::vector<int> values;
-        int start = 0;
-        bool from_drone = false;
-        int segment;
+std::pair<bool, std::vector<int>> random_removal(const Instance &inst, Solution &sol, int n)
+{
+    (void)inst;
 
-        while (values.size() == 0) { // reselect if an empty segment is chosen
-            segment = rand_int(0, 2);
+    std::vector<int> removed;
+    removed.reserve(n);
 
-            std::vector<int> values;
+    for (int iter = 0; iter < n; ++iter)
+    {
+        std::vector<int> removable_segments;
 
-            if (segment == 0) {
-                values = sol.truck_route;
-                start = 1;
-            } 
-            else {
-                values = sol.drones[segment - 1].deliver_nodes;
-                from_drone = true;
+        if (sol.truck_route.size() > 1)
+        {
+            removable_segments.push_back(0);
+        }
+
+        for (int drone = 0; drone < static_cast<int>(sol.drones.size()); ++drone)
+        {
+            if (!sol.drones[drone].deliver_nodes.empty())
+            {
+                removable_segments.push_back(drone + 1);
             }
         }
 
-        int position = rand_int(start, values.size() - 1);
-        int value = values[position];
-        values.erase(values.begin() + position);
-
-        if (from_drone) {
-            sol.drones[segment - 1].launch_indices.erase(sol.drones[segment - 1].launch_indices.begin() + position);
-            sol.drones[segment - 1].land_indices.erase(sol.drones[segment - 1].land_indices.begin() + position);
+        if (removable_segments.empty())
+        {
+            return {false, removed};
         }
 
-        result.push_back(value);
+        const int chosen_segment =
+            removable_segments[rand_int(0, static_cast<int>(removable_segments.size()) - 1)];
+
+        if (chosen_segment == 0)
+        {
+            const int truck_idx = rand_int(1, static_cast<int>(sol.truck_route.size()) - 1);
+            removed.push_back(pop_truck_delivery(sol, truck_idx));
+            continue;
+        }
+
+        const int drone = chosen_segment - 1;
+        const int drone_idx = rand_int(0, static_cast<int>(sol.drones[drone].deliver_nodes.size()) - 1);
+        removed.push_back(sol.drones[drone].deliver_nodes[drone_idx]);
+        remove_drone_flight(sol, drone, drone_idx);
     }
 
-    return {true, result};
-
+    return {true, removed};
 }

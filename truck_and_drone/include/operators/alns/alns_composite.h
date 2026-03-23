@@ -2,7 +2,6 @@
 #include "operators/alns/signatures.h"
 #include "operators/alns/greedy_insert.h"
 #include "operators/alns/random_removal.h"
-#include "operators/alns/worst_removal.h"
 #include "datahandling/instance.h"
 #include "verification/solution.h"
 #include "operators/operator.h"
@@ -13,7 +12,6 @@
 namespace alns_heuristic
 {
     inline const std::vector<RemovalHeuristic> removal = {
-        worst_removal,
         random_removal};
 
     inline const std::vector<InsertionHeuristic> insertion = {

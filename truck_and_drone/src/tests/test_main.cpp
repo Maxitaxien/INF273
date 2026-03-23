@@ -8,6 +8,7 @@
 #include "datahandling/datasets.h"
 #include "datahandling/instance.h"
 #include "datahandling/reader.h"
+#include "operators/alns/alns_composite.h"
 #include "operators/one_reinsert.h"
 #include "operators/operator.h"
 #include "verification/feasibility_check.h"
@@ -105,11 +106,11 @@ void test_alns_operator_applies_remove_then_insert() {
             call_order.push_back(1);
             assert(n == 2);
             candidate.truck_route.push_back(2);
-            return true;
+            return std::pair<bool, std::vector<int>>{true, std::vector<int>{7, 8}};
         },
-        [&](const Instance &, Solution &candidate, int n, int k) {
+        [&](const Instance &, Solution &candidate, std::vector<int> removed, int k) {
             call_order.push_back(2);
-            assert(n == 2);
+            assert((removed == std::vector<int>{7, 8}));
             assert(k == 3);
             candidate.truck_route.push_back(3);
             return true;
@@ -134,9 +135,9 @@ void test_alns_operator_rolls_back_failed_insert() {
     ALNSOperator alns_op{
         [](const Instance &, Solution &candidate, int) {
             candidate.truck_route.pop_back();
-            return true;
+            return std::pair<bool, std::vector<int>>{true, std::vector<int>{2}};
         },
-        [](const Instance &, Solution &, int, int) {
+        [](const Instance &, Solution &, std::vector<int>, int) {
             return false;
         }};
 
@@ -150,10 +151,14 @@ void test_alns_operator_rolls_back_failed_insert() {
 
 void test_alns_pair_combination_materializes_named_operators() {
     std::vector<NamedRemovalHeuristic> removals = {
-        {"Random Removal", [](const Instance &, Solution &, int) { return true; }},
-        {"Worst Removal", [](const Instance &, Solution &, int) { return true; }}};
+        {"Random Removal", [](const Instance &, Solution &, int) {
+             return std::pair<bool, std::vector<int>>{true, std::vector<int>{}};
+         }},
+        {"Worst Removal", [](const Instance &, Solution &, int) {
+             return std::pair<bool, std::vector<int>>{true, std::vector<int>{}};
+         }}};
     std::vector<NamedInsertionHeuristic> insertions = {
-        {"Greedy Insert", [](const Instance &, Solution &, int, int) { return true; }}};
+        {"Greedy Insert", [](const Instance &, Solution &, std::vector<int>, int) { return true; }}};
 
     std::vector<NamedOperator> combined = combine_alns_operator_pairs(removals, insertions, 4, 1);
 
@@ -162,6 +167,29 @@ void test_alns_pair_combination_materializes_named_operators() {
     assert(combined[1].name == "Worst Removal + Greedy Insert");
 
     std::cout << "test_alns_pair_combination_materializes_named_operators passed\n";
+}
+
+void test_adaptive_composite_operator_rolls_back_failed_insert() {
+    Instance instance{};
+    Solution solution{{0, 1, 2}, {}};
+    Solution original = solution;
+
+    AdaptiveCompositeOperator composite(
+        {[](const Instance &, Solution &candidate, int) {
+            candidate.truck_route.pop_back();
+            return std::pair<bool, std::vector<int>>{true, std::vector<int>{2}};
+        }},
+        {[](const Instance &, Solution &, std::vector<int>, int) {
+            return false;
+        }},
+        1);
+
+    bool success = composite(instance, solution);
+
+    assert(!success);
+    assert(solution.truck_route == original.truck_route);
+
+    std::cout << "test_adaptive_composite_operator_rolls_back_failed_insert passed\n";
 }
 
 int main() {
@@ -176,6 +204,7 @@ int main() {
         test_alns_operator_applies_remove_then_insert();
         test_alns_operator_rolls_back_failed_insert();
         test_alns_pair_combination_materializes_named_operators();
+        test_adaptive_composite_operator_rolls_back_failed_insert();
         std::cout << "\nAll tests passed\n";
     } catch (const std::exception& e) {
         std::cerr << "Test failed: " << e.what() << "\n";

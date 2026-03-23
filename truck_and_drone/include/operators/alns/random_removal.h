@@ -1,6 +1,8 @@
 #pragma once
 #include "datahandling/instance.h"
 #include "verification/solution.h"
+#include <utility>
+#include <vector>
 
 /**
  * Removes n random elements from the solution.

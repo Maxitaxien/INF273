@@ -23,12 +23,14 @@ Operator make_alns_operator(const ALNSOperator &op)
             return false;
         }
 
-        if (!op.removal(instance, candidate, op.neighbourhood_size))
+        const auto [removed_ok, removed_nodes] =
+            op.removal(instance, candidate, op.neighbourhood_size);
+        if (!removed_ok)
         {
             return false;
         }
 
-        if (!op.insertion(instance, candidate, op.neighbourhood_size, op.regret_k))
+        if (!op.insertion(instance, candidate, removed_nodes, op.regret_k))
         {
             return false;
         }

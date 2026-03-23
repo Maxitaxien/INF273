@@ -28,6 +28,9 @@ add_library(core
     src/operators/helpers.cpp
     src/operators/interval_helpers.cpp
     src/operators/operator.cpp
+    src/operators/alns/random_removal.cpp
+    src/operators/alns/greedy_insert.cpp
+    src/operators/alns/alns_composite.cpp
     src/operators/one_reinsert.cpp
     src/operators/replace_truck_delivery.cpp
     src/operators/two_opt.cpp
