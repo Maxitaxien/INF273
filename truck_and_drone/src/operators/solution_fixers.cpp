@@ -29,7 +29,7 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &ins
     int maximum_lookahead;
     // estimate how many positions ahead to consider; if there are existing launch
     // indices we don't want to overlap them, otherwise just use the lookahead
-    if (sol.drones[drone].launch_indices.size() < look_ahead)
+    if ((int)(sol.drones[drone].launch_indices.size()) < look_ahead)
     {
         maximum_lookahead = look_ahead;
     }
@@ -41,7 +41,7 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(const Instance &ins
             i++;
         }
         // clamp at next existing launch (or look_ahead, whichever is smaller)
-        if (i == sol.drones[drone].launch_indices.size())
+        if (i == (int)(sol.drones[drone].launch_indices.size()))
             maximum_lookahead = look_ahead;
         else
             maximum_lookahead = std::min(sol.drones[drone].launch_indices[i] - idx, look_ahead);
@@ -200,7 +200,7 @@ Solution &fix_feasibility_for_drone(const Instance &instance, Solution &sol, int
     DroneCollection &c = sol.drones[drone];
     std::set<Interval> intervals = get_intervals(sol, drone);
 
-    for (int i = 0; i < c.launch_indices.size();)
+    for (int i = 0; i < (int)(c.launch_indices.size());)
     {
         int launch_idx = c.launch_indices[i];
         int land_idx = c.land_indices[i];
@@ -236,7 +236,7 @@ Solution &fix_feasibility_for_drone_alternative(const Instance &instance,
     DroneCollection &c = sol.drones[drone];
     std::set<Interval> intervals = get_intervals(sol, drone);
 
-    for (int i = 0; i < c.launch_indices.size(); ++i)
+    for (int i = 0; i < (int)(c.launch_indices.size()); ++i)
     {
         int launch = c.launch_indices[i];
         int land = c.land_indices[i];
@@ -261,15 +261,15 @@ Solution &fix_feasibility_for_drone_alternative(const Instance &instance,
 
 Solution simple_fix_validity(Solution &solution)
 {
-    const int route_size = static_cast<int>(solution.truck_route.size());
+    const int route_size = (int)(solution.truck_route.size());
     const int final_index = route_size - 1;
     std::vector<int> to_reinsert;
 
-    for (int c = 0; c < solution.drones.size(); c++)
+    for (int c = 0; c < (int)(solution.drones.size()); c++)
     {
         DroneCollection &dc = solution.drones[c];
 
-        for (int i = 0; i < dc.deliver_nodes.size();)
+        for (int i = 0; i < (int)(dc.deliver_nodes.size());)
         {
             const int launch = dc.launch_indices[i];
             const int landing = dc.land_indices[i];
@@ -302,6 +302,8 @@ Solution simple_fix_validity(Solution &solution)
 
 Solution fix_validity(const Instance &instance, Solution &solution, int drone)
 {
+    (void)instance;
+    (void)drone;
     return solution;
 }
 
@@ -326,5 +328,9 @@ Solution fix_overall_feasibility(const Instance &instance, Solution &solution)
     solution = simple_fix_validity(solution);
     return solution;
 }
+
+
+
+
 
 

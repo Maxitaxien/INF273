@@ -81,10 +81,10 @@ P build_p(const Instance &inst, const Solution &curr_sol)
     for (int drone_customer : drone_customers)
     {
         std::vector<Flight> &candidates = result[drone_customer];
-        for (int launch_idx = 0; launch_idx < static_cast<int>(route.size()); ++launch_idx)
+        for (int launch_idx = 0; launch_idx < (int)(route.size()); ++launch_idx)
         {
             const int launch_node = route[launch_idx];
-            for (int land_idx = launch_idx + 1; land_idx < static_cast<int>(route.size()); ++land_idx)
+            for (int land_idx = launch_idx + 1; land_idx < (int)(route.size()); ++land_idx)
             {
                 const int land_node = route[land_idx];
                 const long long duration =
@@ -123,7 +123,7 @@ std::pair<long long, Solution> drone_planner(
             clear_drone_schedule(drone);
         }
 
-        for (int d = 0; d < static_cast<int>(curr.drones.size()) && iteration_valid; ++d)
+        for (int d = 0; d < (int)(curr.drones.size()) && iteration_valid; ++d)
         {
             const std::vector<int> &customers = curr_sol.drones[d].deliver_nodes;
             if (customers.empty())
@@ -181,3 +181,4 @@ std::pair<long long, Solution> drone_planner(
 
     return {best, best_sol};
 }
+

@@ -16,7 +16,7 @@ long long objective_function_impl(const Instance &instance, const Solution &solu
     long long total_time = total_drone_arrival;
 
     // Add truck arrival times (excluding depot)
-    for (int i = 1; i < static_cast<int>(solution.truck_route.size()); ++i)
+    for (int i = 1; i < (int)(solution.truck_route.size()); ++i)
     {
         total_time += t_arrival[i];
     }
@@ -24,3 +24,4 @@ long long objective_function_impl(const Instance &instance, const Solution &solu
     // Scale units
     return total_time / 100;
 }
+

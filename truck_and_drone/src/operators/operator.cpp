@@ -84,9 +84,9 @@ std::vector<Solution> one_reinsert_operator(const Instance &instance, const Solu
             for (int idx = 1; idx <= truck_size_after_pop; ++idx)
             {
                 // Skip invalid drone pop/insert
-                if (pop > 1 && (pop - 2 >= sol.drones.size() || sol.drones[pop - 2].deliver_nodes.empty()))
+                if (pop > 1 && (pop - 2 >= (int)(sol.drones.size()) || sol.drones[pop - 2].deliver_nodes.empty()))
                     continue;
-                if (insert > 1 && (insert - 2 >= sol.drones.size()))
+                if (insert > 1 && (insert - 2 >= (int)(sol.drones.size())))
                     continue;
 
                 Solution neighbor = sol; // one copy per trial
@@ -117,8 +117,8 @@ bool one_reinsert_random(const Instance &instance, Solution &sol)
         pop = pop_dist(gen);
         insert = insert_dist(gen);
     } while (
-        (pop > 1 && (pop - 2 >= sol.drones.size() || sol.drones[pop - 2].deliver_nodes.empty())) ||
-        (insert > 1 && insert - 2 >= sol.drones.size()));
+        (pop > 1 && (pop - 2 >= (int)(sol.drones.size()) || sol.drones[pop - 2].deliver_nodes.empty())) ||
+        (insert > 1 && insert - 2 >= (int)(sol.drones.size())));
 
     int truck_size_after_pop = sol.truck_route.size();
     if (pop == 1 && !sol.truck_route.empty())
@@ -136,6 +136,8 @@ bool one_reinsert_random(const Instance &instance, Solution &sol)
 // Generate a one_reinsert candidate by greedily evaluating insertion candidates
 bool one_reinsert_greedy(const Instance &instance, Solution &sol)
 {
+    (void)instance;
+    (void)sol;
     return false;
 }
 
@@ -205,3 +207,7 @@ bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
     nearest_neighbour_reassign(inst, sol, i);
     return true;
 }
+
+
+
+

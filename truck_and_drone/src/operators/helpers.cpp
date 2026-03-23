@@ -1,18 +1,12 @@
 #include "operators/helpers.h"
-#include "datahandling/instance.h"
 #include "general/get_customer_positions.h"
-#include "general/get_truck_arrival_times.h"
-#include "verification/feasibility_check.h"
-#include "verification/solution.h"
 #include <algorithm>
-#include <set>
 #include <vector>
 
 int pop_truck_delivery(Solution &solution, int i)
 {
     int popped = solution.truck_route[i];
-    solution.truck_route.erase(
-        solution.truck_route.begin() + i);
+    solution.truck_route.erase(solution.truck_route.begin() + i);
     return popped;
 }
 
@@ -40,22 +34,30 @@ void remove_drone_flight(Solution &solution, int drone)
 
 std::pair<bool, bool> drone_landed_at_back(const Solution &solution)
 {
-    int final_index = solution.truck_route.size() - 1;
+    const int final_index = (int)(solution.truck_route.size()) - 1;
+    std::pair<bool, bool> drone_is_invalid{false, false};
 
-    std::vector<bool> drone_is_invalid(2);
-
-    for (int c = 0; c < solution.drones.size(); c++)
+    const int drone_count = std::min(2, (int)(solution.drones.size()));
+    for (int drone = 0; drone < drone_count; ++drone)
     {
-        DroneCollection dc = solution.drones[c];
+        const DroneCollection &dc = solution.drones[drone];
         for (int landing : dc.land_indices)
         {
             if (landing == final_index)
             {
-                drone_is_invalid[c] = true;
+                if (drone == 0)
+                {
+                    drone_is_invalid.first = true;
+                }
+                else
+                {
+                    drone_is_invalid.second = true;
+                }
+                break;
             }
         }
     }
-    return {drone_is_invalid[0], drone_is_invalid[1]};
+    return drone_is_invalid;
 }
 
 std::vector<int> sort_by_distance_to_point_drone(const Instance &instance, const Solution &solution, int point)
@@ -71,7 +73,6 @@ std::vector<int> sort_by_distance_to_point_drone(const Instance &instance, const
         }
     }
 
-    // Sort indices by distance
     std::sort(points.begin(), points.end(),
               [&](int a, int b)
               {
@@ -94,7 +95,6 @@ std::vector<int> sort_by_distance_to_point_truck(const Instance &instance, const
         }
     }
 
-    // Sort indices by distance
     std::sort(points.begin(), points.end(),
               [&](int a, int b)
               {
@@ -103,3 +103,4 @@ std::vector<int> sort_by_distance_to_point_truck(const Instance &instance, const
 
     return points;
 }
+

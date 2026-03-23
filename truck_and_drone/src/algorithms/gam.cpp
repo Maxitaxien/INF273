@@ -9,8 +9,6 @@
 #include <utility>
 #include <vector>
 
-namespace
-{
 struct GAMStatistics
 {
     int operator_failures = 0;
@@ -19,6 +17,7 @@ struct GAMStatistics
     int improving_accepts = 0;
     int non_improving_accepts = 0;
     int best_updates = 0;
+    int best_found_iter = 0;
 };
 
 struct GAMOperatorStatistics
@@ -46,7 +45,7 @@ std::vector<double> initialize_weights(
         return weights;
     }
 
-    for (int i = 0; i < static_cast<int>(ops.size()); ++i)
+    for (int i = 0; i < (int)(ops.size()); ++i)
     {
         if (initial_weights[i] > 0.0)
         {
@@ -64,7 +63,7 @@ std::vector<GAMOperatorStatistics> build_operator_statistics(
     std::vector<GAMOperatorStatistics> result;
     result.reserve(ops.size());
 
-    for (int i = 0; i < static_cast<int>(ops.size()); ++i)
+    for (int i = 0; i < (int)(ops.size()); ++i)
     {
         const std::string fallback_name = "Operator " + std::to_string(i);
         result.push_back(GAMOperatorStatistics{
@@ -191,7 +190,6 @@ void log_gam_summary(
 
     log_operator_statistics(operator_stats);
 }
-}
 
 Solution general_adaptive_metaheuristic(
     const Instance &instance,
@@ -201,7 +199,7 @@ Solution general_adaptive_metaheuristic(
 {
     if (ops.empty())
     {
-        return std::move(initial);
+        return initial;
     }
 
     Solution incumbent = std::move(initial);
@@ -223,7 +221,7 @@ Solution general_adaptive_metaheuristic(
 
     for (int i = 0; i < max_iterations; ++i)
     {
-        // TODO: Replace this with your actual escape/diversification phase.
+        // TODO: Replace this with escape/diversification phase.
         if (non_improving_iterations >= stopping_condition)
         {
             non_improving_iterations = 0;
@@ -258,10 +256,11 @@ Solution general_adaptive_metaheuristic(
                 accept = true;
                 stats.improving_accepts++;
                 selected.improving_accepts++;
+                stats.best_found_iter = i;
             }
             else
             {
-                // TODO: Replace this with your chosen acceptance rule.
+                // TODO: Replace this with chosen acceptance rule.
                 // With the current hill-climbing default, only improving moves are accepted.
                 accept = false;
             }
@@ -312,3 +311,5 @@ Solution general_adaptive_metaheuristic(
     log_gam_summary(incumbent_cost, best_cost, non_improving_iterations, stats, operator_stats);
     return best;
 }
+
+

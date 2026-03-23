@@ -125,12 +125,12 @@ bool specific_drone_flight_under_lim(const Instance& instance,
 bool all_drone_flights_under_lim_with_wait(const Instance& instance,
                                            const Solution& solution,
                                            bool debug = false) {
-    const int m = static_cast<int>(solution.truck_route.size());
+    const int m = (int)(solution.truck_route.size());
     if (m == 0) return false;
 
     // Precompute drone returns by truck index
     std::vector<std::vector<std::pair<int, int>>> drone_returns_at(m);
-    for (int d = 0; d < static_cast<int>(solution.drones.size()); ++d) {
+    for (int d = 0; d < (int)(solution.drones.size()); ++d) {
         const DroneCollection& c = solution.drones[d];
         if (c.launch_indices.size() != c.land_indices.size() ||
             c.launch_indices.size() != c.deliver_nodes.size()) {
@@ -140,7 +140,7 @@ bool all_drone_flights_under_lim_with_wait(const Instance& instance,
             return false;
         }
 
-        for (int t = 0; t < static_cast<int>(c.launch_indices.size()); ++t) {
+        for (int t = 0; t < (int)(c.launch_indices.size()); ++t) {
             int land_idx = c.land_indices[t];
             if (land_idx < 0 || land_idx >= m) {
                 if (debug) {
@@ -235,7 +235,7 @@ bool drone_flights_consistent(const Solution& solution, bool debug = false) {
         std::vector<std::pair<int, int>> flights;
         flights.reserve(c.launch_indices.size());
 
-        for (int i = 0; i < c.launch_indices.size(); i++) {
+        for (int i = 0; i < (int)(c.launch_indices.size()); i++) {
             int launch_idx = c.launch_indices[i];
             int land_idx = c.land_indices[i];
 
@@ -289,3 +289,5 @@ bool master_check(const Instance& problem_instance, const Solution& solution, bo
             includes_all_nodes(problem_instance.n, solution, debug) &&
             all_drone_flights_feasible(problem_instance, solution, debug));
 }
+
+

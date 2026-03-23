@@ -1,15 +1,15 @@
 #include "operators/interval_helpers.h"
 #include "verification/solution.h"
-#include "datahandling/instance.h"
-#include <set>
 #include <limits>
+#include <set>
 
 std::set<Interval> get_intervals(const Solution &solution, int drone)
 {
     std::set<Interval> intervals;
     const DroneCollection &collection = solution.drones[drone];
+    const int flight_count = (int)(collection.launch_indices.size());
 
-    for (int i = 0; i < collection.launch_indices.size(); i++)
+    for (int i = 0; i < flight_count; ++i)
     {
         Interval interval;
         interval.start = collection.launch_indices[i];
@@ -35,17 +35,17 @@ bool overlaps(const std::set<Interval> &intervals, int pos1, int pos2)
 
 int find_containing_interval_index(const std::set<Interval> &intervals, int pos)
 {
-    // Find the first interval whose start is > pos
     auto it = intervals.upper_bound({pos, std::numeric_limits<int>::max()});
 
     if (it == intervals.begin())
-        return -1; // all intervals start after pos
+        return -1;
 
-    --it; // candidate interval
+    --it;
     if (it->start <= pos && pos <= it->end)
     {
-        return std::distance(intervals.begin(), it); // index of interval
+        return std::distance(intervals.begin(), it);
     }
 
-    return -1; // not found
+    return -1;
 }
+

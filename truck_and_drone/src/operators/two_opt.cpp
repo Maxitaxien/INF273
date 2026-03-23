@@ -1,11 +1,12 @@
 #include "operators/two_opt.h"
-#include "verification/solution.h"
 #include "operators/solution_fixers.h"
+#include "verification/solution.h"
 #include <vector>
 
 void two_opt(const Instance &inst, Solution &solution, int first, int second)
 {
-    std::vector<int> new_truck_route(solution.truck_route.size());
+    const int route_size = (int)(solution.truck_route.size());
+    std::vector<int> new_truck_route(route_size);
 
     // 1: Add all up to and including first position
     for (int i = 0; i <= first; i++)
@@ -21,12 +22,12 @@ void two_opt(const Instance &inst, Solution &solution, int first, int second)
     }
 
     // 3: Add the rest
-    for (int k = second + 1; k < solution.truck_route.size(); k++)
+    for (int k = second + 1; k < route_size; k++)
     {
         new_truck_route[k] = solution.truck_route[k];
     }
 
     solution.truck_route = new_truck_route;
-
     solution = fix_overall_feasibility(inst, solution);
 }
+

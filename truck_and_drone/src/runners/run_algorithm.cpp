@@ -85,7 +85,7 @@ NamedOperator build_run_operator(
 Operator make_uniform_weighted_selector(const std::vector<NamedOperator> &ops)
 {
     return [ops](const Instance &instance, Solution &sol) {
-        int idx = roulette_wheel_selection_uniform(static_cast<int>(ops.size()));
+        int idx = roulette_wheel_selection_uniform((int)(ops.size()));
         return ops[idx].op(instance, sol);
     };
 }
@@ -300,3 +300,4 @@ void run_construction_algos()
     }
     create_markdown_tables(base_dir);
 }
+

@@ -21,7 +21,7 @@ std::pair<bool, std::vector<int>> random_removal(const Instance &inst, Solution 
             removable_segments.push_back(0);
         }
 
-        for (int drone = 0; drone < static_cast<int>(sol.drones.size()); ++drone)
+        for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
         {
             if (!sol.drones[drone].deliver_nodes.empty())
             {
@@ -35,20 +35,21 @@ std::pair<bool, std::vector<int>> random_removal(const Instance &inst, Solution 
         }
 
         const int chosen_segment =
-            removable_segments[rand_int(0, static_cast<int>(removable_segments.size()) - 1)];
+            removable_segments[rand_int(0, (int)(removable_segments.size()) - 1)];
 
         if (chosen_segment == 0)
         {
-            const int truck_idx = rand_int(1, static_cast<int>(sol.truck_route.size()) - 1);
+            const int truck_idx = rand_int(1, (int)(sol.truck_route.size()) - 1);
             removed.push_back(pop_truck_delivery(sol, truck_idx));
             continue;
         }
 
         const int drone = chosen_segment - 1;
-        const int drone_idx = rand_int(0, static_cast<int>(sol.drones[drone].deliver_nodes.size()) - 1);
+        const int drone_idx = rand_int(0, (int)(sol.drones[drone].deliver_nodes.size()) - 1);
         removed.push_back(sol.drones[drone].deliver_nodes[drone_idx]);
         remove_drone_flight(sol, drone, drone_idx);
     }
 
     return {true, removed};
 }
+

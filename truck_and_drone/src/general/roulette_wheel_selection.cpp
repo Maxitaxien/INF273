@@ -48,13 +48,14 @@ int roulette_wheel_selection(const std::vector<double>& fitness)
 
     if (total_fitness <= 0.0)
     {
-        return roulette_wheel_selection_uniform(fitness.size());
+        return roulette_wheel_selection_uniform((int)(fitness.size()));
     }
 
     double r = rand_double(0.0, total_fitness);
 
     double cumulative = 0.0;
-    for (int i = 0; i < fitness.size(); ++i)
+    const int fitness_count = (int)(fitness.size());
+    for (int i = 0; i < fitness_count; ++i)
     {
         if (fitness[i] <= 0.0)
         {
@@ -68,7 +69,7 @@ int roulette_wheel_selection(const std::vector<double>& fitness)
         }
     }
 
-    return fitness.size() - 1;
+    return fitness_count - 1;
 }
 
 int roulette_wheel_selection_exponential(int n, double decay)

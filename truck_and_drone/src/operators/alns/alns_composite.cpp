@@ -56,7 +56,7 @@ void AdaptiveCompositeOperator::add_score(double score)
 
 void AdaptiveCompositeOperator::update_weights()
 {
-    for (int idx = 0; idx < static_cast<int>(removal_weights_.size()); ++idx)
+    for (int idx = 0; idx < (int)(removal_weights_.size()); ++idx)
     {
         if (removal_usage_[idx] == 0)
         {
@@ -67,7 +67,7 @@ void AdaptiveCompositeOperator::update_weights()
         removal_weights_[idx] = std::max(0.1, avg_score);
     }
 
-    for (int idx = 0; idx < static_cast<int>(insertion_weights_.size()); ++idx)
+    for (int idx = 0; idx < (int)(insertion_weights_.size()); ++idx)
     {
         if (insertion_usage_[idx] == 0)
         {
@@ -131,3 +131,4 @@ bool AdaptiveCompositeOperator::operator()(const Instance &inst, Solution &sol)
 
     return true;
 }
+

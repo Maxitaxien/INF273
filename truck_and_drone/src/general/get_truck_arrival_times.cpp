@@ -10,7 +10,7 @@ std::vector<long long> get_truck_arrival_times(
     long long &total_drone_arrival // output parameter
 )
 {
-    int m = static_cast<int>(solution.truck_route.size());
+    int m = (int)(solution.truck_route.size());
     std::vector<long long> truck_arrival(m, 0);
     std::vector<long long> truck_departure(m, 0);
 
@@ -20,10 +20,10 @@ std::vector<long long> get_truck_arrival_times(
 
     // Precompute which drones land at which truck index
     std::vector<std::vector<std::pair<int, int>>> drone_returns_at(m);
-    for (int d = 0; d < static_cast<int>(solution.drones.size()); ++d)
+    for (int d = 0; d < (int)(solution.drones.size()); ++d)
     {
         const DroneCollection &c = solution.drones[d];
-        for (int t = 0; t < static_cast<int>(c.launch_indices.size()); ++t)
+        for (int t = 0; t < (int)(c.launch_indices.size()); ++t)
         {
             if (c.land_indices[t] >= 0 && c.land_indices[t] < m)
             {

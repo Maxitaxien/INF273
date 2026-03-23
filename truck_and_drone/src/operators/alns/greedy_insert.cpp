@@ -32,7 +32,7 @@ Candidate generate_new_candidate(
     const int truck_insert_slots = sol.truck_route.size();
     bool inserted_into_drone = false;
 
-    for (int i = insert_positions.size() - 1; i >= 0; --i)
+    for (int i = (int)(insert_positions.size()) - 1; i >= 0; --i)
     {
         const int encoded_position = insert_positions[i];
         if (encoded_position < truck_insert_slots)
@@ -45,7 +45,7 @@ Candidate generate_new_candidate(
         }
     }
 
-    for (int i = 0; i < insert_positions.size(); ++i)
+    for (int i = 0; i < (int)(insert_positions.size()); ++i)
     {
         const int encoded_position = insert_positions[i];
         if (encoded_position >= truck_insert_slots)
@@ -75,7 +75,7 @@ void generate_and_keep_top_p(
     const Solution &sol,
     std::priority_queue<Candidate, std::vector<Candidate>, MaxHeapCompare> &top_p_heap)
 {
-    if (insert_positions.size() == m)
+    if ((int)(insert_positions.size()) == m)
     {
         Candidate cand = generate_new_candidate(
             inst,
@@ -89,7 +89,7 @@ void generate_and_keep_top_p(
             return;
         }
 
-        if (top_p_heap.size() < p)
+        if ((int)(top_p_heap.size()) < p)
         {
             top_p_heap.push(cand);
         }
@@ -167,3 +167,5 @@ bool greedy_insert(const Instance &inst, Solution &sol, std::vector<int> to_inse
     sol = best[chosen_idx].sol;
     return true;
 }
+
+

@@ -1,7 +1,7 @@
 #include "datahandling/reader.h"
 #include <fstream>
-#include <sstream>
 #include <iostream>
+#include <sstream>
 
 Instance read_instance(const std::string& filename) {
     std::ifstream f(filename);
@@ -10,14 +10,13 @@ Instance read_instance(const std::string& filename) {
         std::cerr << "Error: Unable to open file: " << filename << std::endl;
     }
 
-    std::string line; 
+    std::string line;
     Instance problem_instance;
 
     // Number of drones
-    std::getline(f, line);// skip header
+    std::getline(f, line); // skip header
     std::getline(f, line);
     problem_instance.n = std::stoi(line);
-    
 
     // Drone flight limit
     std::getline(f, line); // skip header
@@ -27,7 +26,6 @@ Instance read_instance(const std::string& filename) {
     // Truck travel matrix
     std::getline(f, line);
     std::vector<std::vector<long long>> truck_matrix;
-    double x;
     for (int i = 0; i < problem_instance.n + 1; i++) {
         std::getline(f, line);
         std::istringstream ss(line);
@@ -49,10 +47,11 @@ Instance read_instance(const std::string& filename) {
         std::istringstream ss(line);
         std::vector<long long> row;
         while (ss >> y) {
-            row.push_back(static_cast<long long>(y)); 
+            row.push_back(static_cast<long long>(y));
         }
-        if (row.size() != problem_instance.n + 1) {
-            std::cerr << "Error: row " << i << " has " << row.size() << " columns, expected " << problem_instance.n + 1 << "\n";
+        if ((int)(row.size()) != problem_instance.n + 1) {
+            std::cerr << "Error: row " << i << " has " << row.size()
+                      << " columns, expected " << problem_instance.n + 1 << "\n";
         }
         drone_matrix.push_back(row);
     }
@@ -61,3 +60,4 @@ Instance read_instance(const std::string& filename) {
 
     return problem_instance;
 }
+

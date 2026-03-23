@@ -4,7 +4,6 @@
 #include "algorithms/local_search.h"
 #include "algorithms/nearest_neighbour.h"
 #include "algorithms/simulated_annealing.h"
-#include "operators/operator.h"
 #include "verification/feasibility_check.h"
 
 Solution blind_random_wrapper(
@@ -12,6 +11,7 @@ Solution blind_random_wrapper(
     Solution initial,
     Operator op)
 {
+    (void)op;
     return blind_random_search(instance, initial);
 }
 
@@ -36,6 +36,8 @@ Solution nearest_neighbour_wrapper(
     Solution initial,
     Operator op)
 {
+    (void)initial;
+    (void)op;
     return nearest_neighbour(instance);
 }
 
@@ -44,6 +46,8 @@ Solution construction_wrapper(
     Solution initial,
     Operator op)
 {
+    (void)initial;
+    (void)op;
     Solution nn = nearest_neighbour(instance);
     return greedy_drone_cover(instance, nn);
 }
