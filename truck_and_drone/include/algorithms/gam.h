@@ -2,7 +2,74 @@
 #include "datahandling/instance.h"
 #include "operators/operator.h"
 #include "verification/solution.h"
+#include <string>
 #include <vector>
+
+struct GAMIterationStatistics
+{
+    int iteration = 0;
+    int operator_idx = -1;
+    long long incumbent_cost_before = 0;
+    long long incumbent_cost_after = 0;
+    long long candidate_cost = 0;
+    long long best_cost_after = 0;
+    long long delta = 0;
+    double selected_weight = 0.0;
+    double acceptance_probability = 0.0;
+    double temperature = 0.0;
+    bool operator_succeeded = false;
+    bool candidate_feasible = false;
+    bool accepted = false;
+    bool improving = false;
+    bool new_best = false;
+};
+
+struct GAMSegmentStatistics
+{
+    int segment = 0;
+    int iteration = 0;
+    int operator_idx = -1;
+    double weight = 0.0;
+    double segment_score = 0.0;
+    int segment_uses = 0;
+};
+
+struct GAMOperatorSummary
+{
+    std::string name;
+    double final_weight = 1.0;
+    double total_score = 0.0;
+    int total_uses = 0;
+    int accepted = 0;
+    int improving_accepts = 0;
+    int best_updates = 0;
+    int failures = 0;
+    int infeasible = 0;
+};
+
+struct GAMRunStatistics
+{
+    int max_iterations = 0;
+    int segment_length = 0;
+    int stopping_condition = 0;
+    int best_found_iteration = 0;
+    int operator_failures = 0;
+    int infeasible_candidates = 0;
+    int accepted_moves = 0;
+    int improving_accepts = 0;
+    int non_improving_accepts = 0;
+    int best_updates = 0;
+    std::vector<std::string> operator_names;
+    std::vector<GAMIterationStatistics> iteration_stats;
+    std::vector<GAMSegmentStatistics> segment_stats;
+    std::vector<GAMOperatorSummary> operator_summaries;
+};
+
+struct GAMResult
+{
+    Solution solution;
+    GAMRunStatistics statistics;
+};
 
 /**
  * General Adaptive Metaheuristic (GAM).
@@ -10,7 +77,7 @@
  * GAM owns the operator selection step itself so it can keep per-operator
  * scores, usages, and roulette-wheel weights.
  */
-Solution general_adaptive_metaheuristic(
+GAMResult general_adaptive_metaheuristic(
     const Instance &instance,
     Solution initial,
     const std::vector<NamedOperator> &ops,

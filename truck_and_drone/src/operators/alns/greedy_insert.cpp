@@ -1,10 +1,13 @@
 #include "operators/alns/greedy_insert.h"
 #include "general/roulette_wheel_selection.h"
 #include "operators/drone_planner.h"
+#include "operators/solution_fixers.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <algorithm>
+#include <limits>
 #include <queue>
+#include <utility>
 
 namespace
 {
@@ -19,7 +22,6 @@ bool has_any_drone_deliveries(const Solution &sol)
     }
 
     return false;
-}
 }
 
 Candidate generate_new_candidate(
@@ -63,6 +65,57 @@ Candidate generate_new_candidate(
 
     const auto [score, planned_sol] = drone_planner(inst, candidate_sol);
     return Candidate{planned_sol, score};
+}
+
+bool evaluate_single_insert_candidate(
+    const Instance &inst,
+    const Solution &sol,
+    int delivery,
+    int encoded_position,
+    bool base_has_drone_deliveries,
+    Candidate &candidate)
+{
+    Solution candidate_sol = sol;
+    const int truck_insert_slots = sol.truck_route.size();
+
+    if (encoded_position < truck_insert_slots)
+    {
+        const int truck_insert_position = encoded_position + 1;
+        candidate_sol.truck_route.insert(
+            candidate_sol.truck_route.begin() + truck_insert_position,
+            delivery);
+
+        if (!base_has_drone_deliveries)
+        {
+            const long long score = objective_function_impl(inst, candidate_sol);
+            candidate = Candidate{std::move(candidate_sol), score};
+            return true;
+        }
+
+        const auto [score, planned_sol] = drone_planner(inst, candidate_sol);
+        if (!master_check(inst, planned_sol, false))
+        {
+            return false;
+        }
+
+        candidate = Candidate{planned_sol, score};
+        return true;
+    }
+
+    const int drone = encoded_position - truck_insert_slots;
+    auto [assigned_ok, assigned_sol] = greedy_assign_launch_and_land(
+        inst,
+        candidate_sol,
+        delivery,
+        drone);
+    if (!assigned_ok || !master_check(inst, assigned_sol, false))
+    {
+        return false;
+    }
+
+    candidate = Candidate{assigned_sol, objective_function_impl(inst, assigned_sol)};
+    return true;
+}
 }
 
 void generate_and_keep_top_p(
@@ -168,4 +221,60 @@ bool greedy_insert(const Instance &inst, Solution &sol, std::vector<int> to_inse
     return true;
 }
 
+bool cheapest_feasible_sequential_insert(
+    const Instance &inst,
+    Solution &sol,
+    std::vector<int> to_insert,
+    int k)
+{
+    (void)k;
 
+    while (!to_insert.empty())
+    {
+        const bool base_has_drone_deliveries = has_any_drone_deliveries(sol);
+        const int insertion_targets = sol.truck_route.size() + sol.drones.size();
+
+        bool found = false;
+        int best_node_idx = -1;
+        long long best_score = std::numeric_limits<long long>::max();
+        Candidate best_candidate;
+
+        for (int node_idx = 0; node_idx < (int)(to_insert.size()); ++node_idx)
+        {
+            const int delivery = to_insert[node_idx];
+            for (int encoded_position = 0; encoded_position < insertion_targets; ++encoded_position)
+            {
+                Candidate candidate;
+                if (!evaluate_single_insert_candidate(
+                        inst,
+                        sol,
+                        delivery,
+                        encoded_position,
+                        base_has_drone_deliveries,
+                        candidate))
+                {
+                    continue;
+                }
+
+                if (!found || candidate.score < best_score)
+                {
+                    found = true;
+                    best_score = candidate.score;
+                    best_node_idx = node_idx;
+                    best_candidate = std::move(candidate);
+                }
+            }
+        }
+
+        if (!found)
+        {
+            return false;
+        }
+
+        sol = std::move(best_candidate.sol);
+        to_insert[best_node_idx] = to_insert.back();
+        to_insert.pop_back();
+    }
+
+    return true;
+}

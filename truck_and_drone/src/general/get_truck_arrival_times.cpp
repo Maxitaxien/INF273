@@ -1,7 +1,7 @@
 #include "verification/solution.h"
 #include "datahandling/instance.h"
+#include <algorithm>
 #include <vector>
-#include <iostream>
 
 std::vector<long long> get_truck_arrival_times(
     const Instance &instance,
@@ -29,11 +29,7 @@ std::vector<long long> get_truck_arrival_times(
             {
                 drone_returns_at[c.land_indices[t]].emplace_back(d, t);
             }
-            else
-            {
-                std::cerr << "Skipping drone landing at invalid truck index "
-                          << c.land_indices[t] << " (truck route size: " << m << ")\n";
-            }
+
         }
     }
 
@@ -73,3 +69,5 @@ std::vector<long long> get_truck_arrival_times(
 
     return truck_arrival;
 }
+
+

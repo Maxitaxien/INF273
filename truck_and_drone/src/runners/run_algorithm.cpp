@@ -134,11 +134,12 @@ void run_algorithm(
         Solution initial;
         Solution best_solution;
 
+        instance = read_instance(dataset);
+
         for (int i = 0; i < amnt_iter; i++)
         {
             auto start = std::chrono::high_resolution_clock::now();
 
-            instance = read_instance(dataset);
             initial = simple_initial_solution(instance.n);
 
             if (i == 0)
@@ -240,15 +241,16 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
         long double avg = 0;
         double avg_runtime = 0;
         long long initial_obj = 0;
-        Instance instance;
+        int best_run_idx = 1;
+        Instance instance = read_instance(dataset);
         Solution initial;
         Solution best_solution;
+        GAMRunStatistics best_statistics;
 
         for (int i = 0; i < amnt_iter; ++i)
         {
             auto start = std::chrono::high_resolution_clock::now();
 
-            instance = read_instance(dataset);
             initial = simple_initial_solution(instance.n);
 
             if (i == 0)
@@ -256,17 +258,19 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
                 initial_obj = objective_function_impl(instance, initial);
             }
 
-            Solution sol = general_adaptive_metaheuristic(instance, initial, ops, weights);
+            GAMResult gam_result = general_adaptive_metaheuristic(instance, initial, ops, weights);
             auto stop = std::chrono::high_resolution_clock::now();
 
-            const long long val = objective_function_impl(instance, sol);
+            const long long val = objective_function_impl(instance, gam_result.solution);
             avg += val;
             avg_runtime += std::chrono::duration<double>(stop - start).count();
 
             if (val < best)
             {
                 best = val;
-                best_solution = sol;
+                best_solution = std::move(gam_result.solution);
+                best_statistics = std::move(gam_result.statistics);
+                best_run_idx = i + 1;
             }
         }
 
@@ -283,6 +287,7 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
             improvement,
             avg_runtime,
             convert_to_submission(best_solution));
+        save_gam_statistics(run_dir, dataset, best_run_idx, best_statistics);
     }
 
     create_markdown_tables(base_dir);
@@ -300,4 +305,5 @@ void run_construction_algos()
     }
     create_markdown_tables(base_dir);
 }
+
 

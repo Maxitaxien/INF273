@@ -1,26 +1,15 @@
 #include "algorithms/gam.h"
 #include "general/roulette_wheel_selection.h"
-#include "verification/objective_value.h"
 #include "verification/feasibility_check.h"
+#include "verification/objective_value.h"
 #include <algorithm>
-#include <iomanip>
-#include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
 
-struct GAMStatistics
+namespace
 {
-    int operator_failures = 0;
-    int infeasible_candidates = 0;
-    int accepted_moves = 0;
-    int improving_accepts = 0;
-    int non_improving_accepts = 0;
-    int best_updates = 0;
-    int best_found_iter = 0;
-};
-
-struct GAMOperatorStatistics
+struct GAMOperatorState
 {
     std::string name;
     double weight = 1.0;
@@ -56,17 +45,17 @@ std::vector<double> initialize_weights(
     return weights;
 }
 
-std::vector<GAMOperatorStatistics> build_operator_statistics(
+std::vector<GAMOperatorState> build_operator_state(
     const std::vector<NamedOperator> &ops,
     const std::vector<double> &weights)
 {
-    std::vector<GAMOperatorStatistics> result;
+    std::vector<GAMOperatorState> result;
     result.reserve(ops.size());
 
     for (int i = 0; i < (int)(ops.size()); ++i)
     {
         const std::string fallback_name = "Operator " + std::to_string(i);
-        result.push_back(GAMOperatorStatistics{
+        result.push_back(GAMOperatorState{
             ops[i].name.empty() ? fallback_name : ops[i].name,
             weights[i]});
     }
@@ -74,19 +63,25 @@ std::vector<GAMOperatorStatistics> build_operator_statistics(
     return result;
 }
 
-int select_operator_index(const std::vector<GAMOperatorStatistics> &operator_stats)
+std::vector<double> build_selection_weights(const std::vector<GAMOperatorState> &operator_state)
 {
     std::vector<double> weights;
-    weights.reserve(operator_stats.size());
-    for (const GAMOperatorStatistics &stats : operator_stats)
+    weights.reserve(operator_state.size());
+
+    for (const GAMOperatorState &state : operator_state)
     {
-        weights.push_back(stats.weight);
+        weights.push_back(state.weight);
     }
 
-    return roulette_wheel_selection(weights);
+    return weights;
 }
 
-double compute_operator_reward(bool accepted, bool improving, bool new_best)
+double compute_operator_reward(
+    bool operator_succeeded,
+    bool candidate_feasible,
+    bool accepted,
+    bool improving,
+    bool new_best)
 {
     if (new_best)
     {
@@ -103,121 +98,122 @@ double compute_operator_reward(bool accepted, bool improving, bool new_best)
         return 0.5;
     }
 
-    return 0.0;
+    if (!operator_succeeded)
+    {
+        return -1.0;
+    }
+
+    if (!candidate_feasible)
+    {
+        return -0.5;
+    }
+
+    return -0.1;
 }
 
-void update_operator_weights(std::vector<GAMOperatorStatistics> &operator_stats)
+void update_operator_weights(
+    std::vector<GAMOperatorState> &operator_state,
+    std::vector<double> &selection_weights,
+    int segment_index,
+    int iteration,
+    GAMRunStatistics &statistics)
 {
     constexpr double reaction_factor = 0.2;
     constexpr double minimum_weight = 0.1;
 
-    for (GAMOperatorStatistics &stats : operator_stats)
+    for (int idx = 0; idx < (int)(operator_state.size()); ++idx)
     {
-        if (stats.segment_uses > 0)
+        GAMOperatorState &state = operator_state[idx];
+        if (state.segment_uses > 0)
         {
-            const double average_score = stats.segment_score / stats.segment_uses;
+            const double average_score = state.segment_score / state.segment_uses;
             const double target_weight = 1.0 + average_score;
-            stats.weight = std::max(
+            state.weight = std::max(
                 minimum_weight,
-                (1.0 - reaction_factor) * stats.weight + reaction_factor * target_weight);
+                (1.0 - reaction_factor) * state.weight + reaction_factor * target_weight);
         }
 
-        stats.segment_score = 0.0;
-        stats.segment_uses = 0;
+        selection_weights[idx] = state.weight;
+        statistics.segment_stats.push_back(GAMSegmentStatistics{
+            segment_index,
+            iteration,
+            idx,
+            state.weight,
+            state.segment_score,
+            state.segment_uses,
+        });
+
+        state.segment_score = 0.0;
+        state.segment_uses = 0;
     }
 }
 
-void log_gam_progress(
-    int iteration,
-    long long incumbent_cost,
-    long long best_cost,
-    int non_improving_iterations,
-    const GAMStatistics &stats)
+std::vector<GAMOperatorSummary> build_operator_summaries(
+    const std::vector<GAMOperatorState> &operator_state)
 {
-    std::cout
-        << "[GAM] iter=" << iteration
-        << " incumbent=" << incumbent_cost
-        << " best=" << best_cost
-        << " stall=" << non_improving_iterations
-        << " accepted=" << stats.accepted_moves
-        << " improving=" << stats.improving_accepts
-        << " sideways/worse=" << stats.non_improving_accepts
-        << " op_fail=" << stats.operator_failures
-        << " infeasible=" << stats.infeasible_candidates
-        << " best_updates=" << stats.best_updates
-        << '\n';
-}
+    std::vector<GAMOperatorSummary> result;
+    result.reserve(operator_state.size());
 
-void log_operator_statistics(const std::vector<GAMOperatorStatistics> &operator_stats)
-{
-    std::cout << std::fixed << std::setprecision(3);
-    for (const GAMOperatorStatistics &stats : operator_stats)
+    for (const GAMOperatorState &state : operator_state)
     {
-        std::cout
-            << "[GAM][OP] name=\"" << stats.name << "\""
-            << " weight=" << stats.weight
-            << " total_score=" << stats.total_score
-            << " uses=" << stats.total_uses
-            << " accepted=" << stats.accepted
-            << " improving=" << stats.improving_accepts
-            << " best_updates=" << stats.best_updates
-            << " failures=" << stats.failures
-            << " infeasible=" << stats.infeasible
-            << '\n';
+        result.push_back(GAMOperatorSummary{
+            state.name,
+            state.weight,
+            state.total_score,
+            state.total_uses,
+            state.accepted,
+            state.improving_accepts,
+            state.best_updates,
+            state.failures,
+            state.infeasible,
+        });
     }
-    std::cout << std::defaultfloat;
+
+    return result;
+}
 }
 
-void log_gam_summary(
-    long long incumbent_cost,
-    long long best_cost,
-    int non_improving_iterations,
-    const GAMStatistics &stats,
-    const std::vector<GAMOperatorStatistics> &operator_stats)
-{
-    std::cout
-        << "[GAM] summary"
-        << " incumbent=" << incumbent_cost
-        << " best=" << best_cost
-        << " stall=" << non_improving_iterations
-        << " accepted=" << stats.accepted_moves
-        << " improving=" << stats.improving_accepts
-        << " sideways/worse=" << stats.non_improving_accepts
-        << " op_fail=" << stats.operator_failures
-        << " infeasible=" << stats.infeasible_candidates
-        << " best_updates=" << stats.best_updates
-        << '\n';
-
-    log_operator_statistics(operator_stats);
-}
-
-Solution general_adaptive_metaheuristic(
+GAMResult general_adaptive_metaheuristic(
     const Instance &instance,
     Solution initial,
     const std::vector<NamedOperator> &ops,
     const std::vector<double> &initial_weights)
 {
+    constexpr int max_iterations = 10000;
+    constexpr int stopping_condition = 50;
+    constexpr int segment_length = 100;
+
+    GAMResult result;
+    result.statistics.max_iterations = max_iterations;
+    result.statistics.segment_length = segment_length;
+    result.statistics.stopping_condition = stopping_condition;
+    result.statistics.best_found_iteration = 0;
+    result.statistics.iteration_stats.reserve(max_iterations);
+    result.statistics.segment_stats.reserve(
+        ((max_iterations + segment_length - 1) / segment_length) * ops.size());
+
     if (ops.empty())
     {
-        return initial;
+        result.solution = std::move(initial);
+        return result;
+    }
+
+    const std::vector<double> initial_selection_weights = initialize_weights(ops, initial_weights);
+    std::vector<GAMOperatorState> operator_state =
+        build_operator_state(ops, initial_selection_weights);
+    std::vector<double> selection_weights = build_selection_weights(operator_state);
+
+    result.statistics.operator_names.reserve(operator_state.size());
+    for (const GAMOperatorState &state : operator_state)
+    {
+        result.statistics.operator_names.push_back(state.name);
     }
 
     Solution incumbent = std::move(initial);
     long long incumbent_cost = objective_function_impl(instance, incumbent);
     Solution best = incumbent;
     long long best_cost = incumbent_cost;
-
-    constexpr int max_iterations = 10000;
-    constexpr int stopping_condition = 50;
-    constexpr int segment_length = 100;
-    constexpr int log_interval = 1000;
-
     int non_improving_iterations = 0;
-    GAMStatistics stats;
-
-    const std::vector<double> weights = initialize_weights(ops, initial_weights);
-    std::vector<GAMOperatorStatistics> operator_stats =
-        build_operator_statistics(ops, weights);
 
     for (int i = 0; i < max_iterations; ++i)
     {
@@ -227,62 +223,90 @@ Solution general_adaptive_metaheuristic(
             non_improving_iterations = 0;
         }
 
-        const int selected_idx = select_operator_index(operator_stats);
-        GAMOperatorStatistics &selected = operator_stats[selected_idx];
+        const int selected_idx = roulette_wheel_selection(selection_weights);
+        GAMOperatorState &selected = operator_state[selected_idx];
         selected.total_uses++;
         selected.segment_uses++;
+
+        GAMIterationStatistics iteration_stat;
+        iteration_stat.iteration = i + 1;
+        iteration_stat.operator_idx = selected_idx;
+        iteration_stat.incumbent_cost_before = incumbent_cost;
+        iteration_stat.incumbent_cost_after = incumbent_cost;
+        iteration_stat.best_cost_after = best_cost;
+        iteration_stat.selected_weight = selected.weight;
 
         Solution neighbour = incumbent;
         if (!ops[selected_idx].op(instance, neighbour))
         {
             selected.failures++;
-            stats.operator_failures++;
+            result.statistics.operator_failures++;
+            const double reward = compute_operator_reward(false, false, false, false, false);
+            selected.segment_score += reward;
+            selected.total_score += reward;
             non_improving_iterations++;
         }
         else if (!master_check(instance, neighbour, false))
         {
+            iteration_stat.operator_succeeded = true;
             selected.infeasible++;
-            stats.infeasible_candidates++;
+            result.statistics.infeasible_candidates++;
+            const double reward = compute_operator_reward(true, false, false, false, false);
+            selected.segment_score += reward;
+            selected.total_score += reward;
             non_improving_iterations++;
         }
         else
         {
+            iteration_stat.operator_succeeded = true;
+            iteration_stat.candidate_feasible = true;
+
             const long long cost = objective_function_impl(instance, neighbour);
             const long long delta_e = cost - incumbent_cost;
+            iteration_stat.candidate_cost = cost;
+            iteration_stat.delta = delta_e;
+            iteration_stat.improving = delta_e < 0;
 
             bool accept = false;
+            double acceptance_probability = 0.0;
             if (delta_e < 0)
             {
                 accept = true;
-                stats.improving_accepts++;
+                acceptance_probability = 1.0;
+                result.statistics.improving_accepts++;
                 selected.improving_accepts++;
-                stats.best_found_iter = i;
             }
             else
             {
                 // TODO: Replace this with chosen acceptance rule.
                 // With the current hill-climbing default, only improving moves are accepted.
                 accept = false;
+                acceptance_probability = 0.0;
             }
+
+            iteration_stat.acceptance_probability = acceptance_probability;
+            iteration_stat.accepted = accept;
 
             if (accept)
             {
                 incumbent = neighbour;
                 incumbent_cost = cost;
-                stats.accepted_moves++;
+                result.statistics.accepted_moves++;
                 selected.accepted++;
                 if (delta_e >= 0)
                 {
-                    stats.non_improving_accepts++;
+                    result.statistics.non_improving_accepts++;
                 }
             }
 
             const bool new_best = cost < best_cost;
+            iteration_stat.new_best = new_best;
             if (new_best)
             {
                 best = neighbour;
                 best_cost = cost;
-                stats.best_updates++;
+                result.statistics.best_updates++;
+                result.statistics.best_found_iteration = i + 1;
                 selected.best_updates++;
                 non_improving_iterations = 0;
             }
@@ -291,25 +315,38 @@ Solution general_adaptive_metaheuristic(
                 non_improving_iterations++;
             }
 
-            const double reward = compute_operator_reward(accept, delta_e < 0, new_best);
+            const double reward = compute_operator_reward(true, true, accept, delta_e < 0, new_best);
             selected.segment_score += reward;
             selected.total_score += reward;
         }
 
+        iteration_stat.incumbent_cost_after = incumbent_cost;
+        iteration_stat.best_cost_after = best_cost;
+        result.statistics.iteration_stats.push_back(iteration_stat);
+
         if ((i + 1) % segment_length == 0)
         {
-            update_operator_weights(operator_stats);
-            log_gam_progress(i + 1, incumbent_cost, best_cost, non_improving_iterations, stats);
-            log_operator_statistics(operator_stats);
-        }
-        else if ((i + 1) % log_interval == 0)
-        {
-            log_gam_progress(i + 1, incumbent_cost, best_cost, non_improving_iterations, stats);
+            update_operator_weights(
+                operator_state,
+                selection_weights,
+                (i + 1) / segment_length,
+                i + 1,
+                result.statistics);
         }
     }
 
-    log_gam_summary(incumbent_cost, best_cost, non_improving_iterations, stats, operator_stats);
-    return best;
-}
+    if (max_iterations % segment_length != 0)
+    {
+        update_operator_weights(
+            operator_state,
+            selection_weights,
+            max_iterations / segment_length + 1,
+            max_iterations,
+            result.statistics);
+    }
 
+    result.statistics.operator_summaries = build_operator_summaries(operator_state);
+    result.solution = std::move(best);
+    return result;
+}
 

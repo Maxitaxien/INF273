@@ -1,11 +1,10 @@
 #pragma once
-#include "operators/alns/signatures.h"
+#include "datahandling/instance.h"
 #include "operators/alns/greedy_insert.h"
 #include "operators/alns/random_removal.h"
-#include "datahandling/instance.h"
-#include "verification/solution.h"
+#include "operators/alns/signatures.h"
 #include "operators/operator.h"
-
+#include "verification/solution.h"
 #include <string>
 #include <vector>
 
@@ -16,6 +15,9 @@ namespace alns_heuristic
 
     inline const std::vector<InsertionHeuristic> insertion = {
         greedy_insert};
+
+    inline const std::vector<InsertionHeuristic> insertion_sequential = {
+        cheapest_feasible_sequential_insert};
 }
 
 /**

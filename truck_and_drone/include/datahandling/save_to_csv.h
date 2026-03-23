@@ -1,4 +1,5 @@
 #pragma once
+#include "algorithms/gam.h"
 #include <string>
 
 bool save_to_csv(
@@ -10,4 +11,11 @@ bool save_to_csv(
     double improvement_percent,
     long double avg_runtime,
     const std::string& solution_str
+);
+
+bool save_gam_statistics(
+    const std::string& run_dir,
+    const std::string& dataset,
+    int run_idx,
+    const GAMRunStatistics& statistics
 );
