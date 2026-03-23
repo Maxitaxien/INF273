@@ -3,6 +3,7 @@
 #include <map>
 #include <vector>
 #include "runners/run_algorithm.h"
+#include "algorithms/gam.h"
 #include "datahandling/reader.h"
 #include "datahandling/convert_to_submission.h"
 #include "datahandling/save_to_csv.h"
@@ -23,6 +24,39 @@ const long long INF = 4e18;
 
 using namespace datasets;
 using namespace algorithms;
+
+Operator make_uniform_weighted_selector(const std::vector<NamedOperator> &ops);
+Operator make_tuned_weighted_selector(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights);
+
+namespace
+{
+NamedOperator build_run_operator(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights,
+    const std::string &equal_suffix,
+    const std::string &tuned_suffix)
+{
+    if (ops.empty())
+    {
+        return make_no_op_operator();
+    }
+
+    if (ops.size() == 1)
+    {
+        return ops[0];
+    }
+
+    Operator selector = weights.empty()
+        ? make_uniform_weighted_selector(ops)
+        : make_tuned_weighted_selector(ops, weights);
+
+    return NamedOperator{
+        weights.empty() ? equal_suffix : tuned_suffix,
+        selector};
+}
+}
 
 Operator make_uniform_weighted_selector(const std::vector<NamedOperator> &ops)
 {
@@ -88,7 +122,6 @@ void run_algorithm(
                 initial_obj = objective_function_impl(instance, initial);
             }
 
-
             Solution sol = algo(instance, initial, op.op);
             auto stop = std::chrono::high_resolution_clock::now();
 
@@ -96,7 +129,6 @@ void run_algorithm(
             avg += val;
             avg_runtime += std::chrono::duration<double>(stop - start).count();
 
-            // Only update best_solution when val improves best
             if (val < best)
             {
                 best = val;
@@ -136,29 +168,47 @@ void run_all_algos(const std::vector<NamedOperator> &ops, const std::vector<doub
     int amnt_iter = 10;
     std::string base_dir = create_run_directory();
 
-    // Build a single operator that will be passed to each algorithm
-    NamedOperator run_op;
-    if (ops.empty())
-    {
-        run_op = make_no_op_operator();
-    }
-    else if (ops.size() == 1)
-    {
-        run_op = ops[0];
-    }
-    else
-    {
-        std::string suffix = weights.empty() ? "New Operators (Equal Weights)" : "New Operators (Tuned Weights)";
-        Operator selector = weights.empty()
-            ? make_uniform_weighted_selector(ops)
-            : make_tuned_weighted_selector(ops, weights);
-        run_op = NamedOperator{suffix, selector};
-    }
+    NamedOperator run_op = build_run_operator(
+        ops,
+        weights,
+        "New Operators (Equal Weights)",
+        "New Operators (Tuned Weights)");
 
     for (const auto &[name, wrapper] : algorithms::all)
     {
         run_algorithm(name, wrapper, run_op, base_dir, amnt_iter);
     }
+    create_markdown_tables(base_dir);
+}
+
+void run_gam()
+{
+    run_gam(make_no_op_operator());
+}
+
+void run_gam(const NamedOperator &op)
+{
+    run_gam(std::vector<NamedOperator>{op}, {});
+}
+
+void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &weights)
+{
+    int amnt_iter = 10;
+    std::string base_dir = create_run_directory();
+
+    NamedOperator run_op = build_run_operator(
+        ops,
+        weights,
+        "Operator Mix (Equal Weights)",
+        "Operator Mix (Tuned Weights)");
+
+    run_algorithm(
+        "General Adaptive Metaheuristic",
+        general_adaptive_metaheuristic,
+        run_op,
+        base_dir,
+        amnt_iter);
+
     create_markdown_tables(base_dir);
 }
 
@@ -173,12 +223,4 @@ void run_construction_algos()
         run_algorithm(name, wrapper, noop, base_dir, amnt_iter);
     }
     create_markdown_tables(base_dir);
-}
-
-/**
- * TODO: Create 
- */
-void run_gam_algo()
-{
-    
 }

@@ -5,12 +5,9 @@
 #include "verification/objective_value.h"
 #include "operators/operator.h"
 #include "datahandling/instance.h"
+#include "general/random.h"
 #include <numeric>
-#include <cmath>
-#include <random>
 
-extern std::mt19937 gen;
-static std::uniform_real_distribution<double> dist(0.0, 1.0);
 
 // Warmup: return average delta, update incumbent & best properly
 double warmup_phase(
@@ -27,31 +24,31 @@ double warmup_phase(
 
     for (int w = 0; w < warmup_amount; w++)
     {
-        Solution neighbor = incumbent; // try move on copy
-        if (!op(instance, neighbor))
+        Solution neighbour = incumbent; // try move on copy
+        if (!op(instance, neighbour))
             continue;
 
-        if (!master_check(instance, neighbor, false))
+        if (!master_check(instance, neighbour, false))
             continue;
-        long long cost = objective_function_impl(instance, neighbor);
+        long long cost = objective_function_impl(instance, neighbour);
 
         long long delta_e = cost - incumbent_cost;
 
         if (delta_e < 0)
         {
-            incumbent = neighbor;
+            incumbent = neighbour;
             incumbent_cost = cost;
             if (cost < best_cost)
             {
-                best = neighbor;
+                best = neighbour;
                 best_cost = cost;
             }
         }
         else
         {
-            if (dist(gen) < 0.8)
+            if (rand_double(0.0, 1.0) < 0.8)
             {
-                incumbent = neighbor;
+                incumbent = neighbour;
                 incumbent_cost = cost;
             }
             delta_ws.push_back(delta_e);
@@ -84,32 +81,32 @@ Solution simulated_annealing(
 
     for (int i = 0; i < amnt_iterations; i++)
     {
-        Solution neighbor = incumbent;
-        if (!op(instance, neighbor))
+        Solution neighbour = incumbent;
+        if (!op(instance, neighbour))
             continue;
 
-        if (!master_check(instance, neighbor, false))
+        if (!master_check(instance, neighbour, false))
             continue;
-        long long cost = objective_function_impl(instance, neighbor);
+        long long cost = objective_function_impl(instance, neighbour);
 
         long long delta_e = cost - incumbent_cost;
 
         if (delta_e < 0)
         {
-            incumbent = neighbor;
+            incumbent = neighbour;
             incumbent_cost = cost;
             if (cost < best_cost)
             {
-                best = neighbor;
+                best = neighbour;
                 best_cost = cost;
             }
         }
         else
         {
             double p = exp(-delta_e / T);
-            if (dist(gen) < p)
+            if (rand_double(0.0, 1.0) < p)
             {
-                incumbent = neighbor;
+                incumbent = neighbour;
                 incumbent_cost = cost;
             }
         }

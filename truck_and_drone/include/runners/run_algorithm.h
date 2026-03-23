@@ -39,6 +39,13 @@ void run_all_algos(const NamedOperator &op);
 void run_all_algos(const std::vector<NamedOperator> &ops, const std::vector<double> &weights = {});
 
 /**
+ * Runs only the GAM algorithm with a single operator mix.
+ */
+void run_gam();
+void run_gam(const NamedOperator &op);
+void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &weights = {});
+
+/**
  * Runs construction algorithms.
  */
 void run_construction_algos();

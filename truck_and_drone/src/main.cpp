@@ -57,7 +57,7 @@ int main()
     );
     */
 
-    run_all_algos(
+    run_gam(
         {
         NamedOperator{
             "ALNS Composite Random Removal + Greedy Insert",

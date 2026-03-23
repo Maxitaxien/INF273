@@ -1,20 +1,15 @@
 #pragma once
 #include "datahandling/instance.h"
+#include "operators/operator.h"
 #include "verification/solution.h"
-#include "operators/alns/signatures.h"
-#include "runners/algorithms.h"
-#include <vector>
 
 /**
- * An implementation of the general adaptive
- * metaheuristic framework using alns.
+ * Scaffold for the General Adaptive Metaheuristic (GAM).
  *
- * Essentially the same as ALNS but also features
- * the possibility of applying an escape algorithm
+ * The operator argument can be any regular operator, ALNS composite operator,
+ * or weighted selector over a mix of both.
  */
-Solution general_adaptive_metaheuristic_alns(
-    std::vector<RemovalHeuristic> remove,
-    std::vector<InsertionHeuristic> insert,
-    Algorithm escape_algorithm,
-    int escape_condition);
-
+Solution general_adaptive_metaheuristic(
+    const Instance &instance,
+    Solution initial,
+    Operator op);
