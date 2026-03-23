@@ -2,9 +2,25 @@
 #include "general/roulette_wheel_selection.h"
 #include "operators/drone_planner.h"
 #include "verification/feasibility_check.h"
+#include "verification/objective_value.h"
 #include <algorithm>
 #include <queue>
 
+namespace
+{
+bool has_any_drone_deliveries(const Solution &sol)
+{
+    for (const DroneCollection &drone : sol.drones)
+    {
+        if (!drone.deliver_nodes.empty())
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+}
 
 Candidate generate_new_candidate(
     const Instance& inst,
@@ -14,6 +30,7 @@ Candidate generate_new_candidate(
 {
     Solution candidate_sol = sol;
     const int truck_insert_slots = sol.truck_route.size();
+    bool inserted_into_drone = false;
 
     for (int i = insert_positions.size() - 1; i >= 0; --i)
     {
@@ -35,7 +52,13 @@ Candidate generate_new_candidate(
         {
             const int drone = encoded_position - truck_insert_slots;
             candidate_sol.drones[drone].deliver_nodes.push_back(to_insert[i]);
+            inserted_into_drone = true;
         }
+    }
+
+    if (!inserted_into_drone && !has_any_drone_deliveries(sol))
+    {
+        return Candidate{candidate_sol, objective_function_impl(inst, candidate_sol)};
     }
 
     const auto [score, planned_sol] = drone_planner(inst, candidate_sol);
@@ -144,4 +167,3 @@ bool greedy_insert(const Instance &inst, Solution &sol, std::vector<int> to_inse
     sol = best[chosen_idx].sol;
     return true;
 }
-

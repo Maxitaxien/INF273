@@ -125,8 +125,22 @@ std::pair<long long, Solution> drone_planner(
 
         for (int d = 0; d < static_cast<int>(curr.drones.size()) && iteration_valid; ++d)
         {
-            P drone_candidates = base_p;
             const std::vector<int> &customers = curr_sol.drones[d].deliver_nodes;
+            if (customers.empty())
+            {
+                continue;
+            }
+
+            P drone_candidates;
+            drone_candidates.reserve(customers.size());
+            for (int customer : customers)
+            {
+                auto it = base_p.find(customer);
+                if (it != base_p.end())
+                {
+                    drone_candidates.emplace(customer, it->second);
+                }
+            }
 
             curr.drones[d].launch_indices.reserve(customers.size());
             curr.drones[d].land_indices.reserve(customers.size());
@@ -146,7 +160,10 @@ std::pair<long long, Solution> drone_planner(
                 update_p(drone_candidates, customer, new_flight, customer_positions);
             }
 
-            sort_drone_collection(curr.drones[d]);
+            if (customers.size() > 1)
+            {
+                sort_drone_collection(curr.drones[d]);
+            }
         }
 
         if (!iteration_valid || !master_check(inst, curr, false))
