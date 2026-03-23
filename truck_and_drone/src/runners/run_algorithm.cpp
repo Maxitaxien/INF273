@@ -32,6 +32,30 @@ Operator make_tuned_weighted_selector(
 
 namespace
 {
+std::vector<std::string> benchmark_datasets()
+{
+    return {f10, f20, f50, f100, r10, r20, r50, r100};
+}
+
+std::string build_operator_mix_name(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights,
+    const std::string &equal_suffix,
+    const std::string &tuned_suffix)
+{
+    if (ops.empty())
+    {
+        return "";
+    }
+
+    if (ops.size() == 1)
+    {
+        return ops[0].name;
+    }
+
+    return weights.empty() ? equal_suffix : tuned_suffix;
+}
+
 NamedOperator build_run_operator(
     const std::vector<NamedOperator> &ops,
     const std::vector<double> &weights,
@@ -53,7 +77,7 @@ NamedOperator build_run_operator(
         : make_tuned_weighted_selector(ops, weights);
 
     return NamedOperator{
-        weights.empty() ? equal_suffix : tuned_suffix,
+        build_operator_mix_name(ops, weights, equal_suffix, tuned_suffix),
         selector};
 }
 }
@@ -90,7 +114,7 @@ void run_algorithm(
     int amnt_iter)
 {
     const long long INF = 4e18;
-    std::vector<std::string> datasets = {f10, f20, f50, f100, r10, r20, r50, r100};
+    const std::vector<std::string> datasets = benchmark_datasets();
 
     std::string algo_op_name = algo_name;
     if (!op.name.empty())
@@ -193,21 +217,73 @@ void run_gam(const NamedOperator &op)
 
 void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &weights)
 {
-    int amnt_iter = 10;
+    const int amnt_iter = 10;
+    const std::vector<std::string> datasets = benchmark_datasets();
     std::string base_dir = create_run_directory();
 
-    NamedOperator run_op = build_run_operator(
+    std::string algo_op_name = "General Adaptive Metaheuristic";
+    const std::string mix_name = build_operator_mix_name(
         ops,
         weights,
         "Operator Mix (Equal Weights)",
         "Operator Mix (Tuned Weights)");
+    if (!mix_name.empty())
+    {
+        algo_op_name += " " + mix_name;
+    }
 
-    run_algorithm(
-        "General Adaptive Metaheuristic",
-        general_adaptive_metaheuristic,
-        run_op,
-        base_dir,
-        amnt_iter);
+    std::string run_dir = create_algo_directory(base_dir, algo_op_name);
+
+    for (const auto &dataset : datasets)
+    {
+        long long best = INF;
+        long double avg = 0;
+        double avg_runtime = 0;
+        long long initial_obj = 0;
+        Instance instance;
+        Solution initial;
+        Solution best_solution;
+
+        for (int i = 0; i < amnt_iter; ++i)
+        {
+            auto start = std::chrono::high_resolution_clock::now();
+
+            instance = read_instance(dataset);
+            initial = simple_initial_solution(instance.n);
+
+            if (i == 0)
+            {
+                initial_obj = objective_function_impl(instance, initial);
+            }
+
+            Solution sol = general_adaptive_metaheuristic(instance, initial, ops, weights);
+            auto stop = std::chrono::high_resolution_clock::now();
+
+            const long long val = objective_function_impl(instance, sol);
+            avg += val;
+            avg_runtime += std::chrono::duration<double>(stop - start).count();
+
+            if (val < best)
+            {
+                best = val;
+                best_solution = sol;
+            }
+        }
+
+        avg /= amnt_iter;
+        avg_runtime /= amnt_iter;
+
+        const double improvement = 100.0 * (initial_obj - best) / initial_obj;
+        save_to_csv(
+            run_dir,
+            algo_op_name,
+            dataset,
+            avg,
+            best,
+            improvement,
+            avg_runtime,
+            convert_to_submission(best_solution));
+    }
 
     create_markdown_tables(base_dir);
 }

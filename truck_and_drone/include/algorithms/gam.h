@@ -2,14 +2,16 @@
 #include "datahandling/instance.h"
 #include "operators/operator.h"
 #include "verification/solution.h"
+#include <vector>
 
 /**
- * Scaffold for the General Adaptive Metaheuristic (GAM).
+ * General Adaptive Metaheuristic (GAM).
  *
- * The operator argument can be any regular operator, ALNS composite operator,
- * or weighted selector over a mix of both.
+ * GAM owns the operator selection step itself so it can keep per-operator
+ * scores, usages, and roulette-wheel weights.
  */
 Solution general_adaptive_metaheuristic(
     const Instance &instance,
     Solution initial,
-    Operator op);
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &initial_weights = {});
