@@ -12,6 +12,59 @@
 
 namespace
 {
+long long flight_duration(
+    const Instance &inst,
+    int customer,
+    const Flight &flight)
+{
+    return inst.drone_matrix[flight.first][customer] +
+        inst.drone_matrix[customer][flight.second];
+}
+
+int flight_span(
+    const Flight &flight,
+    const std::unordered_map<int, int> &customer_positions)
+{
+    return customer_positions.at(flight.second) - customer_positions.at(flight.first);
+}
+
+void trim_candidate_flights(
+    const Instance &inst,
+    int customer,
+    const std::unordered_map<int, int> &customer_positions,
+    int max_flights_per_customer,
+    std::vector<Flight> &candidates)
+{
+    if (max_flights_per_customer <= 0 ||
+        (int)(candidates.size()) <= max_flights_per_customer)
+    {
+        return;
+    }
+
+    std::sort(
+        candidates.begin(),
+        candidates.end(),
+        [&](const Flight &lhs, const Flight &rhs) {
+            const long long lhs_duration = flight_duration(inst, customer, lhs);
+            const long long rhs_duration = flight_duration(inst, customer, rhs);
+            if (lhs_duration != rhs_duration)
+            {
+                return lhs_duration < rhs_duration;
+            }
+
+            const int lhs_span = flight_span(lhs, customer_positions);
+            const int rhs_span = flight_span(rhs, customer_positions);
+            if (lhs_span != rhs_span)
+            {
+                return lhs_span < rhs_span;
+            }
+
+            return lhs < rhs;
+        });
+
+    candidates.resize(max_flights_per_customer);
+}
+
 bool flights_overlap(
     const Flight &lhs,
     const Flight &rhs,
@@ -105,13 +158,16 @@ bool flight_feasible_with_timing(
 
     return out_time + back_time + drone_wait <= inst.lim;
 }
-}
 
-P build_p(const Instance &inst, const Solution &curr_sol)
+P build_p_impl(
+    const Instance &inst,
+    const Solution &curr_sol,
+    const std::vector<int> &drone_customers,
+    int max_flights_per_customer)
 {
     P result;
-    const std::vector<int> drone_customers = get_not_covered_by_truck(curr_sol);
     const std::vector<int> &route = curr_sol.truck_route;
+    const std::unordered_map<int, int> customer_positions = get_customer_positions(curr_sol);
 
     result.reserve(drone_customers.size());
 
@@ -134,39 +190,86 @@ P build_p(const Instance &inst, const Solution &curr_sol)
                 }
             }
         }
+
+        trim_candidate_flights(
+            inst,
+            drone_customer,
+            customer_positions,
+            max_flights_per_customer,
+            candidates);
     }
 
     return result;
+}
+}
+
+P build_p(const Instance &inst, const Solution &curr_sol)
+{
+    return build_p_impl(inst, curr_sol, get_not_covered_by_truck(curr_sol), 0);
 }
 
 std::pair<long long, Solution> drone_planner(
     const Instance &inst,
     const Solution &curr_sol)
 {
+    return drone_planner(inst, curr_sol, 10, 0);
+}
+
+std::pair<long long, Solution> drone_planner(
+    const Instance &inst,
+    const Solution &curr_sol,
+    int iterations,
+    int max_flights_per_customer)
+{
+    return drone_planner(
+        inst,
+        curr_sol,
+        iterations,
+        max_flights_per_customer,
+        -1);
+}
+
+std::pair<long long, Solution> drone_planner(
+    const Instance &inst,
+    const Solution &curr_sol,
+    int iterations,
+    int max_flights_per_customer,
+    int drone_to_replan)
+{
     long long best = objective_function_impl(inst, curr_sol);
     Solution best_sol = curr_sol;
 
-    const int amnt_iter = 10;
+    const int amnt_iter = std::max(1, iterations);
     const std::unordered_map<int, int> customer_positions = get_customer_positions(curr_sol);
-    const P base_p = build_p(inst, curr_sol);
+    const std::vector<int> planned_customers =
+        drone_to_replan >= 0
+        ? curr_sol.drones[drone_to_replan].deliver_nodes
+        : get_not_covered_by_truck(curr_sol);
+    const P base_p = build_p_impl(
+        inst,
+        curr_sol,
+        planned_customers,
+        max_flights_per_customer);
 
     for (int iter = 0; iter < amnt_iter; ++iter)
     {
         Solution curr = curr_sol;
         bool iteration_valid = true;
 
-        for (DroneCollection &drone : curr.drones)
-        {
-            clear_drone_schedule(drone);
-        }
-
         for (int d = 0; d < (int)(curr.drones.size()) && iteration_valid; ++d)
         {
+            if (drone_to_replan >= 0 && d != drone_to_replan)
+            {
+                continue;
+            }
+
             const std::vector<int> &customers = curr_sol.drones[d].deliver_nodes;
             if (customers.empty())
             {
                 continue;
             }
+
+            clear_drone_schedule(curr.drones[d]);
 
             P drone_candidates;
             drone_candidates.reserve(customers.size());

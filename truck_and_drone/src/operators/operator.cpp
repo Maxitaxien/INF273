@@ -15,6 +15,49 @@
 extern std::mt19937 gen; // reuse global generator
 const long long INF = 4e18;
 
+namespace
+{
+int count_drone_deliveries(const Solution &sol)
+{
+    int delivery_count = 0;
+    for (const DroneCollection &drone : sol.drones)
+    {
+        delivery_count += (int)(drone.deliver_nodes.size());
+    }
+
+    return delivery_count;
+}
+
+bool planner_improve_with_budget(
+    const Instance &instance,
+    Solution &sol,
+    int iterations,
+    int max_flights_per_customer,
+    int drone_to_replan)
+{
+    if (count_drone_deliveries(sol) == 0)
+    {
+        return false;
+    }
+
+    const long long current_cost = objective_function_impl(instance, sol);
+    const auto [planned_cost, planned_solution] = drone_planner(
+        instance,
+        sol,
+        iterations,
+        max_flights_per_customer,
+        drone_to_replan);
+
+    if (planned_cost >= current_cost)
+    {
+        return false;
+    }
+
+    sol = planned_solution;
+    return true;
+}
+}
+
 Operator make_alns_operator(const ALNSOperator &op)
 {
     return [op](const Instance &instance, Solution &sol) {
@@ -287,15 +330,39 @@ bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
 
 bool drone_planner_improve(const Instance &instance, Solution &sol)
 {
-    const long long current_cost = objective_function_impl(instance, sol);
-    const auto [planned_cost, planned_solution] = drone_planner(instance, sol);
-    if (!master_check(instance, planned_solution, false) || planned_cost >= current_cost)
+    return planner_improve_with_budget(instance, sol, 1, 0, -1);
+}
+
+bool drone_planner_light_improve(const Instance &instance, Solution &sol)
+{
+    std::vector<int> candidate_drones;
+    candidate_drones.reserve(sol.drones.size());
+    int drone_deliveries = 0;
+    for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
+    {
+        const int deliveries = (int)(sol.drones[drone].deliver_nodes.size());
+        drone_deliveries += deliveries;
+        if (deliveries > 0)
+        {
+            candidate_drones.push_back(drone);
+        }
+    }
+
+    if (candidate_drones.empty())
     {
         return false;
     }
 
-    sol = planned_solution;
-    return true;
+    std::uniform_int_distribution<int> drone_dist(0, (int)(candidate_drones.size()) - 1);
+    const int drone_to_replan = candidate_drones[drone_dist(gen)];
+    const int iterations = drone_deliveries >= 20 ? 1 : 2;
+    const int max_flights_per_customer = drone_deliveries >= 20 ? 8 : 12;
+    return planner_improve_with_budget(
+        instance,
+        sol,
+        iterations,
+        max_flights_per_customer,
+        drone_to_replan);
 }
 
 

@@ -129,3 +129,11 @@ bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol);
  * if it strictly improves the current objective.
  */
 bool drone_planner_improve(const Instance &instance, Solution &sol);
+
+/**
+ * Budgeted planner operator for large instances.
+ *
+ * Uses fewer randomized rebuilds and a trimmed flight candidate set so the
+ * planner can act as a cheap intensifier inside GAM.
+ */
+bool drone_planner_light_improve(const Instance &instance, Solution &sol);
