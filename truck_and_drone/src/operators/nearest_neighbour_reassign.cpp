@@ -1,26 +1,26 @@
 #include "operators/nearest_neighbour_reassign.h"
 #include "datahandling/instance.h"
-#include "verification/solution.h"
 #include "operators/helpers.h"
-#include "operators/solution_fixers.h"
+#include "verification/feasibility_check.h"
 #include <algorithm>
+#include <utility>
 
-void nearest_neighbour_reassign(const Instance &inst, Solution &sol, int i) {
+bool nearest_neighbour_reassign(const Instance &inst, Solution &sol, int i) {
     // Must have at least two customers beyond the depot at route[0].
     // This ensures we can safely access i+1.
     if (sol.truck_route.size() <= 2)
-        return;
+        return false;
 
     // Guard index bounds explicitly
     if (i <= 0 || i >= (int)sol.truck_route.size() - 1)
-        return;
+        return false;
 
     // `i` is an index in the truck route; convert to the node id.
     int point_node = sol.truck_route[i];
 
     std::vector<int> closest = sort_by_distance_to_point_truck(inst, sol, point_node);
     if (closest.empty())
-        return;
+        return false;
 
     int candidate = closest[0];
 
@@ -29,11 +29,17 @@ void nearest_neighbour_reassign(const Instance &inst, Solution &sol, int i) {
         candidate = closest[1];
     }
 
-    auto candidate_position = std::find(sol.truck_route.begin(), sol.truck_route.end(), candidate);
-    if (candidate_position == sol.truck_route.end())
-        return;
+    Solution candidate_solution = sol;
+    auto swap_position = std::find(candidate_solution.truck_route.begin(),
+                                   candidate_solution.truck_route.end(),
+                                   candidate);
+    if (swap_position == candidate_solution.truck_route.end())
+        return false;
+    std::iter_swap(candidate_solution.truck_route.begin() + i, swap_position);
 
-    std::iter_swap(sol.truck_route.begin() + i, candidate_position);
+    if (!master_check(inst, candidate_solution, false))
+        return false;
 
-    sol = fix_overall_feasibility(inst, sol);
+    sol = std::move(candidate_solution);
+    return true;
 }

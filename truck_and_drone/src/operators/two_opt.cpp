@@ -1,33 +1,36 @@
 #include "operators/two_opt.h"
-#include "operators/solution_fixers.h"
-#include "verification/solution.h"
-#include <vector>
+#include "verification/feasibility_check.h"
+#include <algorithm>
+#include <utility>
 
-void two_opt(const Instance &inst, Solution &solution, int first, int second)
+bool two_opt(const Instance &inst, Solution &solution, int first, int second)
 {
     const int route_size = (int)(solution.truck_route.size());
-    std::vector<int> new_truck_route(route_size);
-
-    // 1: Add all up to and including first position
-    for (int i = 0; i <= first; i++)
+    if (route_size < 4)
     {
-        new_truck_route[i] = solution.truck_route[i];
+        return false;
     }
 
-    // 2: Add route[first+1] to route[second] in reverse order
-    int idx = first + 1;
-    for (int j = second; j > first; j--)
+    if (first > second)
     {
-        new_truck_route[idx++] = solution.truck_route[j];
+        std::swap(first, second);
     }
 
-    // 3: Add the rest
-    for (int k = second + 1; k < route_size; k++)
+    if (first <= 0 || second >= route_size || second <= first + 1)
     {
-        new_truck_route[k] = solution.truck_route[k];
+        return false;
     }
 
-    solution.truck_route = new_truck_route;
-    solution = fix_overall_feasibility(inst, solution);
+    Solution candidate = solution;
+    std::reverse(candidate.truck_route.begin() + first + 1,
+                 candidate.truck_route.begin() + second + 1);
+
+    if (!master_check(inst, candidate, false))
+    {
+        return false;
+    }
+
+    solution = std::move(candidate);
+    return true;
 }
 

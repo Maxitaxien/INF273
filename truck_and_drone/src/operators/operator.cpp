@@ -3,9 +3,7 @@
 #include "operators/one_reinsert.h"
 #include "operators/replace_truck_delivery.h"
 #include "operators/two_opt.h"
-#include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
-#include <iostream>
 #include <random>
 #include <utility>
 #include <vector>
@@ -92,10 +90,7 @@ std::vector<Solution> one_reinsert_operator(const Instance &instance, const Solu
                 Solution neighbor = sol; // one copy per trial
                 if (one_reinsert(instance, neighbor, pop, insert, idx))
                 {
-                    if (master_check(instance, neighbor, false))
-                    {
-                        neighbors.push_back(neighbor);
-                    }
+                    neighbors.push_back(neighbor);
                 }
             }
         }
@@ -145,22 +140,20 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
 {
     bool success = false;
     long long best_cost = INF;
-    int best_i = -1, best_drone = -1;
+    Solution best_solution;
 
     for (int drone = 0; drone < (int)sol.drones.size(); ++drone)
     {
         for (int i = 1; i < (int)sol.truck_route.size(); ++i)
         {
             Solution copy = sol; // fresh copy each time
-            if (replace_truck_delivery(instance, copy, i, drone) &&
-                master_check(instance, copy, false)) // check the candidate
+            if (replace_truck_delivery(instance, copy, i, drone))
             {
                 long long cost = objective_function_impl(instance, copy);
                 if (cost < best_cost)
                 {
                     best_cost = cost;
-                    best_i = i;
-                    best_drone = drone;
+                    best_solution = std::move(copy);
                     success = true;
                 }
             }
@@ -169,27 +162,23 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
 
     if (success)
     {
-        replace_truck_delivery(instance, sol, best_i, best_drone);
+        sol = std::move(best_solution);
     }
     return success;
 }
 
 bool two_opt_random(const Instance &inst, Solution &sol)
 {
-    // Random i, j, different from each other, each in range 1 -> sol.truck_route.size() - 1
+    // Pick a meaningful 2-opt segment while keeping the depot fixed.
     if (sol.truck_route.size() < 4)
         return false; // Need at least 4 nodes for meaningful 2-opt
 
-    std::uniform_int_distribution<int> dist(1, sol.truck_route.size() - 1);
-    int i = dist(gen);
-    int j = dist(gen);
-    while (i == j)
-    {
-        j = dist(gen);
-    }
+    std::uniform_int_distribution<int> first_dist(1, (int)sol.truck_route.size() - 3);
+    int i = first_dist(gen);
+    std::uniform_int_distribution<int> second_dist(i + 2, (int)sol.truck_route.size() - 1);
+    int j = second_dist(gen);
 
-    two_opt(inst, sol, i, j);
-    return true;
+    return two_opt(inst, sol, i, j);
 }
 
 bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
@@ -204,8 +193,7 @@ bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
     std::uniform_int_distribution<int> dist(1, max_valid_idx);
     int i = dist(gen);
 
-    nearest_neighbour_reassign(inst, sol, i);
-    return true;
+    return nearest_neighbour_reassign(inst, sol, i);
 }
 
 

@@ -90,13 +90,13 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol);
 /**
  * Perform 2-opt on random indexes except from depot.
  *
- * @return Non-meaningful bool to conform - should always be valid move
+ * @return Whether the sampled move remained feasible.
  */
 bool two_opt_random(const Instance &inst, Solution &sol);
 
 /**
  * Perform nearest neighbour reassignment from a random index. Then swaps the chosen one within the route.
  *
- * @return Non-meaningful bool to conform - should always be valid move
+ * @return Whether the sampled move remained feasible.
  */
 bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol);

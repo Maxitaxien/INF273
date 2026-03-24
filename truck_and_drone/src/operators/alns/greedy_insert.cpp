@@ -11,6 +11,14 @@
 
 namespace
 {
+struct TruckPlannerFallback
+{
+    int node_idx = -1;
+    int delivery = -1;
+    int truck_insert_position = -1;
+    long long heuristic_score = 0;
+};
+
 bool has_any_drone_deliveries(const Solution &sol)
 {
     for (const DroneCollection &drone : sol.drones)
@@ -24,9 +32,76 @@ bool has_any_drone_deliveries(const Solution &sol)
     return false;
 }
 
+void shift_drone_indices_after_truck_insert(Solution &sol, int truck_insert_position)
+{
+    for (DroneCollection &drone : sol.drones)
+    {
+        for (int &launch_idx : drone.launch_indices)
+        {
+            if (launch_idx >= truck_insert_position)
+            {
+                ++launch_idx;
+            }
+        }
+
+        for (int &land_idx : drone.land_indices)
+        {
+            if (land_idx >= truck_insert_position)
+            {
+                ++land_idx;
+            }
+        }
+    }
+}
+
+long long estimate_truck_insert_delta(
+    const Instance &inst,
+    const Solution &sol,
+    int delivery,
+    int truck_insert_position)
+{
+    const int prev = sol.truck_route[truck_insert_position - 1];
+    if (truck_insert_position == sol.truck_route.size())
+    {
+        return inst.truck_matrix[prev][delivery];
+    }
+
+    const int next = sol.truck_route[truck_insert_position];
+    return inst.truck_matrix[prev][delivery] +
+           inst.truck_matrix[delivery][next] -
+           inst.truck_matrix[prev][next];
+}
+
+void consider_truck_planner_fallback(
+    std::vector<TruckPlannerFallback> &shortlist,
+    int limit,
+    int node_idx,
+    int delivery,
+    int truck_insert_position,
+    long long heuristic_score)
+{
+    shortlist.push_back(TruckPlannerFallback{
+        node_idx,
+        delivery,
+        truck_insert_position,
+        heuristic_score});
+
+    std::sort(
+        shortlist.begin(),
+        shortlist.end(),
+        [](const TruckPlannerFallback &lhs, const TruckPlannerFallback &rhs) {
+            return lhs.heuristic_score < rhs.heuristic_score;
+        });
+
+    if ((int)(shortlist.size()) > limit)
+    {
+        shortlist.pop_back();
+    }
+}
+
 Candidate generate_new_candidate(
-    const Instance& inst,
-    const Solution& sol,
+    const Instance &inst,
+    const Solution &sol,
     const std::vector<int> &to_insert,
     const std::vector<int> &insert_positions)
 {
@@ -42,8 +117,7 @@ Candidate generate_new_candidate(
             const int truck_insert_position = encoded_position + 1;
             candidate_sol.truck_route.insert(
                 candidate_sol.truck_route.begin() + truck_insert_position,
-                to_insert[i]
-            );
+                to_insert[i]);
         }
     }
 
@@ -67,42 +141,60 @@ Candidate generate_new_candidate(
     return Candidate{planned_sol, score};
 }
 
-bool evaluate_single_insert_candidate(
+bool evaluate_truck_candidate_fixed_schedule(
     const Instance &inst,
     const Solution &sol,
     int delivery,
-    int encoded_position,
-    bool base_has_drone_deliveries,
+    int truck_insert_position,
     Candidate &candidate)
 {
     Solution candidate_sol = sol;
-    const int truck_insert_slots = sol.truck_route.size();
+    candidate_sol.truck_route.insert(
+        candidate_sol.truck_route.begin() + truck_insert_position,
+        delivery);
+    shift_drone_indices_after_truck_insert(candidate_sol, truck_insert_position);
 
-    if (encoded_position < truck_insert_slots)
+    if (!master_check(inst, candidate_sol, false))
     {
-        const int truck_insert_position = encoded_position + 1;
-        candidate_sol.truck_route.insert(
-            candidate_sol.truck_route.begin() + truck_insert_position,
-            delivery);
-
-        if (!base_has_drone_deliveries)
-        {
-            const long long score = objective_function_impl(inst, candidate_sol);
-            candidate = Candidate{std::move(candidate_sol), score};
-            return true;
-        }
-
-        const auto [score, planned_sol] = drone_planner(inst, candidate_sol);
-        if (!master_check(inst, planned_sol, false))
-        {
-            return false;
-        }
-
-        candidate = Candidate{planned_sol, score};
-        return true;
+        return false;
     }
 
-    const int drone = encoded_position - truck_insert_slots;
+    const long long score = objective_function_impl(inst, candidate_sol);
+    candidate = Candidate{std::move(candidate_sol), score};
+    return true;
+}
+
+bool evaluate_truck_candidate_with_planner(
+    const Instance &inst,
+    const Solution &sol,
+    int delivery,
+    int truck_insert_position,
+    Candidate &candidate)
+{
+    Solution candidate_sol = sol;
+    candidate_sol.truck_route.insert(
+        candidate_sol.truck_route.begin() + truck_insert_position,
+        delivery);
+    shift_drone_indices_after_truck_insert(candidate_sol, truck_insert_position);
+
+    const auto [score, planned_sol] = drone_planner(inst, candidate_sol);
+    if (!master_check(inst, planned_sol, false))
+    {
+        return false;
+    }
+
+    candidate = Candidate{planned_sol, score};
+    return true;
+}
+
+bool evaluate_drone_candidate(
+    const Instance &inst,
+    const Solution &sol,
+    int delivery,
+    int drone,
+    Candidate &candidate)
+{
+    Solution candidate_sol = sol;
     auto [assigned_ok, assigned_sol] = greedy_assign_launch_and_land(
         inst,
         candidate_sol,
@@ -134,8 +226,7 @@ void generate_and_keep_top_p(
             inst,
             sol,
             to_insert,
-            insert_positions
-        );
+            insert_positions);
 
         if (!master_check(inst, cand.sol, false))
         {
@@ -174,17 +265,18 @@ std::vector<Candidate> heap_to_sorted_vector(
         heap.pop();
     }
 
-    std::sort(result.begin(), result.end(),
-              [](const Candidate& a, const Candidate& b) {
-                  return a.score < b.score;
-              });
+    std::sort(
+        result.begin(),
+        result.end(),
+        [](const Candidate &a, const Candidate &b) {
+            return a.score < b.score;
+        });
 
     return result;
 }
 
 bool greedy_insert(const Instance &inst, Solution &sol, std::vector<int> to_insert, int k)
 {
-    // k not in use
     (void)k;
 
     if (to_insert.empty())
@@ -207,8 +299,7 @@ bool greedy_insert(const Instance &inst, Solution &sol, std::vector<int> to_inse
         to_insert,
         inst,
         sol,
-        top_p_heap
-    );
+        top_p_heap);
 
     if (top_p_heap.empty())
     {
@@ -228,16 +319,20 @@ bool cheapest_feasible_sequential_insert(
     int k)
 {
     (void)k;
+    constexpr int truck_planner_shortlist_size = 3;
 
     while (!to_insert.empty())
     {
+        const int truck_insert_slots = sol.truck_route.size();
+        const int insertion_targets = truck_insert_slots + sol.drones.size();
         const bool base_has_drone_deliveries = has_any_drone_deliveries(sol);
-        const int insertion_targets = sol.truck_route.size() + sol.drones.size();
 
         bool found = false;
         int best_node_idx = -1;
         long long best_score = std::numeric_limits<long long>::max();
         Candidate best_candidate;
+        std::vector<TruckPlannerFallback> truck_planner_shortlist;
+        truck_planner_shortlist.reserve(truck_planner_shortlist_size);
 
         for (int node_idx = 0; node_idx < (int)(to_insert.size()); ++node_idx)
         {
@@ -245,12 +340,49 @@ bool cheapest_feasible_sequential_insert(
             for (int encoded_position = 0; encoded_position < insertion_targets; ++encoded_position)
             {
                 Candidate candidate;
-                if (!evaluate_single_insert_candidate(
+                if (encoded_position < truck_insert_slots)
+                {
+                    const int truck_insert_position = encoded_position + 1;
+                    if (evaluate_truck_candidate_fixed_schedule(
+                            inst,
+                            sol,
+                            delivery,
+                            truck_insert_position,
+                            candidate))
+                    {
+                        if (!found || candidate.score < best_score)
+                        {
+                            found = true;
+                            best_score = candidate.score;
+                            best_node_idx = node_idx;
+                            best_candidate = std::move(candidate);
+                        }
+                    }
+
+                    if (base_has_drone_deliveries)
+                    {
+                        consider_truck_planner_fallback(
+                            truck_planner_shortlist,
+                            truck_planner_shortlist_size,
+                            node_idx,
+                            delivery,
+                            truck_insert_position,
+                            estimate_truck_insert_delta(
+                                inst,
+                                sol,
+                                delivery,
+                                truck_insert_position));
+                    }
+
+                    continue;
+                }
+
+                const int drone = encoded_position - truck_insert_slots;
+                if (!evaluate_drone_candidate(
                         inst,
                         sol,
                         delivery,
-                        encoded_position,
-                        base_has_drone_deliveries,
+                        drone,
                         candidate))
                 {
                     continue;
@@ -263,6 +395,28 @@ bool cheapest_feasible_sequential_insert(
                     best_node_idx = node_idx;
                     best_candidate = std::move(candidate);
                 }
+            }
+        }
+
+        for (const TruckPlannerFallback &fallback : truck_planner_shortlist)
+        {
+            Candidate candidate;
+            if (!evaluate_truck_candidate_with_planner(
+                    inst,
+                    sol,
+                    fallback.delivery,
+                    fallback.truck_insert_position,
+                    candidate))
+            {
+                continue;
+            }
+
+            if (!found || candidate.score < best_score)
+            {
+                found = true;
+                best_score = candidate.score;
+                best_node_idx = fallback.node_idx;
+                best_candidate = std::move(candidate);
             }
         }
 

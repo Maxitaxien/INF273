@@ -12,4 +12,4 @@
  *  3. take route[v2+1] to route[start] and add them in order to new_route
  *  return new_route;
  */
-void two_opt(const Instance &inst, Solution &solution, int first, int second);
+bool two_opt(const Instance &inst, Solution &solution, int first, int second);
