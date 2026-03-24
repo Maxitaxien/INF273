@@ -140,17 +140,20 @@ void append_drone_flight(
     solution.drones[drone].deliver_nodes.push_back(delivery);
     solution.drones[drone].land_indices.push_back(assignment.land_idx);
 }
-}
 
-std::pair<bool, Solution> assign_launch_and_land_n_lookahead(
+std::pair<bool, Solution> assign_launch_and_land_n_lookahead_impl(
     const Instance &instance,
     Solution &solution,
     int idx,
     int new_deliver,
     int drone,
-    int look_ahead)
+    int look_ahead,
+    bool normalize_solution)
 {
-    simple_fix_validity(solution);
+    if (normalize_solution)
+    {
+        simple_fix_validity(solution);
+    }
 
     if (drone < 0 || drone >= (int)solution.drones.size() ||
         idx < 0 || idx >= (int)solution.truck_route.size() ||
@@ -235,13 +238,17 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(
     return {true, solution};
 }
 
-std::pair<bool, Solution> greedy_assign_launch_and_land(
+std::pair<bool, Solution> greedy_assign_launch_and_land_impl(
     const Instance &instance,
     Solution &solution,
     int new_deliver,
-    int drone)
+    int drone,
+    bool normalize_solution)
 {
-    simple_fix_validity(solution);
+    if (normalize_solution)
+    {
+        simple_fix_validity(solution);
+    }
 
     if (drone < 0 || drone >= (int)solution.drones.size() ||
         delivery_on_truck_route(solution, new_deliver))
@@ -266,6 +273,71 @@ std::pair<bool, Solution> greedy_assign_launch_and_land(
 
     append_drone_flight(solution, drone, new_deliver, best);
     return {true, solution};
+}
+}
+
+std::pair<bool, Solution> assign_launch_and_land_n_lookahead(
+    const Instance &instance,
+    Solution &solution,
+    int idx,
+    int new_deliver,
+    int drone,
+    int look_ahead)
+{
+    return assign_launch_and_land_n_lookahead_impl(
+        instance,
+        solution,
+        idx,
+        new_deliver,
+        drone,
+        look_ahead,
+        true);
+}
+
+std::pair<bool, Solution> assign_launch_and_land_n_lookahead_assume_valid(
+    const Instance &instance,
+    Solution &solution,
+    int idx,
+    int new_deliver,
+    int drone,
+    int look_ahead)
+{
+    return assign_launch_and_land_n_lookahead_impl(
+        instance,
+        solution,
+        idx,
+        new_deliver,
+        drone,
+        look_ahead,
+        false);
+}
+
+std::pair<bool, Solution> greedy_assign_launch_and_land(
+    const Instance &instance,
+    Solution &solution,
+    int new_deliver,
+    int drone)
+{
+    return greedy_assign_launch_and_land_impl(
+        instance,
+        solution,
+        new_deliver,
+        drone,
+        true);
+}
+
+std::pair<bool, Solution> greedy_assign_launch_and_land_assume_valid(
+    const Instance &instance,
+    Solution &solution,
+    int new_deliver,
+    int drone)
+{
+    return greedy_assign_launch_and_land_impl(
+        instance,
+        solution,
+        new_deliver,
+        drone,
+        false);
 }
 
 Solution &fix_feasibility_for_drone(const Instance &instance, Solution &sol, int drone)
@@ -298,7 +370,7 @@ Solution &fix_feasibility_for_drone(const Instance &instance, Solution &sol, int
         }
 
         remove_drone_flight(sol, drone, i);
-        auto [success, ignored_solution] = greedy_assign_launch_and_land(
+        auto [success, ignored_solution] = greedy_assign_launch_and_land_assume_valid(
             instance,
             sol,
             deliver,

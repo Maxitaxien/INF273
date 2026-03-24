@@ -45,6 +45,11 @@ add_library(core
     src/operators/one_reinsert.cpp
     src/operators/replace_truck_delivery.cpp
     src/operators/two_opt.cpp
+    src/operators/three_opt.cpp
+    src/operators/or_opt_segment_relocate.cpp
+    src/operators/origin_destination_relocation.cpp
+    src/operators/drone_rendezvous_shift.cpp
+    src/operators/late_customer_drone_promotion.cpp
     src/operators/nearest_neighbour_reassign.cpp
     src/operators/solution_fixers.cpp
     src/operators/drone_planner.cpp

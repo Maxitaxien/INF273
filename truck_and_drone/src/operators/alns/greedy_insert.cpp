@@ -195,12 +195,12 @@ bool evaluate_drone_candidate(
     Candidate &candidate)
 {
     Solution candidate_sol = sol;
-    auto [assigned_ok, assigned_sol] = greedy_assign_launch_and_land(
+    auto [assigned_ok, assigned_sol] = greedy_assign_launch_and_land_assume_valid(
         inst,
         candidate_sol,
         delivery,
         drone);
-    if (!assigned_ok || !master_check(inst, assigned_sol, false))
+    if (!assigned_ok)
     {
         return false;
     }

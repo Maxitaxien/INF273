@@ -17,6 +17,18 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(
     int look_ahead);
 
 /**
+ * Faster variant of the lookahead assigner for hot paths where the caller
+ * already preserves structural validity of the solution.
+ */
+std::pair<bool, Solution> assign_launch_and_land_n_lookahead_assume_valid(
+    const Instance &instance,
+    Solution &solution,
+    int idx,
+    int new_deliver,
+    int drone,
+    int look_ahead);
+
+/**
  * Assigns the best feasible launch/land pair to a newly inserted drone delivery.
  *
  * The truck route stays fixed. The assignment is chosen with the same timing model
@@ -24,6 +36,16 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead(
  * handled consistently.
  */
 std::pair<bool, Solution> greedy_assign_launch_and_land(
+    const Instance &instance,
+    Solution &solution,
+    int new_deliver,
+    int drone);
+
+/**
+ * Faster variant of greedy drone assignment for callers that already operate
+ * on a clean solution and do not need a full validity cleanup first.
+ */
+std::pair<bool, Solution> greedy_assign_launch_and_land_assume_valid(
     const Instance &instance,
     Solution &solution,
     int new_deliver,

@@ -11,5 +11,8 @@
  *  2. take route[v1+1] to route[v2] and add them in reverse order to new_route
  *  3. take route[v2+1] to route[start] and add them in order to new_route
  *  return new_route;
+ *
+ * This operator only mutates the truck route. The surrounding search
+ * algorithm is expected to perform the final feasibility check.
  */
 bool two_opt(const Instance &inst, Solution &solution, int first, int second);

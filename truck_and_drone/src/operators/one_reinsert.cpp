@@ -53,7 +53,7 @@ bool one_reinsert(const Instance &inst, Solution &sol,
         int d = insert - 2;
         if (d < (int)sol.drones.size())
         {
-            auto [ok, _] = greedy_assign_launch_and_land(inst, sol, value, d);
+            auto [ok, _] = greedy_assign_launch_and_land_assume_valid(inst, sol, value, d);
             inserted = ok;
         }
     }
@@ -63,7 +63,7 @@ bool one_reinsert(const Instance &inst, Solution &sol,
         if (pop == 1)
             sol.truck_route.push_back(value);
         else
-            greedy_assign_launch_and_land(inst, sol, value, pop - 2);
+            greedy_assign_launch_and_land_assume_valid(inst, sol, value, pop - 2);
         return false;
     }
 

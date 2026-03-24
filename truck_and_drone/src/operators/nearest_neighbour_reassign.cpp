@@ -1,7 +1,6 @@
 #include "operators/nearest_neighbour_reassign.h"
 #include "datahandling/instance.h"
 #include "operators/helpers.h"
-#include "verification/feasibility_check.h"
 #include <algorithm>
 #include <utility>
 
@@ -36,9 +35,6 @@ bool nearest_neighbour_reassign(const Instance &inst, Solution &sol, int i) {
     if (swap_position == candidate_solution.truck_route.end())
         return false;
     std::iter_swap(candidate_solution.truck_route.begin() + i, swap_position);
-
-    if (!master_check(inst, candidate_solution, false))
-        return false;
 
     sol = std::move(candidate_solution);
     return true;

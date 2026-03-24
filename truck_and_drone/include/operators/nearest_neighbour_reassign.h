@@ -6,11 +6,11 @@
  * Idea: At given truck index i, reassign at index i + 1 to the nearest neighbour
  * Pop this neighbour from it's current position, and insert the old neighbour at it's old position
  *
- * Reject the move if the resulting schedule becomes infeasible.
- *
- *
  * Should give quite some exploration! Perhaps we make a locally "good" decision, but mess up the later parts
  * of the solution.
+ *
+ * This operator only changes the truck sequence. The surrounding search
+ * algorithm is expected to perform the final feasibility check.
  *
  * TODO: Evauate if this can potentially also take points that are covered by drone. A bit more complexity though
  *

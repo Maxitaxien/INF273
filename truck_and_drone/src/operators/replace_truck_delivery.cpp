@@ -51,7 +51,13 @@ bool replace_truck_delivery(const Instance &inst, Solution &sol, int idx, int dr
     const int look_ahead = std::max(1, inst.n / 10);
     sort_drone_collection(sol.drones[drone]);
 
-    auto [success, ignored_solution] = assign_launch_and_land_n_lookahead(inst, sol, idx - 1, customer, drone, look_ahead);
+    auto [success, ignored_solution] = assign_launch_and_land_n_lookahead_assume_valid(
+        inst,
+        sol,
+        idx - 1,
+        customer,
+        drone,
+        look_ahead);
     (void)ignored_solution;
     if (!success || !master_check(inst, sol, false))
     {
