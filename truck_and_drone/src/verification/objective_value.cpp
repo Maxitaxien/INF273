@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <map>
 
+
 long long objective_function_impl(const Instance &instance, const Solution &solution)
 {
     std::vector<long long> drone_available;
@@ -25,3 +26,12 @@ long long objective_function_impl(const Instance &instance, const Solution &solu
     return total_time / 100;
 }
 
+long long objective_function_truck_only(const Instance &instance, const Solution &solution) {
+    long long truck_objective = 0;
+    for (int i = 0; i < solution.truck_route.size() - 1; i++) {
+        int a = solution.truck_route[i];
+        int b = solution.truck_route[i + 1];
+        truck_objective += instance.truck_matrix[a][b];
+    }
+    return truck_objective;
+}

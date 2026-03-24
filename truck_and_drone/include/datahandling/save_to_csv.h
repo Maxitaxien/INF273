@@ -17,5 +17,6 @@ bool save_gam_statistics(
     const std::string& run_dir,
     const std::string& dataset,
     int run_idx,
-    const GAMRunStatistics& statistics
+    const GAMRunStatistics& statistics,
+    const std::vector<GAMRunReport>& run_reports
 );

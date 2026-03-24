@@ -23,9 +23,9 @@ std::string clean_dataset(const std::string& dataset)
     return dataset.substr(start, length);
 }
 
-std::string gam_run_stem(const std::string& run_dir, const std::string& dataset, int run_idx)
+fs::path gam_statistics_dir(const std::string& run_dir, const std::string& dataset)
 {
-    return run_dir + "/" + clean_dataset(dataset) + "_gam_run_" + std::to_string(run_idx);
+    return fs::path(run_dir) / (clean_dataset(dataset) + "_statistics");
 }
 
 std::string operator_name_at(const GAMRunStatistics& statistics, int operator_idx)
@@ -81,19 +81,21 @@ bool save_gam_statistics(
     const std::string& run_dir,
     const std::string& dataset,
     int run_idx,
-    const GAMRunStatistics& statistics)
+    const GAMRunStatistics& statistics,
+    const std::vector<GAMRunReport>& run_reports)
 {
-    const std::string stem = gam_run_stem(run_dir, dataset, run_idx);
+    const fs::path statistics_dir = gam_statistics_dir(run_dir, dataset);
+    fs::create_directories(statistics_dir);
 
-    std::ofstream summary_file(stem + "_summary.csv");
+    std::ofstream summary_file(statistics_dir / "summary.csv");
     if (!summary_file.is_open())
     {
-        std::cerr << "Failed to open file at:" << stem << "_summary.csv\n";
+        std::cerr << "Failed to open file at:" << (statistics_dir / "summary.csv").string() << "\n";
         return false;
     }
 
     summary_file
-        << "run,max_iterations,segment_length,stopping_condition,best_found_iteration,"
+        << "best_run,max_iterations,segment_length,stopping_condition,best_found_iteration,"
         << "operator_failures,infeasible_candidates,accepted_moves,improving_accepts,"
         << "non_improving_accepts,best_updates\n";
     summary_file
@@ -109,82 +111,60 @@ bool save_gam_statistics(
         << statistics.non_improving_accepts << ","
         << statistics.best_updates << "\n";
 
-    std::ofstream iteration_file(stem + "_iterations.csv");
+    std::ofstream iteration_file(statistics_dir / "trace.csv");
     if (!iteration_file.is_open())
     {
-        std::cerr << "Failed to open file at:" << stem << "_iterations.csv\n";
+        std::cerr << "Failed to open file at:" << (statistics_dir / "trace.csv").string() << "\n";
         return false;
     }
 
     iteration_file
-        << "iteration,operator_idx,operator_name,selected_weight,incumbent_cost_before,"
-        << "candidate_cost,delta,acceptance_probability,temperature,operator_succeeded,"
-        << "candidate_feasible,accepted,improving,new_best,incumbent_cost_after,best_cost_after\n";
+        << "iteration,operator_idx,operator_name,delta,has_delta,temperature,"
+        << "worsening_acceptance_probability\n";
     for (const GAMIterationStatistics& row : statistics.iteration_stats)
     {
         iteration_file
             << row.iteration << ","
             << row.operator_idx << ","
             << operator_name_at(statistics, row.operator_idx) << ","
-            << row.selected_weight << ","
-            << row.incumbent_cost_before << ","
-            << row.candidate_cost << ","
             << row.delta << ","
-            << row.acceptance_probability << ","
+            << row.has_delta << ","
             << row.temperature << ","
-            << row.operator_succeeded << ","
-            << row.candidate_feasible << ","
-            << row.accepted << ","
-            << row.improving << ","
-            << row.new_best << ","
-            << row.incumbent_cost_after << ","
-            << row.best_cost_after << "\n";
+            << row.worsening_acceptance_probability << "\n";
     }
 
-    std::ofstream segment_file(stem + "_segments.csv");
-    if (!segment_file.is_open())
+    std::ofstream weight_file(statistics_dir / "weights.csv");
+    if (!weight_file.is_open())
     {
-        std::cerr << "Failed to open file at:" << stem << "_segments.csv\n";
+        std::cerr << "Failed to open file at:" << (statistics_dir / "weights.csv").string() << "\n";
         return false;
     }
 
-    segment_file << "segment,iteration,operator_idx,operator_name,weight,segment_score,segment_uses\n";
+    weight_file << "segment,iteration,operator_idx,operator_name,weight\n";
     for (const GAMSegmentStatistics& row : statistics.segment_stats)
     {
-        segment_file
+        weight_file
             << row.segment << ","
             << row.iteration << ","
             << row.operator_idx << ","
             << operator_name_at(statistics, row.operator_idx) << ","
-            << row.weight << ","
-            << row.segment_score << ","
-            << row.segment_uses << "\n";
+            << row.weight << "\n";
     }
 
-    std::ofstream operator_file(stem + "_operators.csv");
-    if (!operator_file.is_open())
+    std::ofstream run_file(statistics_dir / "runs.csv");
+    if (!run_file.is_open())
     {
-        std::cerr << "Failed to open file at:" << stem << "_operators.csv\n";
+        std::cerr << "Failed to open file at:" << (statistics_dir / "runs.csv").string() << "\n";
         return false;
     }
 
-    operator_file
-        << "operator_idx,operator_name,final_weight,total_score,total_uses,accepted,"
-        << "improving_accepts,best_updates,failures,infeasible\n";
-    for (int idx = 0; idx < (int)(statistics.operator_summaries.size()); ++idx)
+    run_file << "run,final_objective,best_found_iteration\n";
+    for (const GAMRunReport& row : run_reports)
     {
-        const GAMOperatorSummary& row = statistics.operator_summaries[idx];
-        operator_file
-            << idx << ","
-            << row.name << ","
-            << row.final_weight << ","
-            << row.total_score << ","
-            << row.total_uses << ","
-            << row.accepted << ","
-            << row.improving_accepts << ","
-            << row.best_updates << ","
-            << row.failures << ","
-            << row.infeasible << "\n";
+        run_file
+            << row.run << ","
+            << row.final_objective << ","
+            << row.best_found_iteration << "\n";
     }
 
     return true;

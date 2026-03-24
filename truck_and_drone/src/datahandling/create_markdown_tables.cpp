@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <cctype>
 
 namespace fs = std::filesystem;
 
@@ -28,17 +29,42 @@ struct DatasetKey
     int size;  // 10, 20, 50, 100
 };
 
+bool isPrimaryDatasetName(const std::string &s)
+{
+    if (s.empty())
+        return false;
+
+    const char type = (char)(std::tolower((unsigned char)(s[0])));
+    if (type != 'f' && type != 'r')
+        return false;
+
+    size_t idx = 1;
+    if (idx < s.size() && s[idx] == '_')
+        idx++;
+
+    if (idx >= s.size())
+        return false;
+
+    for (; idx < s.size(); ++idx)
+    {
+        if (!std::isdigit((unsigned char)(s[idx])))
+            return false;
+    }
+
+    return true;
+}
+
 // Parse "F_10" or "r100" etc.
 DatasetKey parseDataset(const std::string &s)
 {
     DatasetKey k;
-    k.type = std::tolower(s[0]);
+    k.type = (char)(std::tolower((unsigned char)(s[0])));
 
     // Extract number
     std::string num;
     for (char c : s)
     {
-        if (std::isdigit(c))
+        if (std::isdigit((unsigned char)(c)))
             num += c;
     }
     k.size = std::stoi(num);
@@ -130,14 +156,21 @@ void create_markdown_tables(
         for (auto &fileEntry : fs::directory_iterator(algEntry))
         {
             auto path = fileEntry.path();
+            if (!fileEntry.is_regular_file())
+                continue;
+
             std::string dataset = path.stem().string(); // e.g., F_10
 
             if (path.extension() == ".csv")
             {
+                if (!isPrimaryDatasetName(dataset))
+                    continue;
                 csvData[dataset][algorithm] = parseCSV(path);
             }
             else if (path.extension() == ".txt")
             {
+                if (!isPrimaryDatasetName(dataset))
+                    continue;
                 TxtResult tr;
                 tr.algorithm = algorithm;
                 tr.content = readTXT(path);

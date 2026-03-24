@@ -246,6 +246,8 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
         Solution initial;
         Solution best_solution;
         GAMRunStatistics best_statistics;
+        std::vector<GAMRunReport> run_reports;
+        run_reports.reserve(amnt_iter);
 
         for (int i = 0; i < amnt_iter; ++i)
         {
@@ -264,6 +266,7 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
             const long long val = objective_function_impl(instance, gam_result.solution);
             avg += val;
             avg_runtime += std::chrono::duration<double>(stop - start).count();
+            run_reports.push_back(GAMRunReport{i + 1, val, gam_result.statistics.best_found_iteration});
 
             if (val < best)
             {
@@ -287,7 +290,7 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
             improvement,
             avg_runtime,
             convert_to_submission(best_solution));
-        save_gam_statistics(run_dir, dataset, best_run_idx, best_statistics);
+        save_gam_statistics(run_dir, dataset, best_run_idx, best_statistics, run_reports);
     }
 
     create_markdown_tables(base_dir);
