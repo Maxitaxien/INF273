@@ -15,7 +15,6 @@ int main()
     run_gam(
         {
             NamedOperator{"1-reinsert", one_reinsert_random},
-            NamedOperator{"Replace Truck Delivery", replace_truck_delivery_greedy},
             NamedOperator{"Two-Opt", two_opt_random},
             NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random},
         }
