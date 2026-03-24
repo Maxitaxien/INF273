@@ -1,8 +1,11 @@
 #include "algorithms/gam.h"
+#include "general/random.h"
 #include "general/roulette_wheel_selection.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <algorithm>
+#include <cmath>
+#include <random>
 #include <string>
 #include <utility>
 #include <vector>
@@ -23,6 +26,68 @@ struct GAMOperatorState
     int failures = 0;
     int infeasible = 0;
 };
+
+double average_absolute_delta_sample(
+    const Instance &instance,
+    const Solution &reference_solution,
+    long long reference_cost,
+    const std::vector<NamedOperator> &ops)
+{
+    constexpr int target_samples = 50;
+    constexpr int max_attempts = 200;
+
+    if (ops.empty())
+    {
+        return 1.0;
+    }
+
+    std::vector<long long> deltas;
+    deltas.reserve(target_samples);
+
+    for (int attempt = 0; attempt < max_attempts && (int)(deltas.size()) < target_samples; ++attempt)
+    {
+        const NamedOperator &op = ops[attempt % ops.size()];
+        Solution neighbour = reference_solution;
+        if (!op.op(instance, neighbour) || !master_check(instance, neighbour, false))
+        {
+            continue;
+        }
+
+        const long long candidate_cost = objective_function_impl(instance, neighbour);
+        const long long delta = std::llabs(candidate_cost - reference_cost);
+        if (delta > 0)
+        {
+            deltas.push_back(delta);
+        }
+    }
+
+    if (deltas.empty())
+    {
+        return std::max(1.0, std::abs((double)reference_cost) * 0.01);
+    }
+
+    double total = 0.0;
+    for (long long delta : deltas)
+    {
+        total += (double)delta;
+    }
+
+    return total / deltas.size();
+}
+
+double compute_acceptance_probability(
+    long long incumbent_cost,
+    long long candidate_cost,
+    double temperature)
+{
+    if (temperature <= 0.0)
+    {
+        return 0.0;
+    }
+
+    const double delta = std::abs((double)(incumbent_cost - candidate_cost));
+    return std::exp(-delta / temperature);
+}
 
 std::vector<double> initialize_weights(
     const std::vector<NamedOperator> &ops,
@@ -77,38 +142,20 @@ std::vector<double> build_selection_weights(const std::vector<GAMOperatorState> 
 }
 
 double compute_operator_reward(
-    bool operator_succeeded,
-    bool candidate_feasible,
-    bool accepted,
     bool improving,
     bool new_best)
 {
     if (new_best)
     {
-        return 5.0;
+        return 4.0;
     }
 
-    if (accepted && improving)
+    if (improving)
     {
-        return 2.0;
+        return 1.0;
     }
 
-    if (accepted)
-    {
-        return 0.5;
-    }
-
-    if (!operator_succeeded)
-    {
-        return -1.0;
-    }
-
-    if (!candidate_feasible)
-    {
-        return -0.5;
-    }
-
-    return -0.1;
+    return 0.0;
 }
 
 void update_operator_weights(
@@ -119,18 +166,16 @@ void update_operator_weights(
     GAMRunStatistics &statistics)
 {
     constexpr double reaction_factor = 0.2;
-    constexpr double minimum_weight = 0.1;
 
     for (int idx = 0; idx < (int)(operator_state.size()); ++idx)
     {
         GAMOperatorState &state = operator_state[idx];
         if (state.segment_uses > 0)
         {
-            const double average_score = state.segment_score / state.segment_uses;
-            const double target_weight = 1.0 + average_score;
-            state.weight = std::max(
-                minimum_weight,
-                (1.0 - reaction_factor) * state.weight + reaction_factor * target_weight);
+            const double normalized_segment_score = state.segment_score / state.segment_uses;
+            state.weight =
+                state.weight * (1.0 - reaction_factor) +
+                reaction_factor * normalized_segment_score;
         }
 
         selection_weights[idx] = state.weight;
@@ -202,6 +247,18 @@ GAMResult general_adaptive_metaheuristic(
     std::vector<GAMOperatorState> operator_state =
         build_operator_state(ops, initial_selection_weights);
     std::vector<double> selection_weights = build_selection_weights(operator_state);
+    const double sampled_delta = average_absolute_delta_sample(
+        instance,
+        initial,
+        objective_function_impl(instance, initial),
+        ops);
+    const double initial_temperature = -sampled_delta / std::log(0.8);
+    const double final_temperature = std::max(1.0, initial_temperature * 0.01);
+    const double cooling_rate = std::pow(
+        final_temperature / initial_temperature,
+        1.0 / std::max(1, max_iterations - 1));
+    double temperature = initial_temperature;
+    std::uniform_real_distribution<double> unit_dist(0.0, 1.0);
 
     result.statistics.operator_names.reserve(operator_state.size());
     for (const GAMOperatorState &state : operator_state)
@@ -235,13 +292,14 @@ GAMResult general_adaptive_metaheuristic(
         iteration_stat.incumbent_cost_after = incumbent_cost;
         iteration_stat.best_cost_after = best_cost;
         iteration_stat.selected_weight = selected.weight;
+        iteration_stat.temperature = temperature;
 
         Solution neighbour = incumbent;
         if (!ops[selected_idx].op(instance, neighbour))
         {
             selected.failures++;
             result.statistics.operator_failures++;
-            const double reward = compute_operator_reward(false, false, false, false, false);
+            const double reward = compute_operator_reward(false, false);
             selected.segment_score += reward;
             selected.total_score += reward;
             non_improving_iterations++;
@@ -251,7 +309,7 @@ GAMResult general_adaptive_metaheuristic(
             iteration_stat.operator_succeeded = true;
             selected.infeasible++;
             result.statistics.infeasible_candidates++;
-            const double reward = compute_operator_reward(true, false, false, false, false);
+            const double reward = compute_operator_reward(false, false);
             selected.segment_score += reward;
             selected.total_score += reward;
             non_improving_iterations++;
@@ -269,20 +327,11 @@ GAMResult general_adaptive_metaheuristic(
 
             bool accept = false;
             double acceptance_probability = 0.0;
-            if (delta_e < 0)
-            {
-                accept = true;
-                acceptance_probability = 1.0;
-                result.statistics.improving_accepts++;
-                selected.improving_accepts++;
-            }
-            else
-            {
-                // TODO: Replace this with chosen acceptance rule.
-                // With the current hill-climbing default, only improving moves are accepted.
-                accept = false;
-                acceptance_probability = 0.0;
-            }
+            acceptance_probability = compute_acceptance_probability(
+                incumbent_cost,
+                cost,
+                temperature);
+            accept = unit_dist(gen) < acceptance_probability;
 
             iteration_stat.acceptance_probability = acceptance_probability;
             iteration_stat.accepted = accept;
@@ -293,7 +342,12 @@ GAMResult general_adaptive_metaheuristic(
                 incumbent_cost = cost;
                 result.statistics.accepted_moves++;
                 selected.accepted++;
-                if (delta_e >= 0)
+                if (delta_e < 0)
+                {
+                    result.statistics.improving_accepts++;
+                    selected.improving_accepts++;
+                }
+                else
                 {
                     result.statistics.non_improving_accepts++;
                 }
@@ -315,7 +369,7 @@ GAMResult general_adaptive_metaheuristic(
                 non_improving_iterations++;
             }
 
-            const double reward = compute_operator_reward(true, true, accept, delta_e < 0, new_best);
+            const double reward = compute_operator_reward(delta_e < 0, new_best);
             selected.segment_score += reward;
             selected.total_score += reward;
         }
@@ -333,6 +387,8 @@ GAMResult general_adaptive_metaheuristic(
                 i + 1,
                 result.statistics);
         }
+
+        temperature = std::max(final_temperature, temperature * cooling_rate);
     }
 
     if (max_iterations % segment_length != 0)

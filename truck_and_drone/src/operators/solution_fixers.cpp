@@ -142,6 +142,99 @@ void append_drone_flight(
 }
 }
 
+std::pair<bool, Solution> assign_launch_and_land_n_lookahead(
+    const Instance &instance,
+    Solution &solution,
+    int idx,
+    int new_deliver,
+    int drone,
+    int look_ahead)
+{
+    simple_fix_validity(solution);
+
+    if (drone < 0 || drone >= (int)solution.drones.size() ||
+        idx < 0 || idx >= (int)solution.truck_route.size() ||
+        delivery_on_truck_route(solution, new_deliver))
+    {
+        return {false, solution};
+    }
+
+    const std::vector<int> &launches = solution.drones[drone].launch_indices;
+    int maximum_lookahead = look_ahead;
+    if (!launches.empty())
+    {
+        int i = 0;
+        while (i < (int)launches.size() && launches[i] < idx)
+        {
+            ++i;
+        }
+        if (i < (int)launches.size())
+        {
+            maximum_lookahead = std::min(maximum_lookahead, launches[i] - idx);
+        }
+    }
+
+    const int route_size = (int)solution.truck_route.size();
+    const int max_offset = std::min(maximum_lookahead, route_size - idx - 1);
+    if (max_offset <= 0)
+    {
+        return {false, solution};
+    }
+
+    const RouteTiming timing = compute_route_timing(instance, solution);
+    const std::set<Interval> drone_intervals = get_intervals(solution, drone);
+    FlightAssignment best;
+
+    for (int offset = 1; offset <= max_offset; ++offset)
+    {
+        const int land_idx = idx + offset;
+        if (land_idx >= route_size - 1 || overlaps(drone_intervals, idx, land_idx))
+        {
+            continue;
+        }
+
+        const int launch_node = solution.truck_route[idx];
+        const int land_node = solution.truck_route[land_idx];
+        const long long launch_time = std::max(
+            timing.truck_arrival[idx],
+            timing.drone_ready_at_stop[drone][idx]);
+        const long long out_time = instance.drone_matrix[launch_node][new_deliver];
+        const long long back_time = instance.drone_matrix[new_deliver][land_node];
+        const long long drone_arrival = launch_time + out_time;
+        const long long drone_return = drone_arrival + back_time;
+        const long long drone_wait = std::max(
+            timing.truck_arrival[land_idx] - drone_return,
+            0LL);
+        const long long total_with_wait = out_time + back_time + drone_wait;
+        if (total_with_wait > instance.lim)
+        {
+            continue;
+        }
+
+        const long long truck_wait = std::max(
+            drone_return - timing.truck_arrival[land_idx],
+            0LL);
+        if (!best.feasible ||
+            truck_wait < best.truck_wait ||
+            (truck_wait == best.truck_wait && land_idx < best.land_idx))
+        {
+            best.feasible = true;
+            best.launch_idx = idx;
+            best.land_idx = land_idx;
+            best.truck_wait = truck_wait;
+            best.drone_arrival = drone_arrival;
+        }
+    }
+
+    if (!best.feasible)
+    {
+        return {false, solution};
+    }
+
+    append_drone_flight(solution, drone, new_deliver, best);
+    return {true, solution};
+}
+
 std::pair<bool, Solution> greedy_assign_launch_and_land(
     const Instance &instance,
     Solution &solution,

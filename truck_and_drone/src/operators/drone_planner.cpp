@@ -3,6 +3,7 @@
 #include "general/get_not_covered_by_truck.h"
 #include "general/random.h"
 #include "general/sort_drone_collection.h"
+#include "operators/route_timing.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <algorithm>
@@ -67,6 +68,42 @@ void update_p(
                 }),
             flights.end());
     }
+}
+
+bool flight_feasible_with_timing(
+    const Instance &inst,
+    const Solution &solution,
+    const RouteTiming &timing,
+    int drone,
+    int customer,
+    const Flight &flight,
+    const std::unordered_map<int, int> &customer_positions)
+{
+    const auto launch_it = customer_positions.find(flight.first);
+    const auto land_it = customer_positions.find(flight.second);
+    if (launch_it == customer_positions.end() || land_it == customer_positions.end())
+    {
+        return false;
+    }
+
+    const int launch_idx = launch_it->second;
+    const int land_idx = land_it->second;
+    if (launch_idx >= land_idx || land_idx >= (int)solution.truck_route.size() - 1)
+    {
+        return false;
+    }
+
+    const long long launch_time = std::max(
+        timing.truck_arrival[launch_idx],
+        timing.drone_ready_at_stop[drone][launch_idx]);
+    const long long out_time = inst.drone_matrix[flight.first][customer];
+    const long long back_time = inst.drone_matrix[customer][flight.second];
+    const long long drone_return = launch_time + out_time + back_time;
+    const long long drone_wait = std::max(
+        timing.truck_arrival[land_idx] - drone_return,
+        0LL);
+
+    return out_time + back_time + drone_wait <= inst.lim;
 }
 }
 
@@ -154,7 +191,31 @@ std::pair<long long, Solution> drone_planner(
                     break;
                 }
 
-                const Flight new_flight = get_random(it->second);
+                const RouteTiming timing = compute_route_timing(inst, curr);
+                std::vector<Flight> feasible_flights;
+                feasible_flights.reserve(it->second.size());
+                for (const Flight &candidate : it->second)
+                {
+                    if (flight_feasible_with_timing(
+                            inst,
+                            curr,
+                            timing,
+                            d,
+                            customer,
+                            candidate,
+                            customer_positions))
+                    {
+                        feasible_flights.push_back(candidate);
+                    }
+                }
+
+                if (feasible_flights.empty())
+                {
+                    iteration_valid = false;
+                    break;
+                }
+
+                const Flight new_flight = get_random(feasible_flights);
                 curr.drones[d].launch_indices.push_back(customer_positions.at(new_flight.first));
                 curr.drones[d].land_indices.push_back(customer_positions.at(new_flight.second));
                 update_p(drone_candidates, customer, new_flight, customer_positions);

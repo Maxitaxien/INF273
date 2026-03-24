@@ -4,6 +4,19 @@
 #include "verification/solution.h"
 
 /**
+ * Tries to assign a delivery to the given drone by launching at `idx` and
+ * landing within a limited lookahead window. Timing is evaluated with the same
+ * synchronized truck/drone model as the feasibility checker.
+ */
+std::pair<bool, Solution> assign_launch_and_land_n_lookahead(
+    const Instance &instance,
+    Solution &solution,
+    int idx,
+    int new_deliver,
+    int drone,
+    int look_ahead);
+
+/**
  * Assigns the best feasible launch/land pair to a newly inserted drone delivery.
  *
  * The truck route stays fixed. The assignment is chosen with the same timing model
