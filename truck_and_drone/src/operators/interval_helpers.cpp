@@ -24,10 +24,10 @@ bool overlaps(const std::set<Interval> &intervals, int pos1, int pos2)
 {
     auto it = intervals.lower_bound({pos1, -1});
 
-    if (it != intervals.end() && it->start <= pos2)
+    if (it != intervals.end() && it->start < pos2)
         return true;
 
-    if (it != intervals.begin() && std::prev(it)->end >= pos1)
+    if (it != intervals.begin() && std::prev(it)->end > pos1)
         return true;
 
     return false;
@@ -48,4 +48,3 @@ int find_containing_interval_index(const std::set<Interval> &intervals, int pos)
 
     return -1;
 }
-

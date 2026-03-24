@@ -68,3 +68,7 @@ vcpkg_installed/
 Testing/
 .cache/
 runs/
+
+# python integration
+.venv/
+.vscode/

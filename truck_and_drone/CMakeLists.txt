@@ -4,6 +4,14 @@ project(truck_and_drone LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+execute_process(
+    COMMAND ${Python3_EXECUTABLE} -c "import numpy; print(numpy.get_include())"
+    OUTPUT_VARIABLE Python3_NumPy_INCLUDE_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
 # Core library
 add_library(core
     src/datahandling/reader.cpp
@@ -28,6 +36,7 @@ add_library(core
     src/general/roulette_wheel_selection.cpp
     src/operators/helpers.cpp
     src/operators/interval_helpers.cpp
+    src/operators/route_timing.cpp
     src/operators/operator.cpp
     src/operators/alns/random_removal.cpp
     src/operators/alns/greedy_insert.cpp
@@ -44,7 +53,15 @@ add_library(core
     src/runners/wrappers.cpp
 )
 
-target_include_directories(core PUBLIC include)
+target_include_directories(core PUBLIC
+    include
+    ${Python3_INCLUDE_DIRS}
+    ${Python3_NumPy_INCLUDE_DIR}
+)
+
+target_link_libraries(core PUBLIC ${Python3_LIBRARIES})
+
+target_include_directories(core PUBLIC ${CMAKE_SOURCE_DIR}/external)
 
 # Main program
 add_executable(truck_and_drone src/main.cpp)
