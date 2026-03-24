@@ -11,6 +11,8 @@
 #include "operators/alns/alns_composite.h"
 #include "operators/one_reinsert.h"
 #include "operators/operator.h"
+#include "operators/replace_drone_delivery.h"
+#include "operators/three_opt.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 
@@ -94,6 +96,91 @@ void test_solution_consistency() {
     assert(!convert_to_submission(edited).empty());
 
     std::cout << "test_solution_consistency passed\n";
+}
+
+void test_three_opt_improves_truck_route() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 1, 2, 3, 4},
+        {1, 0, 1, 2, 3},
+        {2, 1, 0, 1, 2},
+        {3, 2, 1, 0, 1},
+        {4, 3, 2, 1, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 1, 3, 2, 4}, {}};
+    const long long initial_cost =
+        objective_function_truck_only(instance, solution.truck_route);
+
+    bool success = three_opt(instance, solution, 1, 2, 3);
+
+    assert(success);
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4}));
+    assert(objective_function_truck_only(instance, solution.truck_route) < initial_cost);
+
+    std::cout << "test_three_opt_improves_truck_route passed\n";
+}
+
+void test_two_opt_greedy_improves_truck_route() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 1, 2, 3, 4},
+        {1, 0, 1, 2, 3},
+        {2, 1, 0, 1, 2},
+        {3, 2, 1, 0, 1},
+        {4, 3, 2, 1, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 1, 3, 2, 4}, {}};
+    const long long initial_cost =
+        objective_function_truck_only(instance, solution.truck_route);
+
+    bool success = two_opt_greedy(instance, solution);
+
+    assert(success);
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4}));
+    assert(objective_function_truck_only(instance, solution.truck_route) < initial_cost);
+
+    std::cout << "test_two_opt_greedy_improves_truck_route passed\n";
+}
+
+void test_replace_drone_delivery_moves_customer_back_to_truck() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 1, 2, 3, 4},
+        {1, 0, 1, 2, 3},
+        {2, 1, 0, 1, 2},
+        {3, 2, 1, 0, 1},
+        {4, 3, 2, 1, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{
+        {0, 1, 3, 4},
+        {
+            DroneCollection{{1}, {2}, {2}},
+            DroneCollection{},
+        }};
+
+    bool success = replace_drone_delivery(instance, solution, 0, 0);
+
+    assert(success);
+    assert(solution.drones[0].deliver_nodes.empty());
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4}));
+    assert(master_check(instance, solution, true));
+
+    std::cout << "test_replace_drone_delivery_moves_customer_back_to_truck passed\n";
 }
 
 void test_alns_operator_applies_remove_then_insert() {
@@ -201,6 +288,9 @@ int main() {
         test_one_reinsert_bounds();
         test_objective_improvement();
         test_solution_consistency();
+        test_three_opt_improves_truck_route();
+        test_two_opt_greedy_improves_truck_route();
+        test_replace_drone_delivery_moves_customer_back_to_truck();
         test_alns_operator_applies_remove_then_insert();
         test_alns_operator_rolls_back_failed_insert();
         test_alns_pair_combination_materializes_named_operators();

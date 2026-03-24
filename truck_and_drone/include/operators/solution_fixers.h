@@ -29,11 +29,11 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead_assume_valid(
     int look_ahead);
 
 /**
- * Assigns the best feasible launch/land pair to a newly inserted drone delivery.
+ * Assigns a feasible local launch/land pair to a newly inserted drone delivery.
  *
- * The truck route stays fixed. The assignment is chosen with the same timing model
- * as the feasibility checker, so delayed launches and waiting at reconnection are
- * handled consistently.
+ * The truck route stays fixed. The search is bounded to a small vicinity around
+ * promising truck stops so hot local operators stay cheap; heavier global
+ * improvement is left to the drone planner.
  */
 std::pair<bool, Solution> greedy_assign_launch_and_land(
     const Instance &instance,

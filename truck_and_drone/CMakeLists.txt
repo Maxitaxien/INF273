@@ -43,6 +43,7 @@ add_library(core
     src/operators/alns/greedy_insert.cpp
     src/operators/alns/alns_composite.cpp
     src/operators/one_reinsert.cpp
+    src/operators/replace_drone_delivery.cpp
     src/operators/replace_truck_delivery.cpp
     src/operators/two_opt.cpp
     src/operators/three_opt.cpp

@@ -1,8 +1,12 @@
 #include "operators/operator.h"
+#include "operators/drone_planner.h"
 #include "operators/nearest_neighbour_reassign.h"
 #include "operators/one_reinsert.h"
+#include "operators/replace_drone_delivery.h"
 #include "operators/replace_truck_delivery.h"
+#include "operators/three_opt.h"
 #include "operators/two_opt.h"
+#include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <random>
 #include <utility>
@@ -136,6 +140,39 @@ bool one_reinsert_greedy(const Instance &instance, Solution &sol)
     return false;
 }
 
+bool replace_truck_delivery_random(const Instance &instance, Solution &sol)
+{
+    std::vector<std::pair<int, int>> candidates;
+    for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
+    {
+        for (int idx = 1; idx < (int)(sol.truck_route.size()); ++idx)
+        {
+            candidates.emplace_back(drone, idx);
+        }
+    }
+
+    if (candidates.empty())
+    {
+        return false;
+    }
+
+    std::shuffle(candidates.begin(), candidates.end(), gen);
+    const int max_attempts = std::min(10, (int)(candidates.size()));
+
+    for (int attempt = 0; attempt < max_attempts; ++attempt)
+    {
+        const auto [drone, idx] = candidates[attempt];
+        Solution candidate = sol;
+        if (replace_truck_delivery(instance, candidate, idx, drone))
+        {
+            sol = std::move(candidate);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
 {
     bool success = false;
@@ -167,6 +204,40 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
     return success;
 }
 
+bool replace_drone_delivery_random(const Instance &instance, Solution &sol)
+{
+    std::vector<std::pair<int, int>> candidates;
+    for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
+    {
+        const int flight_count = (int)(sol.drones[drone].deliver_nodes.size());
+        for (int flight_idx = 0; flight_idx < flight_count; ++flight_idx)
+        {
+            candidates.emplace_back(drone, flight_idx);
+        }
+    }
+
+    if (candidates.empty())
+    {
+        return false;
+    }
+
+    std::shuffle(candidates.begin(), candidates.end(), gen);
+    const int max_attempts = std::min(8, (int)(candidates.size()));
+
+    for (int attempt = 0; attempt < max_attempts; ++attempt)
+    {
+        const auto [drone, flight_idx] = candidates[attempt];
+        Solution candidate = sol;
+        if (replace_drone_delivery(instance, candidate, drone, flight_idx))
+        {
+            sol = std::move(candidate);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool two_opt_random(const Instance &inst, Solution &sol)
 {
     // Pick a meaningful 2-opt segment while keeping the depot fixed.
@@ -179,6 +250,24 @@ bool two_opt_random(const Instance &inst, Solution &sol)
     int j = second_dist(gen);
 
     return two_opt(inst, sol, i, j);
+}
+
+bool three_opt_random(const Instance &inst, Solution &sol)
+{
+    if (sol.truck_route.size() < 4)
+    {
+        return false;
+    }
+
+    const int route_size = (int)(sol.truck_route.size());
+    std::uniform_int_distribution<int> first_dist(0, route_size - 3);
+    const int first = first_dist(gen);
+    std::uniform_int_distribution<int> second_dist(first + 1, route_size - 2);
+    const int second = second_dist(gen);
+    std::uniform_int_distribution<int> third_dist(second + 1, route_size - 1);
+    const int third = third_dist(gen);
+
+    return three_opt(inst, sol, first, second, third);
 }
 
 bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
@@ -194,6 +283,19 @@ bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
     int i = dist(gen);
 
     return nearest_neighbour_reassign(inst, sol, i);
+}
+
+bool drone_planner_improve(const Instance &instance, Solution &sol)
+{
+    const long long current_cost = objective_function_impl(instance, sol);
+    const auto [planned_cost, planned_solution] = drone_planner(instance, sol);
+    if (!master_check(instance, planned_solution, false) || planned_cost >= current_cost)
+    {
+        return false;
+    }
+
+    sol = planned_solution;
+    return true;
 }
 
 

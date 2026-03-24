@@ -16,3 +16,13 @@
  * algorithm is expected to perform the final feasibility check.
  */
 bool two_opt(const Instance &inst, Solution &solution, int first, int second);
+
+/**
+ * Greedy 2-opt on truck edges using the standard edge-exchange gain:
+ *
+ * gain = dist(a,b) + dist(c,d) - dist(a,c) - dist(b,d)
+ *
+ * where `(a,b)` and `(c,d)` are the two truck edges being replaced.
+ * The best improving move is committed.
+ */
+bool two_opt_greedy(const Instance &inst, Solution &solution);

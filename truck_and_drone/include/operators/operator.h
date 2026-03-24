@@ -82,10 +82,21 @@ bool one_reinsert_random(const Instance &instance, Solution &sol);
 bool one_reinsert_greedy(const Instance &instance, Solution &sol);
 
 /**
+ * Randomly samples truck-to-drone replacement candidates and keeps the first
+ * feasible move.
+ */
+bool replace_truck_delivery_random(const Instance &instance, Solution &sol);
+
+/**
  * Then, evaluate all replacements within the truck route for both drones.
  * Perform the best.
  */
 bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol);
+
+/**
+ * Randomly samples a drone delivery and reinserts it into the truck route.
+ */
+bool replace_drone_delivery_random(const Instance &instance, Solution &sol);
 
 /**
  * Perform 2-opt on random indexes except from depot.
@@ -95,8 +106,26 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol);
 bool two_opt_random(const Instance &inst, Solution &sol);
 
 /**
+ * Perform greedy 2-opt using the best improving truck-edge exchange.
+ */
+bool two_opt_greedy(const Instance &inst, Solution &sol);
+
+/**
+ * Perform 3-opt on random breakpoints while keeping the depot fixed.
+ *
+ * @return Whether the sampled move improved the truck route surrogate.
+ */
+bool three_opt_random(const Instance &inst, Solution &sol);
+
+/**
  * Perform nearest neighbour reassignment from a random index. Then swaps the chosen one within the route.
  *
  * @return Whether the sampled move remained feasible.
  */
 bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol);
+
+/**
+ * Rebuild the current drone schedule with the planner and keep the result only
+ * if it strictly improves the current objective.
+ */
+bool drone_planner_improve(const Instance &instance, Solution &sol);
