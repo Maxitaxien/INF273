@@ -1,4 +1,5 @@
 #include "algorithms/gam.h"
+#include "algorithms/gam_escape_algorithm.h"
 #include "general/random.h"
 #include "general/roulette_wheel_selection.h"
 #include "verification/feasibility_check.h"
@@ -17,14 +18,7 @@ struct GAMOperatorState
     std::string name;
     double weight = 1.0;
     double segment_score = 0.0;
-    double total_score = 0.0;
     int segment_uses = 0;
-    int total_uses = 0;
-    int accepted = 0;
-    int improving_accepts = 0;
-    int best_updates = 0;
-    int failures = 0;
-    int infeasible = 0;
 };
 
 double average_absolute_delta_sample(
@@ -184,37 +178,11 @@ void update_operator_weights(
             iteration,
             idx,
             state.weight,
-            state.segment_score,
-            state.segment_uses,
         });
 
         state.segment_score = 0.0;
         state.segment_uses = 0;
     }
-}
-
-std::vector<GAMOperatorSummary> build_operator_summaries(
-    const std::vector<GAMOperatorState> &operator_state)
-{
-    std::vector<GAMOperatorSummary> result;
-    result.reserve(operator_state.size());
-
-    for (const GAMOperatorState &state : operator_state)
-    {
-        result.push_back(GAMOperatorSummary{
-            state.name,
-            state.weight,
-            state.total_score,
-            state.total_uses,
-            state.accepted,
-            state.improving_accepts,
-            state.best_updates,
-            state.failures,
-            state.infeasible,
-        });
-    }
-
-    return result;
 }
 }
 
@@ -225,8 +193,8 @@ GAMResult general_adaptive_metaheuristic(
     const std::vector<double> &initial_weights)
 {
     constexpr int max_iterations = 10000;
-    constexpr int stopping_condition = 50;
     constexpr int segment_length = 100;
+    constexpr int stopping_condition = segment_length;
 
     GAMResult result;
     result.statistics.max_iterations = max_iterations;
@@ -274,56 +242,50 @@ GAMResult general_adaptive_metaheuristic(
 
     for (int i = 0; i < max_iterations; ++i)
     {
-        // TODO: Replace this with escape/diversification phase.
         if (non_improving_iterations >= stopping_condition)
         {
+            incumbent = gam_escape_algorithm(instance, incumbent, ops, selection_weights, std::min(10, max_iterations - i));
+            incumbent_cost = objective_function_impl(instance, incumbent);
+            if (incumbent_cost < best_cost)
+            {
+                best = incumbent;
+                best_cost = incumbent_cost;
+                result.statistics.best_updates++;
+                result.statistics.best_found_iteration = i;
+            }
             non_improving_iterations = 0;
         }
 
         const int selected_idx = roulette_wheel_selection(selection_weights);
         GAMOperatorState &selected = operator_state[selected_idx];
-        selected.total_uses++;
         selected.segment_uses++;
 
         GAMIterationStatistics iteration_stat;
         iteration_stat.iteration = i + 1;
         iteration_stat.operator_idx = selected_idx;
-        iteration_stat.incumbent_cost_before = incumbent_cost;
-        iteration_stat.incumbent_cost_after = incumbent_cost;
-        iteration_stat.best_cost_after = best_cost;
-        iteration_stat.selected_weight = selected.weight;
         iteration_stat.temperature = temperature;
 
         Solution neighbour = incumbent;
         if (!ops[selected_idx].op(instance, neighbour))
         {
-            selected.failures++;
             result.statistics.operator_failures++;
             const double reward = compute_operator_reward(false, false);
             selected.segment_score += reward;
-            selected.total_score += reward;
             non_improving_iterations++;
         }
         else if (!master_check(instance, neighbour, false))
         {
-            iteration_stat.operator_succeeded = true;
-            selected.infeasible++;
             result.statistics.infeasible_candidates++;
             const double reward = compute_operator_reward(false, false);
             selected.segment_score += reward;
-            selected.total_score += reward;
             non_improving_iterations++;
         }
         else
         {
-            iteration_stat.operator_succeeded = true;
-            iteration_stat.candidate_feasible = true;
-
             const long long cost = objective_function_impl(instance, neighbour);
             const long long delta_e = cost - incumbent_cost;
-            iteration_stat.candidate_cost = cost;
             iteration_stat.delta = delta_e;
-            iteration_stat.improving = delta_e < 0;
+            iteration_stat.has_delta = true;
 
             bool accept = false;
             double acceptance_probability = 0.0;
@@ -332,20 +294,19 @@ GAMResult general_adaptive_metaheuristic(
                 cost,
                 temperature);
             accept = unit_dist(gen) < acceptance_probability;
-
-            iteration_stat.acceptance_probability = acceptance_probability;
-            iteration_stat.accepted = accept;
+            if (delta_e > 0)
+            {
+                iteration_stat.worsening_acceptance_probability = acceptance_probability;
+            }
 
             if (accept)
             {
                 incumbent = neighbour;
                 incumbent_cost = cost;
                 result.statistics.accepted_moves++;
-                selected.accepted++;
                 if (delta_e < 0)
                 {
                     result.statistics.improving_accepts++;
-                    selected.improving_accepts++;
                 }
                 else
                 {
@@ -354,14 +315,17 @@ GAMResult general_adaptive_metaheuristic(
             }
 
             const bool new_best = cost < best_cost;
-            iteration_stat.new_best = new_best;
+            const bool incumbent_improved = accept && delta_e < 0;
             if (new_best)
             {
                 best = neighbour;
                 best_cost = cost;
                 result.statistics.best_updates++;
                 result.statistics.best_found_iteration = i + 1;
-                selected.best_updates++;
+                non_improving_iterations = 0;
+            }
+            else if (incumbent_improved)
+            {
                 non_improving_iterations = 0;
             }
             else
@@ -371,11 +335,8 @@ GAMResult general_adaptive_metaheuristic(
 
             const double reward = compute_operator_reward(delta_e < 0, new_best);
             selected.segment_score += reward;
-            selected.total_score += reward;
         }
 
-        iteration_stat.incumbent_cost_after = incumbent_cost;
-        iteration_stat.best_cost_after = best_cost;
         result.statistics.iteration_stats.push_back(iteration_stat);
 
         if ((i + 1) % segment_length == 0)
@@ -401,8 +362,6 @@ GAMResult general_adaptive_metaheuristic(
             result.statistics);
     }
 
-    result.statistics.operator_summaries = build_operator_summaries(operator_state);
     result.solution = std::move(best);
     return result;
 }
-

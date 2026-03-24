@@ -9,19 +9,10 @@ struct GAMIterationStatistics
 {
     int iteration = 0;
     int operator_idx = -1;
-    long long incumbent_cost_before = 0;
-    long long incumbent_cost_after = 0;
-    long long candidate_cost = 0;
-    long long best_cost_after = 0;
     long long delta = 0;
-    double selected_weight = 0.0;
-    double acceptance_probability = 0.0;
     double temperature = 0.0;
-    bool operator_succeeded = false;
-    bool candidate_feasible = false;
-    bool accepted = false;
-    bool improving = false;
-    bool new_best = false;
+    double worsening_acceptance_probability = -1.0;
+    bool has_delta = false;
 };
 
 struct GAMSegmentStatistics
@@ -30,21 +21,6 @@ struct GAMSegmentStatistics
     int iteration = 0;
     int operator_idx = -1;
     double weight = 0.0;
-    double segment_score = 0.0;
-    int segment_uses = 0;
-};
-
-struct GAMOperatorSummary
-{
-    std::string name;
-    double final_weight = 1.0;
-    double total_score = 0.0;
-    int total_uses = 0;
-    int accepted = 0;
-    int improving_accepts = 0;
-    int best_updates = 0;
-    int failures = 0;
-    int infeasible = 0;
 };
 
 struct GAMRunStatistics
@@ -62,7 +38,13 @@ struct GAMRunStatistics
     std::vector<std::string> operator_names;
     std::vector<GAMIterationStatistics> iteration_stats;
     std::vector<GAMSegmentStatistics> segment_stats;
-    std::vector<GAMOperatorSummary> operator_summaries;
+};
+
+struct GAMRunReport
+{
+    int run = 0;
+    long long final_objective = 0;
+    int best_found_iteration = 0;
 };
 
 struct GAMResult

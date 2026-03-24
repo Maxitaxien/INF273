@@ -27,6 +27,7 @@ add_library(core
     src/algorithms/local_search.cpp
     src/algorithms/simulated_annealing.cpp
     src/algorithms/gam.cpp
+    src/algorithms/gam_escape_algorithm.cpp
     src/general/get_customer_positions.cpp
     src/general/get_not_covered_by_truck.cpp
     src/general/get_truck_arrival_times.cpp
