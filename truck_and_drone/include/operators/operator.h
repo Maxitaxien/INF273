@@ -99,6 +99,11 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol);
 bool replace_drone_delivery_random(const Instance &instance, Solution &sol);
 
 /**
+ * Evaluate all drone-to-truck replacements and keep the best feasible move.
+ */
+bool replace_drone_delivery_greedy(const Instance &instance, Solution &sol);
+
+/**
  * Perform 2-opt on random indexes except from depot.
  *
  * @return Whether the sampled move remained feasible.

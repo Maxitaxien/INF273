@@ -21,7 +21,7 @@ struct GAMOperatorState
     int segment_uses = 0;
 };
 
-double average_absolute_delta_sample(
+double average_worsening_delta_sample(
     const Instance &instance,
     const Solution &reference_solution,
     long long reference_cost,
@@ -48,7 +48,7 @@ double average_absolute_delta_sample(
         }
 
         const long long candidate_cost = objective_function_impl(instance, neighbour);
-        const long long delta = std::llabs(candidate_cost - reference_cost);
+        const long long delta = candidate_cost - reference_cost;
         if (delta > 0)
         {
             deltas.push_back(delta);
@@ -70,8 +70,7 @@ double average_absolute_delta_sample(
 }
 
 double compute_acceptance_probability(
-    long long incumbent_cost,
-    long long candidate_cost,
+    long long worsening_delta,
     double temperature)
 {
     if (temperature <= 0.0)
@@ -79,8 +78,7 @@ double compute_acceptance_probability(
         return 0.0;
     }
 
-    const double delta = std::abs((double)(incumbent_cost - candidate_cost));
-    return std::exp(-delta / temperature);
+    return std::exp(-(double)(worsening_delta) / temperature);
 }
 
 std::vector<double> initialize_weights(
@@ -194,7 +192,7 @@ GAMResult general_adaptive_metaheuristic(
 {
     constexpr int max_iterations = 10000;
     constexpr int segment_length = 100;
-    constexpr int stopping_condition = segment_length;
+    int stopping_condition = std::max(segment_length, instance.n * 3);
 
     GAMResult result;
     result.statistics.max_iterations = max_iterations;
@@ -215,12 +213,12 @@ GAMResult general_adaptive_metaheuristic(
     std::vector<GAMOperatorState> operator_state =
         build_operator_state(ops, initial_selection_weights);
     std::vector<double> selection_weights = build_selection_weights(operator_state);
-    const double sampled_delta = average_absolute_delta_sample(
+    const double sampled_delta = average_worsening_delta_sample(
         instance,
         initial,
         objective_function_impl(instance, initial),
         ops);
-    const double initial_temperature = -sampled_delta / std::log(0.8);
+    const double initial_temperature = -sampled_delta / std::log(0.15);
     const double final_temperature = std::max(1.0, initial_temperature * 0.01);
     const double cooling_rate = std::pow(
         final_temperature / initial_temperature,
@@ -287,15 +285,14 @@ GAMResult general_adaptive_metaheuristic(
             iteration_stat.delta = delta_e;
             iteration_stat.has_delta = true;
 
-            bool accept = false;
-            double acceptance_probability = 0.0;
-            acceptance_probability = compute_acceptance_probability(
-                incumbent_cost,
-                cost,
-                temperature);
-            accept = unit_dist(gen) < acceptance_probability;
+            bool accept = delta_e <= 0;
+            double acceptance_probability = 1.0;
             if (delta_e > 0)
             {
+                acceptance_probability = compute_acceptance_probability(
+                    delta_e,
+                    temperature);
+                accept = unit_dist(gen) < acceptance_probability;
                 iteration_stat.worsening_acceptance_probability = acceptance_probability;
             }
 

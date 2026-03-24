@@ -5,23 +5,29 @@
 
 int main()
 {
+    // TODO: Stop drone assignments from getting too static.
+    // Problem as of now is that we assign many to drone in the start.
+    // This is given a high weight as it is successful.
+    // Then, when we try to remove from the drone assignments later, we cannot get out of the local opt
+    // Instead, we should use a greedy assignment operator in general (similar to 1 insert)
     const std::vector<NamedOperator> ops = {
-        NamedOperator{"Truck replacement random", replace_truck_delivery_random},
-        NamedOperator{"Drone replacement random", replace_drone_delivery_random},
-        NamedOperator{"Two-Opt Greedy", two_opt_greedy},
-        NamedOperator{"Three-Opt", three_opt_random},
         NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random},
+        NamedOperator{"Two-Opt Greedy", two_opt_greedy},
+        NamedOperator{"Truck replacement greedy", replace_truck_delivery_greedy},
+        NamedOperator{"Drone replacement greedy", replace_drone_delivery_greedy},
+        NamedOperator{"Three-Opt", three_opt_random},
         NamedOperator{"Drone planner", drone_planner_improve},
     };
 
-    // Keep the planner in the mix as a low-frequency intensifier.
+    // Keep the default GAM mix close to the stronger LS/SA backbone.
+    // Use 3-opt and the planner only as low-frequency intensifiers.
     const std::vector<double> weights = {
-        0.6,
-        0.4,
-        0.8,
-        0.5,
         1.0,
-        0.08,
+        1.2,
+        0.7,
+        0.8,
+        0.2,
+        0.05,
     };
 
     run_gam(ops, weights);

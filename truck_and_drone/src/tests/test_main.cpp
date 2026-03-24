@@ -1,6 +1,7 @@
 #include <cassert>
 #include <iostream>
 #include <vector>
+#include "algorithms/gam_escape_algorithm.h"
 #include "algorithms/greedy_drone_cover.h"
 #include "algorithms/nearest_neighbour.h"
 #include "algorithms/simple_initial_solution.h"
@@ -183,6 +184,37 @@ void test_replace_drone_delivery_moves_customer_back_to_truck() {
     std::cout << "test_replace_drone_delivery_moves_customer_back_to_truck passed\n";
 }
 
+void test_replace_drone_delivery_greedy_moves_customer_back_to_truck() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 1, 2, 3, 4},
+        {1, 0, 1, 2, 3},
+        {2, 1, 0, 1, 2},
+        {3, 2, 1, 0, 1},
+        {4, 3, 2, 1, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{
+        {0, 1, 3, 4},
+        {
+            DroneCollection{{1}, {2}, {2}},
+            DroneCollection{},
+        }};
+
+    bool success = replace_drone_delivery_greedy(instance, solution);
+
+    assert(success);
+    assert(solution.drones[0].deliver_nodes.empty());
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4}));
+    assert(master_check(instance, solution, true));
+
+    std::cout << "test_replace_drone_delivery_greedy_moves_customer_back_to_truck passed\n";
+}
+
 void test_alns_operator_applies_remove_then_insert() {
     Instance instance{};
     Solution solution{{0, 1}, {}};
@@ -279,6 +311,37 @@ void test_adaptive_composite_operator_rolls_back_failed_insert() {
     std::cout << "test_adaptive_composite_operator_rolls_back_failed_insert passed\n";
 }
 
+void test_gam_escape_algorithm_returns_best_seen_solution() {
+    Instance instance{};
+    instance.n = 3;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 1, 10, 10},
+        {1, 0, 1, 1},
+        {10, 1, 0, 5},
+        {10, 1, 5, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution initial{{0, 1, 2, 3}, {DroneCollection{}, DroneCollection{}}};
+    const long long initial_cost = objective_function_impl(instance, initial);
+
+    std::vector<NamedOperator> ops = {
+        {"Worsen route", [](const Instance &, Solution &sol) {
+             std::swap(sol.truck_route[2], sol.truck_route[3]);
+             return true;
+         }}};
+    std::vector<double> weights = {1.0};
+
+    Solution escaped = gam_escape_algorithm(instance, initial, ops, weights, 3);
+
+    assert(escaped.truck_route == initial.truck_route);
+    assert(objective_function_impl(instance, escaped) == initial_cost);
+
+    std::cout << "test_gam_escape_algorithm_returns_best_seen_solution passed\n";
+}
+
 int main() {
     try {
         test_instance_loading();
@@ -291,10 +354,12 @@ int main() {
         test_three_opt_improves_truck_route();
         test_two_opt_greedy_improves_truck_route();
         test_replace_drone_delivery_moves_customer_back_to_truck();
+        test_replace_drone_delivery_greedy_moves_customer_back_to_truck();
         test_alns_operator_applies_remove_then_insert();
         test_alns_operator_rolls_back_failed_insert();
         test_alns_pair_combination_materializes_named_operators();
         test_adaptive_composite_operator_rolls_back_failed_insert();
+        test_gam_escape_algorithm_returns_best_seen_solution();
         std::cout << "\nAll tests passed\n";
     } catch (const std::exception& e) {
         std::cerr << "Test failed: " << e.what() << "\n";
