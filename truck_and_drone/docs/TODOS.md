@@ -46,3 +46,5 @@ Also, evaluating all greedy insert positions is just too slow.
 
 - Truck and Drone paper
   ~~- Drone planner heuristic~~
+
+IMPORTANT: Create a more powerful drone -> truck neighbourhood operator.
