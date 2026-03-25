@@ -104,6 +104,14 @@ bool replace_drone_delivery_random(const Instance &instance, Solution &sol);
 bool replace_drone_delivery_greedy(const Instance &instance, Solution &sol);
 
 /**
+ * Greedily move one or two drone deliveries back to the truck route.
+ *
+ * This is intended as a mild shake operator when the drone customer set has
+ * become too static.
+ */
+bool drone_demotion_shake(const Instance &instance, Solution &sol);
+
+/**
  * Perform 2-opt on random indexes except from depot.
  *
  * @return Whether the sampled move remained feasible.

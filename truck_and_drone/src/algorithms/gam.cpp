@@ -17,18 +17,25 @@ struct GAMOperatorState
 {
     std::string name;
     double weight = 1.0;
+    double initial_weight = 1.0;
+
     double segment_score = 0.0;
+    double segment_improvement = 0.0;
     int segment_uses = 0;
+    int segment_successes = 0;
+    int segment_accepts = 0;
+    int segment_improvements = 0;
+    int segment_new_bests = 0;
 };
 
-double average_worsening_delta_sample(
+double average_positive_delta_sample(
     const Instance &instance,
     const Solution &reference_solution,
     long long reference_cost,
     const std::vector<NamedOperator> &ops)
 {
     constexpr int target_samples = 50;
-    constexpr int max_attempts = 200;
+    constexpr int max_attempts = 250;
 
     if (ops.empty())
     {
@@ -114,6 +121,7 @@ std::vector<GAMOperatorState> build_operator_state(
         const std::string fallback_name = "Operator " + std::to_string(i);
         result.push_back(GAMOperatorState{
             ops[i].name.empty() ? fallback_name : ops[i].name,
+            weights[i],
             weights[i]});
     }
 
@@ -134,20 +142,31 @@ std::vector<double> build_selection_weights(const std::vector<GAMOperatorState> 
 }
 
 double compute_operator_reward(
-    bool improving,
-    bool new_best)
+    long long delta_e,
+    bool accepted,
+    bool new_best,
+    double delta_scale)
 {
+    const double safe_scale = std::max(1.0, delta_scale);
+    double reward = 0.0;
+
+    if (delta_e < 0)
+    {
+        const double normalized_improvement = std::min(5.0, (double)(-delta_e) / safe_scale);
+        reward += normalized_improvement;
+    }
+
+    if (accepted)
+    {
+        reward += 0.10;
+    }
+
     if (new_best)
     {
-        return 4.0;
+        reward += 2.0;
     }
 
-    if (improving)
-    {
-        return 1.0;
-    }
-
-    return 0.0;
+    return reward;
 }
 
 void update_operator_weights(
@@ -157,32 +176,113 @@ void update_operator_weights(
     int iteration,
     GAMRunStatistics &statistics)
 {
-    constexpr double reaction_factor = 0.2;
+    constexpr double reaction_factor = 0.30;
+    constexpr double min_weight_ratio = 0.20;
+    constexpr double max_weight_ratio = 3.50;
+    constexpr double accepted_bonus = 0.15;
+    constexpr double success_bonus = 0.10;
+    constexpr double improvement_bonus = 0.25;
+    constexpr double best_bonus = 0.40;
+    constexpr double pull_to_prior = 0.05;
+
+    double target_total_weight = 0.0;
+    for (const GAMOperatorState &state : operator_state)
+    {
+        target_total_weight += state.initial_weight;
+    }
+
+    std::vector<double> performance(operator_state.size(), 0.0);
+    double performance_sum = 0.0;
+    int active_count = 0;
+
+    for (int idx = 0; idx < (int)(operator_state.size()); ++idx)
+    {
+        const GAMOperatorState &state = operator_state[idx];
+        if (state.segment_uses <= 0)
+        {
+            continue;
+        }
+
+        const double uses = (double)state.segment_uses;
+        const double score_per_use = state.segment_score / uses;
+        const double improvement_per_use = state.segment_improvement / uses;
+        const double accepted_rate = (double)state.segment_accepts / uses;
+        const double success_rate = (double)state.segment_successes / uses;
+        const double improvement_rate = (double)state.segment_improvements / uses;
+        const double best_rate = (double)state.segment_new_bests / uses;
+
+        performance[idx] =
+            score_per_use +
+            0.35 * improvement_per_use +
+            accepted_bonus * accepted_rate +
+            success_bonus * success_rate +
+            improvement_bonus * improvement_rate +
+            best_bonus * best_rate;
+
+        performance_sum += performance[idx];
+        active_count++;
+    }
+
+    const double mean_performance =
+        active_count > 0 ? performance_sum / active_count : 0.0;
+
+    double total_weight = 0.0;
 
     for (int idx = 0; idx < (int)(operator_state.size()); ++idx)
     {
         GAMOperatorState &state = operator_state[idx];
+
         if (state.segment_uses > 0)
         {
-            const double normalized_segment_score = state.segment_score / state.segment_uses;
+            const double centered_signal = performance[idx] - mean_performance;
+            const double multiplicative_update = std::exp(reaction_factor * centered_signal);
+
+            state.weight *= multiplicative_update;
             state.weight =
-                state.weight * (1.0 - reaction_factor) +
-                reaction_factor * normalized_segment_score;
+                (1.0 - pull_to_prior) * state.weight +
+                pull_to_prior * state.initial_weight;
+        }
+        else
+        {
+            state.weight =
+                0.95 * state.weight +
+                0.05 * state.initial_weight;
         }
 
+        state.weight = std::max(state.initial_weight * min_weight_ratio, state.weight);
+        state.weight = std::min(state.initial_weight * max_weight_ratio, state.weight);
+
+        total_weight += state.weight;
+
+        state.segment_score = 0.0;
+        state.segment_improvement = 0.0;
+        state.segment_uses = 0;
+        state.segment_successes = 0;
+        state.segment_accepts = 0;
+        state.segment_improvements = 0;
+        state.segment_new_bests = 0;
+    }
+
+    const double rescale_factor =
+        total_weight > 0.0 && target_total_weight > 0.0
+            ? target_total_weight / total_weight
+            : 1.0;
+
+    for (int idx = 0; idx < (int)(operator_state.size()); ++idx)
+    {
+        GAMOperatorState &state = operator_state[idx];
+        state.weight *= rescale_factor;
         selection_weights[idx] = state.weight;
+
         statistics.segment_stats.push_back(GAMSegmentStatistics{
             segment_index,
             iteration,
             idx,
             state.weight,
         });
-
-        state.segment_score = 0.0;
-        state.segment_uses = 0;
     }
 }
-}
+} // namespace
 
 GAMResult general_adaptive_metaheuristic(
     const Instance &instance,
@@ -191,8 +291,10 @@ GAMResult general_adaptive_metaheuristic(
     const std::vector<double> &initial_weights)
 {
     constexpr int max_iterations = 10000;
-    constexpr int segment_length = 100;
-    int stopping_condition = std::max(segment_length, instance.n * 3);
+    const int segment_length = instance.n >= 50 ? 200 : 100;
+    int stopping_condition = std::max(
+        segment_length / 2,
+        instance.n >= 50 ? instance.n * 3 : instance.n * 2);
 
     GAMResult result;
     result.statistics.max_iterations = max_iterations;
@@ -213,17 +315,26 @@ GAMResult general_adaptive_metaheuristic(
     std::vector<GAMOperatorState> operator_state =
         build_operator_state(ops, initial_selection_weights);
     std::vector<double> selection_weights = build_selection_weights(operator_state);
-    const double sampled_delta = average_worsening_delta_sample(
+
+    const long long initial_cost = objective_function_impl(instance, initial);
+    const double sampled_positive_delta = average_positive_delta_sample(
         instance,
         initial,
-        objective_function_impl(instance, initial),
+        initial_cost,
         ops);
-    const double initial_temperature = -sampled_delta / std::log(0.15);
-    const double final_temperature = std::max(1.0, initial_temperature * 0.01);
+
+    const double target_initial_worsening_acceptance =
+        instance.n >= 50 ? 0.12 : 0.18;
+    const double initial_temperature =
+        -sampled_positive_delta / std::log(target_initial_worsening_acceptance);
+
+    const double final_temperature = std::max(1.0, initial_temperature * 0.05);
     const double cooling_rate = std::pow(
         final_temperature / initial_temperature,
         1.0 / std::max(1, max_iterations - 1));
+
     double temperature = initial_temperature;
+    double reward_delta_scale = std::max(1.0, sampled_positive_delta);
     std::uniform_real_distribution<double> unit_dist(0.0, 1.0);
 
     result.statistics.operator_names.reserve(operator_state.size());
@@ -233,7 +344,7 @@ GAMResult general_adaptive_metaheuristic(
     }
 
     Solution incumbent = std::move(initial);
-    long long incumbent_cost = objective_function_impl(instance, incumbent);
+    long long incumbent_cost = initial_cost;
     Solution best = incumbent;
     long long best_cost = incumbent_cost;
     int non_improving_iterations = 0;
@@ -242,15 +353,29 @@ GAMResult general_adaptive_metaheuristic(
     {
         if (non_improving_iterations >= stopping_condition)
         {
-            incumbent = gam_escape_algorithm(instance, incumbent, ops, selection_weights, std::min(10, max_iterations - i));
+            const int escape_budget =
+                i >= (max_iterations * 3) / 4
+                    ? std::min(20, max_iterations - i)
+                    : std::min(10, max_iterations - i);
+
+            incumbent = gam_escape_algorithm(
+                instance,
+                incumbent,
+                ops,
+                selection_weights,
+                escape_budget);
+
             incumbent_cost = objective_function_impl(instance, incumbent);
+
             if (incumbent_cost < best_cost)
             {
                 best = incumbent;
                 best_cost = incumbent_cost;
                 result.statistics.best_updates++;
-                result.statistics.best_found_iteration = i;
+                result.statistics.best_found_iteration = i + 1;
             }
+
+            temperature = std::max(temperature, initial_temperature * 0.25);
             non_improving_iterations = 0;
         }
 
@@ -267,40 +392,40 @@ GAMResult general_adaptive_metaheuristic(
         if (!ops[selected_idx].op(instance, neighbour))
         {
             result.statistics.operator_failures++;
-            const double reward = compute_operator_reward(false, false);
-            selected.segment_score += reward;
             non_improving_iterations++;
         }
         else if (!master_check(instance, neighbour, false))
         {
             result.statistics.infeasible_candidates++;
-            const double reward = compute_operator_reward(false, false);
-            selected.segment_score += reward;
             non_improving_iterations++;
         }
         else
         {
+            selected.segment_successes++;
+
             const long long cost = objective_function_impl(instance, neighbour);
             const long long delta_e = cost - incumbent_cost;
+
             iteration_stat.delta = delta_e;
             iteration_stat.has_delta = true;
 
             bool accept = delta_e <= 0;
             double acceptance_probability = 1.0;
+
             if (delta_e > 0)
             {
-                acceptance_probability = compute_acceptance_probability(
-                    delta_e,
-                    temperature);
+                acceptance_probability = compute_acceptance_probability(delta_e, temperature);
                 accept = unit_dist(gen) < acceptance_probability;
                 iteration_stat.worsening_acceptance_probability = acceptance_probability;
             }
 
             if (accept)
             {
+                selected.segment_accepts++;
                 incumbent = neighbour;
                 incumbent_cost = cost;
                 result.statistics.accepted_moves++;
+
                 if (delta_e < 0)
                 {
                     result.statistics.improving_accepts++;
@@ -313,8 +438,17 @@ GAMResult general_adaptive_metaheuristic(
 
             const bool new_best = cost < best_cost;
             const bool incumbent_improved = accept && delta_e < 0;
+
+            if (delta_e < 0)
+            {
+                selected.segment_improvements++;
+                selected.segment_improvement +=
+                    std::min(5.0, (double)(-delta_e) / std::max(1.0, reward_delta_scale));
+            }
+
             if (new_best)
             {
+                selected.segment_new_bests++;
                 best = neighbour;
                 best_cost = cost;
                 result.statistics.best_updates++;
@@ -330,8 +464,15 @@ GAMResult general_adaptive_metaheuristic(
                 non_improving_iterations++;
             }
 
-            const double reward = compute_operator_reward(delta_e < 0, new_best);
+            const double reward =
+                compute_operator_reward(delta_e, accept, new_best, reward_delta_scale);
             selected.segment_score += reward;
+
+            if (delta_e != 0)
+            {
+                const double abs_delta = std::abs((double)delta_e);
+                reward_delta_scale = 0.95 * reward_delta_scale + 0.05 * std::max(1.0, abs_delta);
+            }
         }
 
         result.statistics.iteration_stats.push_back(iteration_stat);

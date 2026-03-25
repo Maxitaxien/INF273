@@ -215,6 +215,37 @@ void test_replace_drone_delivery_greedy_moves_customer_back_to_truck() {
     std::cout << "test_replace_drone_delivery_greedy_moves_customer_back_to_truck passed\n";
 }
 
+void test_drone_demotion_shake_moves_customer_back_to_truck() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 1, 2, 3, 4},
+        {1, 0, 1, 2, 3},
+        {2, 1, 0, 1, 2},
+        {3, 2, 1, 0, 1},
+        {4, 3, 2, 1, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{
+        {0, 1, 3, 4},
+        {
+            DroneCollection{{1}, {2}, {2}},
+            DroneCollection{},
+        }};
+
+    bool success = drone_demotion_shake(instance, solution);
+
+    assert(success);
+    assert(solution.drones[0].deliver_nodes.empty());
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4}));
+    assert(master_check(instance, solution, true));
+
+    std::cout << "test_drone_demotion_shake_moves_customer_back_to_truck passed\n";
+}
+
 void test_alns_operator_applies_remove_then_insert() {
     Instance instance{};
     Solution solution{{0, 1}, {}};
@@ -355,6 +386,7 @@ int main() {
         test_two_opt_greedy_improves_truck_route();
         test_replace_drone_delivery_moves_customer_back_to_truck();
         test_replace_drone_delivery_greedy_moves_customer_back_to_truck();
+        test_drone_demotion_shake_moves_customer_back_to_truck();
         test_alns_operator_applies_remove_then_insert();
         test_alns_operator_rolls_back_failed_insert();
         test_alns_pair_combination_materializes_named_operators();

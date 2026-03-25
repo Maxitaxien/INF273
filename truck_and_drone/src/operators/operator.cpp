@@ -316,6 +316,37 @@ bool replace_drone_delivery_greedy(const Instance &instance, Solution &sol)
     return success;
 }
 
+bool drone_demotion_shake(const Instance &instance, Solution &sol)
+{
+    const int delivery_count = count_drone_deliveries(sol);
+    if (delivery_count == 0)
+    {
+        return false;
+    }
+
+    Solution candidate = sol;
+    const int demotions_to_apply = delivery_count >= 20 ? 2 : 1;
+    bool changed = false;
+
+    for (int i = 0; i < demotions_to_apply; ++i)
+    {
+        if (!replace_drone_delivery_greedy(instance, candidate))
+        {
+            break;
+        }
+
+        changed = true;
+    }
+
+    if (!changed)
+    {
+        return false;
+    }
+
+    sol = std::move(candidate);
+    return true;
+}
+
 bool two_opt_random(const Instance &inst, Solution &sol)
 {
     // Pick a meaningful 2-opt segment while keeping the depot fixed.
@@ -365,7 +396,7 @@ bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
 
 bool drone_planner_improve(const Instance &instance, Solution &sol)
 {
-    return planner_improve_with_budget(instance, sol, 1, 0, -1);
+    return planner_improve_with_budget(instance, sol, 5, 0, -1);
 }
 
 bool drone_planner_light_improve(const Instance &instance, Solution &sol)
@@ -399,6 +430,4 @@ bool drone_planner_light_improve(const Instance &instance, Solution &sol)
         max_flights_per_customer,
         drone_to_replan);
 }
-
-
 
