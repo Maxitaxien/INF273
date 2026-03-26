@@ -12,17 +12,15 @@
  *  3. take route[v2+1] to route[start] and add them in order to new_route
  *  return new_route;
  *
- * This operator only mutates the truck route. The surrounding search
- * algorithm is expected to perform the final feasibility check.
+ * This operator mutates the truck route and, if needed, repairs drone
+ * assignments before returning.
  */
 bool two_opt(const Instance &inst, Solution &solution, int first, int second);
 
 /**
- * Greedy 2-opt on truck edges using the standard edge-exchange gain:
+ * Greedy 2-opt with a truck-gain screen and full-objective evaluation.
  *
- * gain = dist(a,b) + dist(c,d) - dist(a,c) - dist(b,d)
- *
- * where `(a,b)` and `(c,d)` are the two truck edges being replaced.
- * The best improving move is committed.
+ * The best positive truck 2-opt edge exchange is tried, and the move is only
+ * committed if the repaired full truck+drone objective improves.
  */
 bool two_opt_greedy(const Instance &inst, Solution &solution);

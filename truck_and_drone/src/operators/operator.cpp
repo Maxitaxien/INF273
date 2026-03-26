@@ -4,10 +4,15 @@
 #include "operators/one_reinsert.h"
 #include "operators/replace_drone_delivery.h"
 #include "operators/replace_truck_delivery.h"
+#include "operators/solution_fixers.h"
 #include "operators/three_opt.h"
 #include "operators/two_opt.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
+#include <algorithm>
+#include <array>
+#include <numeric>
+#include <set>
 #include <random>
 #include <utility>
 #include <vector>
@@ -17,6 +22,13 @@ const long long INF = 4e18;
 
 namespace
 {
+struct CustomerSlot
+{
+    bool on_truck = false;
+    int index = -1;
+    int drone = -1;
+};
+
 int count_drone_deliveries(const Solution &sol)
 {
     int delivery_count = 0;
@@ -54,6 +66,82 @@ bool planner_improve_with_budget(
     }
 
     sol = planned_solution;
+    return true;
+}
+
+std::vector<CustomerSlot> collect_customer_slots(const Solution &sol)
+{
+    std::vector<CustomerSlot> slots;
+    int total_slots = std::max(0, (int)(sol.truck_route.size()) - 1);
+    for (const DroneCollection &drone : sol.drones)
+    {
+        total_slots += (int)(drone.deliver_nodes.size());
+    }
+
+    slots.reserve(total_slots);
+    for (int idx = 1; idx < (int)(sol.truck_route.size()); ++idx)
+    {
+        slots.push_back(CustomerSlot{true, idx, -1});
+    }
+
+    for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
+    {
+        for (int idx = 0; idx < (int)(sol.drones[drone].deliver_nodes.size()); ++idx)
+        {
+            slots.push_back(CustomerSlot{false, idx, drone});
+        }
+    }
+
+    return slots;
+}
+
+int read_customer_at_slot(const Solution &sol, const CustomerSlot &slot)
+{
+    if (slot.on_truck)
+    {
+        return sol.truck_route[slot.index];
+    }
+
+    return sol.drones[slot.drone].deliver_nodes[slot.index];
+}
+
+void write_customer_at_slot(Solution &sol, const CustomerSlot &slot, int customer)
+{
+    if (slot.on_truck)
+    {
+        sol.truck_route[slot.index] = customer;
+        return;
+    }
+
+    sol.drones[slot.drone].deliver_nodes[slot.index] = customer;
+}
+
+std::vector<int> sample_slot_indices(int slot_count, int sample_size)
+{
+    std::vector<int> indices(slot_count);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::shuffle(indices.begin(), indices.end(), gen);
+    indices.resize(sample_size);
+    return indices;
+}
+
+bool repair_with_drone_planner_if_needed(
+    const Instance &inst,
+    Solution &candidate)
+{
+    if (master_check(inst, candidate, false))
+    {
+        return true;
+    }
+
+    const auto [planned_cost, planned_solution] = drone_planner(inst, candidate);
+    (void)planned_cost;
+    if (!master_check(inst, planned_solution, false))
+    {
+        return false;
+    }
+
+    candidate = planned_solution;
     return true;
 }
 }
@@ -201,11 +289,12 @@ bool replace_truck_delivery_random(const Instance &instance, Solution &sol)
 
     std::shuffle(candidates.begin(), candidates.end(), gen);
     const int max_attempts = std::min(10, (int)(candidates.size()));
+    Solution candidate = sol;
 
     for (int attempt = 0; attempt < max_attempts; ++attempt)
     {
         const auto [drone, idx] = candidates[attempt];
-        Solution candidate = sol;
+        candidate = sol;
         if (replace_truck_delivery(instance, candidate, idx, drone))
         {
             sol = std::move(candidate);
@@ -221,19 +310,20 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
     bool success = false;
     long long best_cost = INF;
     Solution best_solution;
+    Solution candidate = sol;
 
     for (int drone = 0; drone < (int)sol.drones.size(); ++drone)
     {
         for (int i = 1; i < (int)sol.truck_route.size(); ++i)
         {
-            Solution copy = sol; // fresh copy each time
-            if (replace_truck_delivery(instance, copy, i, drone))
+            candidate = sol;
+            if (replace_truck_delivery(instance, candidate, i, drone))
             {
-                long long cost = objective_function_impl(instance, copy);
+                long long cost = objective_function_impl(instance, candidate);
                 if (cost < best_cost)
                 {
                     best_cost = cost;
-                    best_solution = std::move(copy);
+                    best_solution = std::move(candidate);
                     success = true;
                 }
             }
@@ -266,11 +356,12 @@ bool replace_drone_delivery_random(const Instance &instance, Solution &sol)
 
     std::shuffle(candidates.begin(), candidates.end(), gen);
     const int max_attempts = std::min(8, (int)(candidates.size()));
+    Solution candidate = sol;
 
     for (int attempt = 0; attempt < max_attempts; ++attempt)
     {
         const auto [drone, flight_idx] = candidates[attempt];
-        Solution candidate = sol;
+        candidate = sol;
         if (replace_drone_delivery(instance, candidate, drone, flight_idx))
         {
             sol = std::move(candidate);
@@ -286,13 +377,14 @@ bool replace_drone_delivery_greedy(const Instance &instance, Solution &sol)
     bool success = false;
     long long best_cost = INF;
     Solution best_solution;
+    Solution candidate = sol;
 
     for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
     {
         const int flight_count = (int)(sol.drones[drone].deliver_nodes.size());
         for (int flight_idx = 0; flight_idx < flight_count; ++flight_idx)
         {
-            Solution candidate = sol;
+            candidate = sol;
             if (!replace_drone_delivery(instance, candidate, drone, flight_idx))
             {
                 continue;
@@ -349,34 +441,97 @@ bool drone_demotion_shake(const Instance &instance, Solution &sol)
 
 bool two_opt_random(const Instance &inst, Solution &sol)
 {
-    // Pick a meaningful 2-opt segment while keeping the depot fixed.
-    if (sol.truck_route.size() < 4)
-        return false; // Need at least 4 nodes for meaningful 2-opt
-
-    std::uniform_int_distribution<int> first_dist(1, (int)sol.truck_route.size() - 3);
-    int i = first_dist(gen);
-    std::uniform_int_distribution<int> second_dist(i + 2, (int)sol.truck_route.size() - 1);
-    int j = second_dist(gen);
-
-    return two_opt(inst, sol, i, j);
-}
-
-bool three_opt_random(const Instance &inst, Solution &sol)
-{
-    if (sol.truck_route.size() < 4)
+    const std::vector<CustomerSlot> slots = collect_customer_slots(sol);
+    if ((int)(slots.size()) < 2)
     {
         return false;
     }
 
-    const int route_size = (int)(sol.truck_route.size());
-    std::uniform_int_distribution<int> first_dist(0, route_size - 3);
-    const int first = first_dist(gen);
-    std::uniform_int_distribution<int> second_dist(first + 1, route_size - 2);
-    const int second = second_dist(gen);
-    std::uniform_int_distribution<int> third_dist(second + 1, route_size - 1);
-    const int third = third_dist(gen);
+    const std::vector<int> selected = sample_slot_indices((int)(slots.size()), 2);
+    Solution candidate = sol;
+    const int first_customer = read_customer_at_slot(sol, slots[selected[0]]);
+    const int second_customer = read_customer_at_slot(sol, slots[selected[1]]);
 
-    return three_opt(inst, sol, first, second, third);
+    write_customer_at_slot(candidate, slots[selected[0]], second_customer);
+    write_customer_at_slot(candidate, slots[selected[1]], first_customer);
+
+    if (!repair_with_drone_planner_if_needed(inst, candidate))
+    {
+        return false;
+    }
+
+    sol = std::move(candidate);
+    return true;
+}
+
+bool three_opt_random(const Instance &inst, Solution &sol)
+{
+    const std::vector<CustomerSlot> slots = collect_customer_slots(sol);
+    if ((int)(slots.size()) < 3)
+    {
+        return false;
+    }
+
+    const long long current_truck_cost =
+        objective_function_truck_only(inst, sol.truck_route);
+    const std::vector<int> selected = sample_slot_indices((int)(slots.size()), 3);
+    const std::array<int, 3> customers = {
+        read_customer_at_slot(sol, slots[selected[0]]),
+        read_customer_at_slot(sol, slots[selected[1]]),
+        read_customer_at_slot(sol, slots[selected[2]]),
+    };
+    constexpr std::array<std::array<int, 3>, 3> permutations = {{
+        {{0, 2, 1}},
+        {{1, 0, 2}},
+        {{2, 1, 0}},
+        // {{1, 2, 0}}, // 3-cycle, currently disabled as a weaker truck surrogate candidate.
+        // {{2, 0, 1}}, // 3-cycle, currently disabled as a weaker truck surrogate candidate.
+    }};
+    std::array<int, 3> permutation_order = {0, 1, 2};
+    std::shuffle(permutation_order.begin(), permutation_order.end(), gen);
+    const int permutation_budget = std::min(
+        (int)(permutation_order.size()),
+        inst.n >= 50 ? 2 : 3);
+
+    bool found_improvement = false;
+    long long best_truck_cost = current_truck_cost;
+    Solution best_solution;
+    Solution candidate = sol;
+
+    for (int attempt = 0; attempt < permutation_budget; ++attempt)
+    {
+        candidate = sol;
+        const auto &permutation = permutations[permutation_order[attempt]];
+        for (int idx = 0; idx < 3; ++idx)
+        {
+            write_customer_at_slot(
+                candidate,
+                slots[selected[idx]],
+                customers[permutation[idx]]);
+        }
+
+        if (!repair_with_drone_planner_if_needed(inst, candidate))
+        {
+            continue;
+        }
+
+        const long long candidate_truck_cost =
+            objective_function_truck_only(inst, candidate.truck_route);
+        if (candidate_truck_cost < best_truck_cost)
+        {
+            best_truck_cost = candidate_truck_cost;
+            best_solution = std::move(candidate);
+            found_improvement = true;
+        }
+    }
+
+    if (!found_improvement)
+    {
+        return false;
+    }
+
+    sol = std::move(best_solution);
+    return true;
 }
 
 bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
@@ -396,6 +551,11 @@ bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
 
 bool drone_planner_improve(const Instance &instance, Solution &sol)
 {
+    if (instance.n >= 50)
+    {
+        return drone_planner_light_improve(instance, sol);
+    }
+
     return planner_improve_with_budget(instance, sol, 5, 0, -1);
 }
 
@@ -430,4 +590,3 @@ bool drone_planner_light_improve(const Instance &instance, Solution &sol)
         max_flights_per_customer,
         drone_to_replan);
 }
-

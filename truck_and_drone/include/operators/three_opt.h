@@ -4,11 +4,9 @@
 #include "verification/solution.h"
 
 /**
- * Stronger truck-route intensification than 2-opt.
+ * Truck-only 3-opt reconnection for a fixed triple of breakpoints.
  *
- * The intended implementation should evaluate a small subset of the classic
- * 3-opt reconnections around three breakpoints and keep the best improving move.
- * This is best used as a truck-first move, with feasibility checked by the
- * surrounding algorithm.
+ * This helper only rewires the truck route and keeps the best improving
+ * classic 3-opt candidate.
  */
 bool three_opt(const Instance &inst, Solution &sol, int first, int second, int third);

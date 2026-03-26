@@ -1,11 +1,13 @@
 #include "operators/two_opt.h"
+#include "operators/solution_fixers.h"
+#include "verification/feasibility_check.h"
+#include "verification/objective_value.h"
 #include <algorithm>
 #include <utility>
+#include <vector>
 
 bool two_opt(const Instance &inst, Solution &solution, int first, int second)
 {
-    (void)inst;
-
     const int route_size = (int)(solution.truck_route.size());
     if (route_size < 4)
     {
@@ -25,6 +27,15 @@ bool two_opt(const Instance &inst, Solution &solution, int first, int second)
     Solution candidate = solution;
     std::reverse(candidate.truck_route.begin() + first + 1,
                  candidate.truck_route.begin() + second + 1);
+
+    if (!master_check(inst, candidate, false))
+    {
+        candidate = fix_overall_feasibility(inst, candidate);
+        if (!master_check(inst, candidate, false))
+        {
+            return false;
+        }
+    }
 
     solution = std::move(candidate);
     return true;
@@ -71,6 +82,20 @@ bool two_opt_greedy(const Instance &inst, Solution &solution)
         return false;
     }
 
-    return two_opt(inst, solution, best_first, best_second);
+    const long long current_cost = objective_function_impl(inst, solution);
+    Solution candidate = solution;
+    if (!two_opt(inst, candidate, best_first, best_second))
+    {
+        return false;
+    }
+
+    const long long candidate_cost = objective_function_impl(inst, candidate);
+    if (candidate_cost >= current_cost)
+    {
+        return false;
+    }
+
+    solution = std::move(candidate);
+    return true;
 }
 

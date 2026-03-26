@@ -112,21 +112,24 @@ bool replace_drone_delivery_greedy(const Instance &instance, Solution &sol);
 bool drone_demotion_shake(const Instance &instance, Solution &sol);
 
 /**
- * Perform 2-opt on random indexes except from depot.
+ * Swap two random customers in the combined Part 1 + Part 2 representation,
+ * then repair the drone schedule with the planner if needed.
  *
- * @return Whether the sampled move remained feasible.
+ * @return Whether the sampled move yielded a feasible repaired candidate.
  */
 bool two_opt_random(const Instance &inst, Solution &sol);
 
 /**
- * Perform greedy 2-opt using the best improving truck-edge exchange.
+ * Perform greedy 2-opt using truck gain as a screen and the repaired full
+ * objective as the acceptance criterion.
  */
 bool two_opt_greedy(const Instance &inst, Solution &sol);
 
 /**
- * Perform 3-opt on random breakpoints while keeping the depot fixed.
+ * Permute three random customers in the combined Part 1 + Part 2
+ * representation, then repair the drone schedule with the planner if needed.
  *
- * @return Whether the sampled move improved the truck route surrogate.
+ * @return Whether any sampled permutation improved the truck-route surrogate.
  */
 bool three_opt_random(const Instance &inst, Solution &sol);
 

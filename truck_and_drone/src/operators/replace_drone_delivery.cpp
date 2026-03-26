@@ -1,9 +1,8 @@
 #include "operators/replace_drone_delivery.h"
 #include "operators/helpers.h"
 #include "verification/feasibility_check.h"
-#include <algorithm>
-#include <utility>
-#include <vector>
+#include "verification/objective_value.h"
+#include <limits>
 
 namespace
 {
@@ -25,24 +24,6 @@ void shift_drone_indices_after_truck_insert(Solution &sol, int insert_idx)
             }
         }
     }
-}
-
-long long estimate_truck_insert_delta(
-    const Instance &inst,
-    const Solution &sol,
-    int delivery,
-    int insert_idx)
-{
-    const int prev = sol.truck_route[insert_idx - 1];
-    if (insert_idx == (int)(sol.truck_route.size()))
-    {
-        return inst.truck_matrix[prev][delivery];
-    }
-
-    const int next = sol.truck_route[insert_idx];
-    return inst.truck_matrix[prev][delivery] +
-        inst.truck_matrix[delivery][next] -
-        inst.truck_matrix[prev][next];
 }
 }
 
@@ -79,32 +60,37 @@ bool replace_drone_delivery(
         return false;
     }
 
-    std::vector<std::pair<long long, int>> candidate_positions;
-    candidate_positions.reserve(insert_end - insert_start + 1);
+    bool found_candidate = false;
+    long long best_objective = std::numeric_limits<long long>::max();
+    Solution best_solution;
+    Solution candidate = sol;
+
     for (int insert_idx = insert_start; insert_idx <= insert_end; ++insert_idx)
     {
-        candidate_positions.emplace_back(
-            estimate_truck_insert_delta(inst, sol, delivery, insert_idx),
-            insert_idx);
-    }
-
-    std::sort(candidate_positions.begin(), candidate_positions.end());
-
-    for (const auto &[heuristic_delta, insert_idx] : candidate_positions)
-    {
-        (void)heuristic_delta;
-
-        Solution candidate = sol;
+        candidate = sol;
         remove_drone_flight(candidate, drone, flight_idx);
         candidate.truck_route.insert(candidate.truck_route.begin() + insert_idx, delivery);
         shift_drone_indices_after_truck_insert(candidate, insert_idx);
 
-        if (master_check(inst, candidate, false))
+        if (!master_check(inst, candidate, false))
         {
-            sol = std::move(candidate);
-            return true;
+            continue;
+        }
+
+        const long long objective = objective_function_impl(inst, candidate);
+        if (!found_candidate || objective < best_objective)
+        {
+            found_candidate = true;
+            best_objective = objective;
+            best_solution = std::move(candidate);
         }
     }
 
-    return false;
+    if (!found_candidate)
+    {
+        return false;
+    }
+
+    sol = std::move(best_solution);
+    return true;
 }
