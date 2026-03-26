@@ -56,6 +56,7 @@ add_library(core
     src/operators/drone_planner.cpp
     src/verification/feasibility_check.cpp
     src/verification/objective_value.cpp
+    src/verification/solution_visualization.cpp
     src/runners/run_algorithm.cpp
     src/runners/wrappers.cpp
 )

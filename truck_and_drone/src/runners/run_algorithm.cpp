@@ -19,6 +19,7 @@
 #include "datahandling/file_helpers.h"
 #include "datahandling/create_markdown_tables.h"
 #include "general/roulette_wheel_selection.h"
+#include <filesystem>
 
 const long long INF = 4e18;
 
@@ -79,6 +80,23 @@ NamedOperator build_run_operator(
     return NamedOperator{
         build_operator_mix_name(ops, weights, equal_suffix, tuned_suffix),
         selector};
+}
+
+void save_best_solution_visualization(
+    const std::string &run_dir,
+    const std::string &dataset,
+    const Instance &instance,
+    const Solution &solution)
+{
+    const std::filesystem::path output_path =
+        std::filesystem::path(create_dataset_statistics_directory(run_dir, dataset)) /
+        "best_solution.jpg";
+
+    if (!solution.save_visualization(instance, output_path.string()))
+    {
+        std::cerr << "Failed to save solution visualization at: "
+                  << output_path.string() << "\n";
+    }
 }
 }
 
@@ -168,6 +186,7 @@ void run_algorithm(
 
         save_to_csv(run_dir, algo_op_name, dataset, avg, best, improvement, avg_runtime,
                     convert_to_submission(best_solution));
+        save_best_solution_visualization(run_dir, dataset, instance, best_solution);
     }
 }
 
@@ -291,6 +310,7 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
             avg_runtime,
             convert_to_submission(best_solution));
         save_gam_statistics(run_dir, dataset, best_run_idx, best_statistics, run_reports);
+        save_best_solution_visualization(run_dir, dataset, instance, best_solution);
     }
 
     create_markdown_tables(base_dir);

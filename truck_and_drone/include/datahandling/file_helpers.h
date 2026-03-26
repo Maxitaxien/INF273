@@ -13,3 +13,13 @@ std::string create_algo_directory(const std::string &base, const std::string &al
  *
  */
 std::string create_run_directory();
+
+/**
+ * Returns the dataset name without directories or extension.
+ */
+std::string dataset_stem(const std::string &dataset);
+
+/**
+ * Creates and returns the per-dataset statistics directory inside a run.
+ */
+std::string create_dataset_statistics_directory(const std::string &run_dir, const std::string &dataset);

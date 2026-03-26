@@ -1,4 +1,5 @@
 #include "datahandling/save_to_csv.h"
+#include "datahandling/file_helpers.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -6,26 +7,11 @@
 
 namespace fs = std::filesystem;
 
-std::string BASE = fs::current_path().parent_path().string() + "/runs/";
-
 namespace
 {
-std::string clean_dataset(const std::string& dataset)
-{
-    size_t last_slash = dataset.find_last_of("/\\");
-    size_t last_dot = dataset.find_last_of(".");
-
-    size_t start = (last_slash == std::string::npos) ? 0 : last_slash + 1;
-    size_t length = (last_dot == std::string::npos || last_dot < start)
-        ? std::string::npos
-        : last_dot - start;
-
-    return dataset.substr(start, length);
-}
-
 fs::path gam_statistics_dir(const std::string& run_dir, const std::string& dataset)
 {
-    return fs::path(run_dir) / (clean_dataset(dataset) + "_statistics");
+    return create_dataset_statistics_directory(run_dir, dataset);
 }
 
 std::string operator_name_at(const GAMRunStatistics& statistics, int operator_idx)
@@ -50,10 +36,10 @@ bool save_to_csv(
     const std::string& solution_str
 )
 {
-    std::string csv_path = run_dir + "/" + clean_dataset(dataset) + ".csv";
+    std::string csv_path = run_dir + "/" + dataset_stem(dataset) + ".csv";
     std::ofstream csvfile(csv_path);
 
-    std::string solution_path = run_dir + "/" + clean_dataset(dataset) + ".txt";
+    std::string solution_path = run_dir + "/" + dataset_stem(dataset) + ".txt";
     std::ofstream solutionfile(solution_path);
 
     if (!csvfile.is_open())
@@ -62,7 +48,7 @@ bool save_to_csv(
         return false;
     }
 
-    csvfile << clean_dataset(dataset) << ",,,,\n";
+    csvfile << dataset_stem(dataset) << ",,,,\n";
     csvfile << " ,Average objective,Best Objective,Improvement (%),Average running time (in seconds)\n";
     csvfile << algo_name << "," << avg << "," << best << "," << improvement_percent << "," << avg_runtime << "\n";
 

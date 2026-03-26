@@ -1,4 +1,6 @@
 #include <cassert>
+#include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <vector>
 #include "algorithms/gam_escape_algorithm.h"
@@ -373,6 +375,58 @@ void test_gam_escape_algorithm_returns_best_seen_solution() {
     std::cout << "test_gam_escape_algorithm_returns_best_seen_solution passed\n";
 }
 
+void test_solution_visualization_writes_jpg() {
+    Instance instance{};
+    instance.n = 3;
+    instance.m = 2;
+    instance.lim = 10000;
+
+    const std::vector<std::pair<double, double>> coordinates = {
+        {0.0, 0.0},
+        {-1000.0, 2000.0},
+        {1000.0, 2000.0},
+        {0.0, 4000.0},
+    };
+
+    auto make_distance_matrix = [&](const std::vector<std::pair<double, double>> &points) {
+        std::vector<std::vector<long long>> matrix(points.size(), std::vector<long long>(points.size(), 0));
+        for (int i = 0; i < (int)(points.size()); ++i) {
+            for (int j = 0; j < (int)(points.size()); ++j) {
+                const double dx = points[i].first - points[j].first;
+                const double dy = points[i].second - points[j].second;
+                matrix[i][j] = (long long)(std::llround(std::sqrt(dx * dx + dy * dy)));
+            }
+        }
+        return matrix;
+    };
+
+    instance.truck_matrix = make_distance_matrix(coordinates);
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{
+        {0, 1, 3},
+        {
+            DroneCollection{{1}, {2}, {2}},
+            DroneCollection{},
+        }};
+
+    assert(master_check(instance, solution, true));
+
+    const std::filesystem::path output =
+        std::filesystem::temp_directory_path() / "truck_and_drone_solution_visualization_test.jpg";
+    std::filesystem::remove(output);
+
+    const bool success = solution.save_visualization(instance, output.string());
+
+    assert(success);
+    assert(std::filesystem::exists(output));
+    assert(std::filesystem::file_size(output) > 0);
+
+    std::filesystem::remove(output);
+
+    std::cout << "test_solution_visualization_writes_jpg passed\n";
+}
+
 int main() {
     try {
         test_instance_loading();
@@ -392,6 +446,7 @@ int main() {
         test_alns_pair_combination_materializes_named_operators();
         test_adaptive_composite_operator_rolls_back_failed_insert();
         test_gam_escape_algorithm_returns_best_seen_solution();
+        test_solution_visualization_writes_jpg();
         std::cout << "\nAll tests passed\n";
     } catch (const std::exception& e) {
         std::cerr << "Test failed: " << e.what() << "\n";

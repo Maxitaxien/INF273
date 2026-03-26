@@ -1,5 +1,8 @@
 #pragma once
-#include<vector>
+#include <string>
+#include <vector>
+
+struct Instance;
 
 struct DroneCollection {
     std::vector<int> launch_indices;    
@@ -13,4 +16,12 @@ struct Solution {
     // @brief A single array of drone trips for each drone. Has indices within truck route for launch and land,  
     // and deliver nodes indicating the nodes delivered to which are not covered by truck. Both indices are 0-indexed.
     std::vector<DroneCollection> drones; 
+
+    /**
+     * Saves a JPG visualization of the solution.
+     *
+     * Customer positions are inferred from the truck distance matrix so the
+     * drawing stays consistent with the instance geometry.
+     */
+    bool save_visualization(const Instance &instance, const std::string &output_path) const;
 };

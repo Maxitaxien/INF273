@@ -1,7 +1,8 @@
 #include "datahandling/file_helpers.h"
 #include <chrono>
-#include <sstream>
 #include <filesystem>
+#include <iomanip>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -44,4 +45,24 @@ std::string create_run_directory()
     std::string dir = base + "/" + get_current_time_string();
     fs::create_directories(dir);
     return dir;
+}
+
+std::string dataset_stem(const std::string &dataset)
+{
+    const size_t last_slash = dataset.find_last_of("/\\");
+    const size_t last_dot = dataset.find_last_of(".");
+
+    const size_t start = (last_slash == std::string::npos) ? 0 : last_slash + 1;
+    const size_t length = (last_dot == std::string::npos || last_dot < start)
+        ? std::string::npos
+        : last_dot - start;
+
+    return dataset.substr(start, length);
+}
+
+std::string create_dataset_statistics_directory(const std::string &run_dir, const std::string &dataset)
+{
+    const fs::path dir = fs::path(run_dir) / (dataset_stem(dataset) + "_statistics");
+    fs::create_directories(dir);
+    return dir.string();
 }
