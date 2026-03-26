@@ -48,3 +48,35 @@ Also, evaluating all greedy insert positions is just too slow.
   ~~- Drone planner heuristic~~
 
 IMPORTANT: Create a more powerful drone -> truck neighbourhood operator.
+
+Plan:
+
+Add a combined-vector Or-opt operator.
+This is the best easy quality upgrade. Move a block of 1-3 customers inside the combined Part 1 + Part 2 sequence, then repair with the drone planner if needed. It is stronger than random swaps, still simple to code, and matches the order-first/repair-second pattern you already use.
+
+Precompute and cache cheap drone feasibility filters.
+Build once per instance:
+
+which customers are drone-eligible at all
+candidate launch/land pairs or at least bounded launch/land windows
+Then use those filters inside drone_planner, replace_truck_delivery, and random repair operators. This is the highest leverage speed improvement without changing the 10k-iteration rule.
+Make Three-Opt scheduled rather than always sampled.
+Keep it, but call it rarely or only after stagnation/segment boundaries. It is a good intensifier, not a good default workhorse. That should preserve its quality contribution while cutting a lot of wasted time on larger instances.
+
+Remove or heavily downweight Drone replacement greedy.
+Based on our profiling, it is the weakest operator in the current setup. If you want to keep it, use it only as a shake operator after stagnation, not in the core roulette mix.
+
+Add planner trigger rules instead of sampling planner as a regular move.
+Use drone_planner_improve only:
+
+after a sequence-changing move causes infeasibility
+after accepted Or-opt/2-opt/3-opt moves every N iterations
+during stagnation escape
+That is more consistent with the literature than giving the planner its own frequent selection weight.
+Recommended order
+
+Or-opt
+cached drone feasibility filters
+remove/downweight Drone replacement greedy
+schedule Three-Opt
+planner trigger rules
