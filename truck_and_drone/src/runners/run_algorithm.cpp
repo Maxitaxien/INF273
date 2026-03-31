@@ -1,5 +1,6 @@
 #include <iostream>
 #include <chrono>
+#include <cstdlib>
 #include <map>
 #include <vector>
 #include "runners/run_algorithm.h"
@@ -36,6 +37,62 @@ namespace
 std::vector<std::string> benchmark_datasets()
 {
     return {f10, f20, f50, f100, r10, r20, r50, r100};
+}
+
+std::string shell_quote(const std::string &value)
+{
+    std::string result = "'";
+    for (char ch : value)
+    {
+        if (ch == '\'')
+        {
+            result += "'\\''";
+        }
+        else
+        {
+            result += ch;
+        }
+    }
+    result += "'";
+    return result;
+}
+
+std::filesystem::path locate_plot_script()
+{
+    const std::vector<std::filesystem::path> candidates = {
+        std::filesystem::current_path() / "scripts" / "plot_run_statistics.py",
+        std::filesystem::current_path().parent_path() / "scripts" / "plot_run_statistics.py",
+        std::filesystem::current_path().parent_path().parent_path() / "scripts" / "plot_run_statistics.py",
+    };
+
+    for (const std::filesystem::path &candidate : candidates)
+    {
+        if (std::filesystem::exists(candidate))
+        {
+            return candidate;
+        }
+    }
+
+    return {};
+}
+
+void generate_run_plots(const std::string &run_dir)
+{
+    const std::filesystem::path script_path = locate_plot_script();
+    if (script_path.empty())
+    {
+        std::cerr << "Plot script not found. Skipping plot generation.\n";
+        return;
+    }
+
+    const std::string command =
+        "python3 " + shell_quote(script_path.string()) + " " + shell_quote(run_dir);
+
+    const int exit_code = std::system(command.c_str());
+    if (exit_code != 0)
+    {
+        std::cerr << "Plot generation failed for run directory: " << run_dir << "\n";
+    }
 }
 
 std::string build_operator_mix_name(
@@ -223,6 +280,7 @@ void run_all_algos(const std::vector<NamedOperator> &ops, const std::vector<doub
         run_algorithm(name, wrapper, run_op, base_dir, amnt_iter);
     }
     create_markdown_tables(base_dir);
+    generate_run_plots(base_dir);
 }
 
 void run_gam()
@@ -314,6 +372,7 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
     }
 
     create_markdown_tables(base_dir);
+    generate_run_plots(base_dir);
 }
 
 void run_construction_algos()
@@ -327,6 +386,7 @@ void run_construction_algos()
         run_algorithm(name, wrapper, noop, base_dir, amnt_iter);
     }
     create_markdown_tables(base_dir);
+    generate_run_plots(base_dir);
 }
 
 

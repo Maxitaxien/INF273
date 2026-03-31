@@ -106,7 +106,7 @@ bool save_gam_statistics(
 
     iteration_file
         << "iteration,operator_idx,operator_name,delta,has_delta,temperature,"
-        << "worsening_acceptance_probability\n";
+        << "worsening_acceptance_probability,runtime_ms\n";
     for (const GAMIterationStatistics& row : statistics.iteration_stats)
     {
         iteration_file
@@ -116,7 +116,8 @@ bool save_gam_statistics(
             << row.delta << ","
             << row.has_delta << ","
             << row.temperature << ","
-            << row.worsening_acceptance_probability << "\n";
+            << row.worsening_acceptance_probability << ","
+            << row.runtime_ms << "\n";
     }
 
     std::ofstream weight_file(statistics_dir / "weights.csv");
@@ -151,6 +152,47 @@ bool save_gam_statistics(
             << row.run << ","
             << row.final_objective << ","
             << row.best_found_iteration << "\n";
+    }
+
+    std::ofstream operator_file(statistics_dir / "operators.csv");
+    if (!operator_file.is_open())
+    {
+        std::cerr << "Failed to open file at:" << (statistics_dir / "operators.csv").string() << "\n";
+        return false;
+    }
+
+    operator_file
+        << "operator_idx,operator_name,uses,successful_calls,failures,"
+        << "infeasible_candidates,feasible_candidates,accepted_moves,"
+        << "improving_accepts,new_bests,delta_samples,delta_sum,"
+        << "avg_delta,total_runtime_ms,avg_runtime_ms\n";
+    for (const GAMOperatorStatistics& row : statistics.operator_stats)
+    {
+        const double avg_delta =
+            row.delta_samples > 0
+                ? (double)(row.delta_sum) / (double)(row.delta_samples)
+                : 0.0;
+        const double avg_runtime_ms =
+            row.uses > 0
+                ? row.total_runtime_ms / (double)(row.uses)
+                : 0.0;
+
+        operator_file
+            << row.operator_idx << ","
+            << row.operator_name << ","
+            << row.uses << ","
+            << row.successful_calls << ","
+            << row.failures << ","
+            << row.infeasible_candidates << ","
+            << row.feasible_candidates << ","
+            << row.accepted_moves << ","
+            << row.improving_accepts << ","
+            << row.new_bests << ","
+            << row.delta_samples << ","
+            << row.delta_sum << ","
+            << avg_delta << ","
+            << row.total_runtime_ms << ","
+            << avg_runtime_ms << "\n";
     }
 
     return true;

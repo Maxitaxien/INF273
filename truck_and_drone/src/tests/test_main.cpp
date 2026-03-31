@@ -1,8 +1,10 @@
 #include <cassert>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <vector>
 #include "algorithms/gam_escape_algorithm.h"
 #include "algorithms/greedy_drone_cover.h"
@@ -12,7 +14,9 @@
 #include "datahandling/datasets.h"
 #include "datahandling/instance.h"
 #include "datahandling/reader.h"
+#include "datahandling/save_to_csv.h"
 #include "operators/alns/alns_composite.h"
+#include "operators/drone_rendezvous_shift.h"
 #include "operators/one_reinsert.h"
 #include "operators/operator.h"
 #include "operators/helpers.h"
@@ -585,6 +589,114 @@ void test_solution_visualization_writes_jpg() {
     std::cout << "test_solution_visualization_writes_jpg passed\n";
 }
 
+void test_drone_rendezvous_shift_moves_flight_within_window() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 100, 100, 10100, 10200},
+        {100, 0, 100, 10000, 10100},
+        {100, 100, 0, 100, 200},
+        {10100, 10000, 100, 0, 100},
+        {10200, 10100, 200, 100, 0},
+    };
+    instance.drone_matrix = {
+        {0, 100, 10000, 10100, 10200},
+        {100, 0, 100, 10100, 100},
+        {10000, 100, 0, 100, 100},
+        {10100, 10100, 100, 0, 100},
+        {10200, 100, 100, 100, 0},
+    };
+
+    Solution solution{
+        {0, 1, 3, 4},
+        {
+            DroneCollection{{0}, {2}, {2}},
+            DroneCollection{},
+        }};
+
+    assert(master_check(instance, solution, true));
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    const bool success = drone_rendezvous_shift(instance, solution, 0, 0, 2, 2);
+
+    assert(success);
+    assert(solution.drones[0].launch_indices == std::vector<int>({1}));
+    assert(solution.drones[0].land_indices == std::vector<int>({3}));
+    assert(master_check(instance, solution, true));
+    assert(objective_function_impl(instance, solution) < initial_cost);
+
+    std::cout << "test_drone_rendezvous_shift_moves_flight_within_window passed\n";
+}
+
+void test_save_gam_statistics_writes_operator_runtime_outputs() {
+    const std::filesystem::path run_dir =
+        std::filesystem::temp_directory_path() / "truck_and_drone_gam_statistics_test";
+    std::filesystem::remove_all(run_dir);
+    std::filesystem::create_directories(run_dir);
+
+    GAMRunStatistics statistics;
+    statistics.max_iterations = 100;
+    statistics.segment_length = 10;
+    statistics.stopping_condition = 5;
+    statistics.best_found_iteration = 17;
+    statistics.operator_names = {"Two-Opt Greedy"};
+    statistics.iteration_stats.push_back(GAMIterationStatistics{
+        1,
+        0,
+        -42,
+        3.5,
+        -1.0,
+        7.25,
+        true,
+    });
+    statistics.operator_stats.push_back(GAMOperatorStatistics{
+        0,
+        "Two-Opt Greedy",
+        3,
+        2,
+        1,
+        0,
+        2,
+        1,
+        1,
+        1,
+        2,
+        -55,
+        21.75,
+    });
+
+    std::vector<GAMRunReport> reports = {
+        {1, 1234, 17},
+    };
+
+    const bool success = save_gam_statistics(run_dir.string(), datasets::f10, 1, statistics, reports);
+    assert(success);
+
+    const std::filesystem::path statistics_dir = run_dir / "F_10_statistics";
+    const std::filesystem::path trace_path = statistics_dir / "trace.csv";
+    const std::filesystem::path operators_path = statistics_dir / "operators.csv";
+    assert(std::filesystem::exists(trace_path));
+    assert(std::filesystem::exists(operators_path));
+
+    std::stringstream trace_buffer;
+    trace_buffer << std::ifstream(trace_path).rdbuf();
+    const std::string trace_content = trace_buffer.str();
+    assert(trace_content.find("runtime_ms") != std::string::npos);
+    assert(trace_content.find("7.25") != std::string::npos);
+
+    std::stringstream operators_buffer;
+    operators_buffer << std::ifstream(operators_path).rdbuf();
+    const std::string operators_content = operators_buffer.str();
+    assert(operators_content.find("avg_runtime_ms") != std::string::npos);
+    assert(operators_content.find("Two-Opt Greedy") != std::string::npos);
+
+    std::filesystem::remove_all(run_dir);
+
+    std::cout << "test_save_gam_statistics_writes_operator_runtime_outputs passed\n";
+}
+
 int main() {
     try {
         test_instance_loading();
@@ -610,6 +722,8 @@ int main() {
         test_gam_escape_algorithm_returns_best_seen_solution();
         test_two_opt_repairs_drone_schedule_after_route_reversal();
         test_solution_visualization_writes_jpg();
+        test_drone_rendezvous_shift_moves_flight_within_window();
+        test_save_gam_statistics_writes_operator_runtime_outputs();
         std::cout << "\nAll tests passed\n";
     } catch (const std::exception& e) {
         std::cerr << "Test failed: " << e.what() << "\n";

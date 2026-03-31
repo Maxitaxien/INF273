@@ -563,6 +563,8 @@ double choose_orientation_angle(const std::vector<Point> &positions)
     int best_positive_count = -1;
     double best_min_y = -std::numeric_limits<double>::infinity();
     double best_mean_y = -std::numeric_limits<double>::infinity();
+    double best_abs_mean_x = std::numeric_limits<double>::infinity();
+    double best_x_span = std::numeric_limits<double>::infinity();
     double best_angle = 0.0;
 
     for (int step = 0; step < steps; ++step)
@@ -571,6 +573,9 @@ double choose_orientation_angle(const std::vector<Point> &positions)
         int positive_count = 0;
         double min_y = std::numeric_limits<double>::infinity();
         double mean_y = 0.0;
+        double min_x = std::numeric_limits<double>::infinity();
+        double max_x = -std::numeric_limits<double>::infinity();
+        double mean_x = 0.0;
 
         for (int node = 1; node < (int)(positions.size()); ++node)
         {
@@ -581,9 +586,15 @@ double choose_orientation_angle(const std::vector<Point> &positions)
             }
             min_y = std::min(min_y, rotated.y);
             mean_y += rotated.y;
+            min_x = std::min(min_x, rotated.x);
+            max_x = std::max(max_x, rotated.x);
+            mean_x += rotated.x;
         }
 
         mean_y /= std::max(1, customer_count);
+        mean_x /= std::max(1, customer_count);
+        const double abs_mean_x = std::abs(mean_x);
+        const double x_span = max_x - min_x;
 
         bool better = false;
         if (positive_count > best_positive_count)
@@ -599,13 +610,23 @@ double choose_orientation_angle(const std::vector<Point> &positions)
             {
                 // When every customer can stay above the depot, keep the lowest one close to it.
                 better = min_y < best_min_y - 1e-9 ||
-                    (std::abs(min_y - best_min_y) <= 1e-9 && mean_y > best_mean_y + 1e-9);
+                    (std::abs(min_y - best_min_y) <= 1e-9 &&
+                     (abs_mean_x < best_abs_mean_x - 1e-9 ||
+                      (std::abs(abs_mean_x - best_abs_mean_x) <= 1e-9 &&
+                       (x_span < best_x_span - 1e-9 ||
+                        (std::abs(x_span - best_x_span) <= 1e-9 &&
+                         mean_y > best_mean_y + 1e-9)))));
             }
             else
             {
                 // Otherwise minimize how far any customer falls below the depot.
                 better = min_y > best_min_y + 1e-9 ||
-                    (std::abs(min_y - best_min_y) <= 1e-9 && mean_y > best_mean_y + 1e-9);
+                    (std::abs(min_y - best_min_y) <= 1e-9 &&
+                     (abs_mean_x < best_abs_mean_x - 1e-9 ||
+                      (std::abs(abs_mean_x - best_abs_mean_x) <= 1e-9 &&
+                       (x_span < best_x_span - 1e-9 ||
+                        (std::abs(x_span - best_x_span) <= 1e-9 &&
+                         mean_y > best_mean_y + 1e-9)))));
             }
         }
 
@@ -614,6 +635,8 @@ double choose_orientation_angle(const std::vector<Point> &positions)
             best_positive_count = positive_count;
             best_min_y = min_y;
             best_mean_y = mean_y;
+            best_abs_mean_x = abs_mean_x;
+            best_x_span = x_span;
             best_angle = angle;
         }
     }
