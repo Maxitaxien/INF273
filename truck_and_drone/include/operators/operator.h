@@ -152,6 +152,12 @@ bool two_opt_greedy(const Instance &inst, Solution &sol);
 bool two_opt_first_improvement(const Instance &inst, Solution &sol);
 
 /**
+ * 2-opt ranked by truck-arrival surrogate, with repaired full-objective
+ * evaluation only on the top few candidates.
+ */
+bool two_opt_arrival_screened(const Instance &inst, Solution &sol);
+
+/**
  * Permute three random customers in the combined Part 1 + Part 2
  * representation, then repair the drone schedule with the planner if needed.
  *

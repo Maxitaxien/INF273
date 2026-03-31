@@ -1,6 +1,7 @@
 #include "operators/or_opt_segment_relocate.h"
 #include "operators/customer_slot_helpers.h"
 #include "operators/drone_planner.h"
+#include "general/sort_drone_collection.h"
 #include "general/random.h"
 #include "datahandling/instance.h"
 #include "verification/solution.h"
@@ -8,9 +9,12 @@
 #include "verification/objective_value.h"
 #include <algorithm>
 #include <numeric>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
+namespace
+{
 bool repair_with_drone_planner_if_needed(
     const Instance &inst,
     Solution &candidate)
@@ -20,7 +24,13 @@ bool repair_with_drone_planner_if_needed(
         return true;
     }
 
-    const auto [planned_cost, planned_solution] = drone_planner(inst, candidate);
+    const int iterations = inst.n >= 50 ? 1 : 2;
+    const int max_flights_per_customer = inst.n >= 50 ? 8 : 12;
+    const auto [planned_cost, planned_solution] = drone_planner(
+        inst,
+        candidate,
+        iterations,
+        max_flights_per_customer);
     (void)planned_cost;
     if (!master_check(inst, planned_solution, false))
     {
@@ -29,19 +39,6 @@ bool repair_with_drone_planner_if_needed(
 
     candidate = planned_solution;
     return true;
-}
-
-std::vector<int> collect_customer_values(
-    const Solution &sol,
-    const std::vector<CustomerSlot> &slots)
-{
-    std::vector<int> values;
-    values.reserve(slots.size());
-    for (const CustomerSlot &slot : slots)
-    {
-        values.push_back(read_customer_at_slot(sol, slot));
-    }
-    return values;
 }
 
 bool relocate_customer_block(
@@ -102,6 +99,110 @@ std::vector<int> valid_insert_after_positions(int slot_count, int start_idx, int
     return positions;
 }
 
+void remap_drone_anchor_indices_by_node(
+    const Solution &before,
+    Solution &after)
+{
+    std::unordered_map<int, int> new_truck_positions;
+    new_truck_positions.reserve(after.truck_route.size());
+    for (int idx = 0; idx < (int)(after.truck_route.size()); ++idx)
+    {
+        new_truck_positions[after.truck_route[idx]] = idx;
+    }
+
+    const int drone_count = std::min(
+        (int)(before.drones.size()),
+        (int)(after.drones.size()));
+    for (int drone = 0; drone < drone_count; ++drone)
+    {
+        const DroneCollection &before_collection = before.drones[drone];
+        DroneCollection &after_collection = after.drones[drone];
+        const int flight_count = std::min({
+            (int)(before_collection.launch_indices.size()),
+            (int)(before_collection.land_indices.size()),
+            (int)(after_collection.launch_indices.size()),
+            (int)(after_collection.land_indices.size())});
+
+        for (int flight_idx = 0; flight_idx < flight_count; ++flight_idx)
+        {
+            const int old_launch_idx = before_collection.launch_indices[flight_idx];
+            const int old_land_idx = before_collection.land_indices[flight_idx];
+            if (old_launch_idx < 0 || old_land_idx < 0 ||
+                old_launch_idx >= (int)(before.truck_route.size()) ||
+                old_land_idx >= (int)(before.truck_route.size()))
+            {
+                continue;
+            }
+
+            const int launch_node = before.truck_route[old_launch_idx];
+            const int land_node = before.truck_route[old_land_idx];
+            const auto new_launch_it = new_truck_positions.find(launch_node);
+            const auto new_land_it = new_truck_positions.find(land_node);
+            if (new_launch_it == new_truck_positions.end() ||
+                new_land_it == new_truck_positions.end())
+            {
+                continue;
+            }
+
+            const int new_launch_idx = new_launch_it->second;
+            const int new_land_idx = new_land_it->second;
+            if (new_launch_idx >= new_land_idx)
+            {
+                continue;
+            }
+
+            after_collection.launch_indices[flight_idx] = new_launch_idx;
+            after_collection.land_indices[flight_idx] = new_land_idx;
+        }
+
+        if (flight_count > 1)
+        {
+            sort_drone_collection(after_collection);
+        }
+    }
+}
+
+std::vector<int> collect_customer_values(
+    const Solution &sol,
+    const std::vector<CustomerSlot> &slots)
+{
+    std::vector<int> values;
+    values.reserve(slots.size());
+    for (const CustomerSlot &slot : slots)
+    {
+        values.push_back(read_customer_at_slot(sol, slot));
+    }
+    return values;
+}
+
+bool apply_or_opt_candidate(
+    const Instance &inst,
+    const Solution &base_solution,
+    const std::vector<CustomerSlot> &slots,
+    const std::vector<int> &base_values,
+    Solution &candidate,
+    std::vector<int> &working_values,
+    int start_idx,
+    int segment_length,
+    int insert_after_idx)
+{
+    working_values = base_values;
+    if (!relocate_customer_block(working_values, start_idx, segment_length, insert_after_idx))
+    {
+        return false;
+    }
+
+    candidate = base_solution;
+    for (int idx = 0; idx < (int)(slots.size()); ++idx)
+    {
+        write_customer_at_slot(candidate, slots[idx], working_values[idx]);
+    }
+
+    remap_drone_anchor_indices_by_node(base_solution, candidate);
+    return repair_with_drone_planner_if_needed(inst, candidate);
+}
+}
+
 bool or_opt_segment_relocate(
     const Instance &inst,
     Solution &sol,
@@ -116,19 +217,19 @@ bool or_opt_segment_relocate(
         return false;
     }
 
-    std::vector<int> values = collect_customer_values(sol, slots);
-    if (!relocate_customer_block(values, start_idx, segment_length, insert_after_idx))
-    {
-        return false;
-    }
-
+    const std::vector<int> base_values = collect_customer_values(sol, slots);
+    std::vector<int> working_values;
     Solution candidate = sol;
-    for (int idx = 0; idx < slot_count; ++idx)
-    {
-        write_customer_at_slot(candidate, slots[idx], values[idx]);
-    }
-
-    if (!repair_with_drone_planner_if_needed(inst, candidate))
+    if (!apply_or_opt_candidate(
+            inst,
+            sol,
+            slots,
+            base_values,
+            candidate,
+            working_values,
+            start_idx,
+            segment_length,
+            insert_after_idx))
     {
         return false;
     }
@@ -150,6 +251,9 @@ bool or_opt_segment_relocate_first_improvement(
 
     const long long current_cost = objective_function_impl(inst, sol);
     const int max_segment_length = std::min(3, slot_count);
+    const std::vector<int> base_values = collect_customer_values(sol, slots);
+    std::vector<int> working_values;
+    Solution candidate = sol;
 
     for (int segment_length = 1; segment_length <= max_segment_length; ++segment_length)
     {
@@ -159,10 +263,13 @@ bool or_opt_segment_relocate_first_improvement(
                 valid_insert_after_positions(slot_count, start_idx, segment_length);
             for (int insert_after_idx : insert_positions)
             {
-                Solution candidate = sol;
-                if (!or_opt_segment_relocate(
+                if (!apply_or_opt_candidate(
                         inst,
+                        sol,
+                        slots,
+                        base_values,
                         candidate,
+                        working_values,
                         start_idx,
                         segment_length,
                         insert_after_idx))
@@ -193,7 +300,7 @@ bool or_opt_segment_relocate_random(
         return false;
     }
 
-    const int segment_length = rand_int(1, std::min(3, slot_count));
+    const int segment_length = rand_int(1, std::min(2, slot_count));
     const std::vector<int> selected_indices =
         sample_contiguous_slot_indices(slot_count, segment_length);
     if (selected_indices.empty())
@@ -210,12 +317,23 @@ bool or_opt_segment_relocate_random(
     }
 
     std::shuffle(insert_positions.begin(), insert_positions.end(), gen);
-    for (int insert_after_idx : insert_positions)
+    const int max_attempts = std::min(
+        (int)(insert_positions.size()),
+        inst.n >= 50 ? 4 : 8);
+    const std::vector<int> base_values = collect_customer_values(sol, slots);
+    std::vector<int> working_values;
+    Solution candidate = sol;
+
+    for (int attempt = 0; attempt < max_attempts; ++attempt)
     {
-        Solution candidate = sol;
-        if (!or_opt_segment_relocate(
+        const int insert_after_idx = insert_positions[attempt];
+        if (!apply_or_opt_candidate(
                 inst,
+                sol,
+                slots,
+                base_values,
                 candidate,
+                working_values,
                 start_idx,
                 segment_length,
                 insert_after_idx))

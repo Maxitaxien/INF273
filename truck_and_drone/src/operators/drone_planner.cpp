@@ -1,4 +1,5 @@
 #include "operators/drone_planner.h"
+#include "datahandling/instance_preprocessing.h"
 #include "general/random.h"
 #include "general/get_customer_positions.h"
 #include "general/get_not_covered_by_truck.h"
@@ -151,6 +152,11 @@ bool flight_feasible_with_timing(
         return false;
     }
 
+    if (!pure_drone_flight_within_limit(inst, flight.first, customer, flight.second))
+    {
+        return false;
+    }
+
     const int launch_idx = launch_it->second;
     const int land_idx = land_it->second;
     if (launch_idx >= land_idx || land_idx >= (int)solution.truck_route.size() - 1)
@@ -192,11 +198,11 @@ P build_p_impl(
             for (int land_idx = launch_idx + 1; land_idx < (int)(route.size()); ++land_idx)
             {
                 const int land_node = route[land_idx];
-                const long long duration =
-                    inst.drone_matrix[launch_node][drone_customer] +
-                    inst.drone_matrix[drone_customer][land_node];
-
-                if (duration <= inst.lim)
+                if (pure_drone_flight_within_limit(
+                        inst,
+                        launch_node,
+                        drone_customer,
+                        land_node))
                 {
                     candidates.emplace_back(launch_node, land_node);
                 }
@@ -614,4 +620,3 @@ bool single_drone_planner_shake(const Instance &instance, Solution &sol)
 
     return false;
 }
-

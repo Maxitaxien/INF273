@@ -13,6 +13,7 @@
 #include "datahandling/convert_to_submission.h"
 #include "datahandling/datasets.h"
 #include "datahandling/instance.h"
+#include "datahandling/instance_preprocessing.h"
 #include "datahandling/reader.h"
 #include "datahandling/save_to_csv.h"
 #include "operators/alns/alns_composite.h"
@@ -35,8 +36,34 @@ void test_instance_loading() {
     Instance instance = read_instance(datasets::contest);
     assert(!instance.truck_matrix.empty());
     assert(!instance.drone_matrix.empty());
+    assert(!instance.pure_drone_feasible.empty());
     assert(instance.n > 0);
     std::cout << "test_instance_loading passed\n";
+}
+
+void test_pure_drone_feasibility_cache_matches_distance_limit() {
+    Instance instance{};
+    instance.n = 2;
+    instance.m = 2;
+    instance.lim = 7;
+    instance.truck_matrix = {
+        {0, 1, 1},
+        {1, 0, 1},
+        {1, 1, 0},
+    };
+    instance.drone_matrix = {
+        {0, 4, 5},
+        {4, 0, 3},
+        {5, 3, 0},
+    };
+
+    precompute_pure_drone_feasibility(instance);
+
+    assert(pure_drone_flight_within_limit(instance, 0, 1, 2));
+    assert(!pure_drone_flight_within_limit(instance, 0, 2, 1));
+    assert(!pure_drone_flight_within_limit(instance, -1, 1, 0));
+
+    std::cout << "test_pure_drone_feasibility_cache_matches_distance_limit passed\n";
 }
 
 void test_nearest_neighbour_validity() {
@@ -211,6 +238,32 @@ void test_two_opt_first_improvement_improves_truck_route() {
     std::cout << "test_two_opt_first_improvement_improves_truck_route passed\n";
 }
 
+void test_two_opt_arrival_screened_improves_truck_route() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 20000;
+    instance.truck_matrix = {
+        {0, 100, 200, 300, 400},
+        {100, 0, 100, 200, 300},
+        {200, 100, 0, 100, 200},
+        {300, 200, 100, 0, 100},
+        {400, 300, 200, 100, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 1, 3, 2, 4}, {}};
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    const bool success = two_opt_arrival_screened(instance, solution);
+
+    assert(success);
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4}));
+    assert(objective_function_impl(instance, solution) < initial_cost);
+
+    std::cout << "test_two_opt_arrival_screened_improves_truck_route passed\n";
+}
+
 void test_two_opt_random_swaps_combined_customer_slots() {
     Instance instance{};
     instance.n = 2;
@@ -325,6 +378,48 @@ void test_or_opt_segment_relocate_first_improvement_improves_route() {
     assert(objective_function_impl(instance, solution) < initial_cost);
 
     std::cout << "test_or_opt_segment_relocate_first_improvement_improves_route passed\n";
+}
+
+void test_or_opt_segment_relocate_remaps_drone_anchor_indices() {
+    Instance instance{};
+    instance.n = 5;
+    instance.m = 2;
+    instance.lim = 300;
+    instance.truck_matrix = {
+        {0, 100, 200, 300, 400, 500},
+        {100, 0, 100, 200, 300, 400},
+        {200, 100, 0, 100, 200, 300},
+        {300, 200, 100, 0, 100, 200},
+        {400, 300, 200, 100, 0, 100},
+        {500, 400, 300, 200, 100, 0},
+    };
+    instance.drone_matrix = {
+        {0, 100, 200, 200, 400, 500},
+        {100, 0, 100, 300, 300, 100},
+        {200, 100, 0, 500, 200, 100},
+        {200, 300, 500, 0, 100, 500},
+        {400, 300, 200, 100, 0, 300},
+        {500, 100, 100, 500, 300, 0},
+    };
+
+    Solution solution{
+        {0, 1, 3, 2, 4},
+        {
+            DroneCollection{{1}, {5}, {3}},
+            DroneCollection{},
+        }};
+
+    assert(master_check(instance, solution, true));
+
+    const bool success = or_opt_segment_relocate(instance, solution, 2, 1, 0);
+
+    assert(success);
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4}));
+    assert(solution.drones[0].launch_indices == std::vector<int>({1}));
+    assert(solution.drones[0].land_indices == std::vector<int>({2}));
+    assert(master_check(instance, solution, true));
+
+    std::cout << "test_or_opt_segment_relocate_remaps_drone_anchor_indices passed\n";
 }
 
 void test_replace_drone_delivery_moves_customer_back_to_truck() {
@@ -944,6 +1039,7 @@ void test_save_gam_statistics_writes_operator_runtime_outputs() {
 int main() {
     try {
         test_instance_loading();
+        test_pure_drone_feasibility_cache_matches_distance_limit();
         test_nearest_neighbour_validity();
         test_greedy_drone_cover_validity();
         test_one_reinsert_validity();
@@ -954,11 +1050,13 @@ int main() {
         test_two_opt_greedy_improves_truck_route();
         test_two_opt_greedy_never_accepts_worse_full_objective();
         test_two_opt_first_improvement_improves_truck_route();
+        test_two_opt_arrival_screened_improves_truck_route();
         test_two_opt_random_swaps_combined_customer_slots();
         test_sample_contiguous_slot_indices_returns_block();
         test_three_opt_random_permutates_combined_customer_slots();
         test_or_opt_segment_relocate_moves_block();
         test_or_opt_segment_relocate_first_improvement_improves_route();
+        test_or_opt_segment_relocate_remaps_drone_anchor_indices();
         test_replace_drone_delivery_moves_customer_back_to_truck();
         test_replace_drone_delivery_greedy_moves_customer_back_to_truck();
         test_drone_demotion_shake_moves_customer_back_to_truck();

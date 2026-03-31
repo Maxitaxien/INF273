@@ -15,6 +15,7 @@ execute_process(
 # Core library
 add_library(core
     src/datahandling/reader.cpp
+    src/datahandling/instance_preprocessing.cpp
     src/datahandling/convert_to_submission.cpp
     src/datahandling/save_to_csv.cpp
     src/datahandling/file_helpers.cpp

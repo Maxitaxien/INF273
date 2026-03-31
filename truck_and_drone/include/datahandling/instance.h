@@ -15,4 +15,6 @@ struct Instance {
     std::vector<std::vector<long long>> truck_matrix;
     // @brief Matrix of travel costs for drone
     std::vector<std::vector<long long>> drone_matrix;
+    // @brief Flattened cache of pure-drone feasibility for (launch, customer, land).
+    std::vector<unsigned char> pure_drone_feasible;
 };

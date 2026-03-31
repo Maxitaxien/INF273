@@ -1,4 +1,5 @@
 #include "datahandling/reader.h"
+#include "datahandling/instance_preprocessing.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -57,6 +58,7 @@ Instance read_instance(const std::string& filename) {
     }
 
     problem_instance.drone_matrix = drone_matrix;
+    precompute_pure_drone_feasibility(problem_instance);
 
     return problem_instance;
 }

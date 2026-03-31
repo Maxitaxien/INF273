@@ -33,3 +33,11 @@ bool two_opt_greedy(const Instance &inst, Solution &solution);
  * full neighbourhood for the best gain.
  */
 bool two_opt_first_improvement(const Instance &inst, Solution &solution);
+
+/**
+ * 2-opt with truck-arrival screening and limited repaired evaluation.
+ *
+ * This ranks route reversals by truck-arrival objective instead of pure edge
+ * gain, then only repairs and fully evaluates the most promising few.
+ */
+bool two_opt_arrival_screened(const Instance &inst, Solution &solution);

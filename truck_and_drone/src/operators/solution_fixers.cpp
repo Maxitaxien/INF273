@@ -1,4 +1,5 @@
 #include "general/get_customer_positions.h"
+#include "datahandling/instance_preprocessing.h"
 #include "operators/solution_fixers.h"
 #include "operators/drone_planner.h"
 #include "operators/helpers.h"
@@ -82,6 +83,11 @@ bool flight_under_limit_with_wait(
 
     const int launch_node = solution.truck_route[launch_idx];
     const int land_node = solution.truck_route[land_idx];
+    if (!pure_drone_flight_within_limit(instance, launch_node, deliver, land_node))
+    {
+        return false;
+    }
+
     const long long launch_time = std::max(
         timing.truck_arrival[launch_idx],
         timing.drone_ready_at_stop[drone][launch_idx]);
@@ -118,6 +124,11 @@ void consider_flight_assignment(
 
     const int launch_node = solution.truck_route[launch_idx];
     const int land_node = solution.truck_route[land_idx];
+    if (!pure_drone_flight_within_limit(instance, launch_node, delivery, land_node))
+    {
+        return;
+    }
+
     const long long launch_time = std::max(
         timing.truck_arrival[launch_idx],
         timing.drone_ready_at_stop[drone][launch_idx]);
@@ -306,6 +317,11 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead_impl(
 
         const int launch_node = solution.truck_route[idx];
         const int land_node = solution.truck_route[land_idx];
+        if (!pure_drone_flight_within_limit(instance, launch_node, new_deliver, land_node))
+        {
+            continue;
+        }
+
         const long long launch_time = std::max(
             timing.truck_arrival[idx],
             timing.drone_ready_at_stop[drone][idx]);
