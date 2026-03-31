@@ -6,14 +6,15 @@
 /**
  * Local intensification for an existing drone flight.
  *
- * This operator keeps the assigned drone customer fixed and only shifts the
- * launch and/or rendezvous positions within a small window to reduce truck
- * waiting or improve customer arrival time.
+ * This operator keeps the assigned drone customer fixed and searches new
+ * launch and rendezvous indices inside bounded windows around the current
+ * flight. It only considers non-overlapping assignments for the same drone
+ * and commits the best improving feasible move.
  */
 bool drone_rendezvous_shift(
     const Instance &inst,
     Solution &sol,
     int drone,
     int flight_idx,
-    int launch_shift,
-    int land_shift);
+    int launch_window,
+    int land_window);

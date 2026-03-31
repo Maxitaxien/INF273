@@ -5,6 +5,7 @@
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <random>
 #include <string>
@@ -338,9 +339,13 @@ GAMResult general_adaptive_metaheuristic(
     std::uniform_real_distribution<double> unit_dist(0.0, 1.0);
 
     result.statistics.operator_names.reserve(operator_state.size());
+    result.statistics.operator_stats.reserve(operator_state.size());
     for (const GAMOperatorState &state : operator_state)
     {
         result.statistics.operator_names.push_back(state.name);
+        result.statistics.operator_stats.push_back(GAMOperatorStatistics{
+            (int)(result.statistics.operator_stats.size()),
+            state.name});
     }
 
     Solution incumbent = std::move(initial);
@@ -387,27 +392,38 @@ GAMResult general_adaptive_metaheuristic(
         iteration_stat.iteration = i + 1;
         iteration_stat.operator_idx = selected_idx;
         iteration_stat.temperature = temperature;
+        GAMOperatorStatistics &operator_statistics =
+            result.statistics.operator_stats[selected_idx];
+        operator_statistics.uses++;
 
+        const auto evaluation_start = std::chrono::high_resolution_clock::now();
         Solution neighbour = incumbent;
         if (!ops[selected_idx].op(instance, neighbour))
         {
             result.statistics.operator_failures++;
+            operator_statistics.failures++;
             non_improving_iterations++;
         }
         else if (!master_check(instance, neighbour, false))
         {
             result.statistics.infeasible_candidates++;
+            operator_statistics.successful_calls++;
+            operator_statistics.infeasible_candidates++;
             non_improving_iterations++;
         }
         else
         {
             selected.segment_successes++;
+            operator_statistics.successful_calls++;
+            operator_statistics.feasible_candidates++;
 
             const long long cost = objective_function_impl(instance, neighbour);
             const long long delta_e = cost - incumbent_cost;
 
             iteration_stat.delta = delta_e;
             iteration_stat.has_delta = true;
+            operator_statistics.delta_sum += delta_e;
+            operator_statistics.delta_samples++;
 
             bool accept = delta_e <= 0;
             double acceptance_probability = 1.0;
@@ -422,6 +438,7 @@ GAMResult general_adaptive_metaheuristic(
             if (accept)
             {
                 selected.segment_accepts++;
+                operator_statistics.accepted_moves++;
                 incumbent = neighbour;
                 incumbent_cost = cost;
                 result.statistics.accepted_moves++;
@@ -429,6 +446,7 @@ GAMResult general_adaptive_metaheuristic(
                 if (delta_e < 0)
                 {
                     result.statistics.improving_accepts++;
+                    operator_statistics.improving_accepts++;
                 }
                 else
                 {
@@ -449,6 +467,7 @@ GAMResult general_adaptive_metaheuristic(
             if (new_best)
             {
                 selected.segment_new_bests++;
+                operator_statistics.new_bests++;
                 best = neighbour;
                 best_cost = cost;
                 result.statistics.best_updates++;
@@ -474,6 +493,12 @@ GAMResult general_adaptive_metaheuristic(
                 reward_delta_scale = 0.95 * reward_delta_scale + 0.05 * std::max(1.0, abs_delta);
             }
         }
+
+        iteration_stat.runtime_ms =
+            std::chrono::duration<double, std::milli>(
+                std::chrono::high_resolution_clock::now() - evaluation_start)
+                .count();
+        operator_statistics.total_runtime_ms += iteration_stat.runtime_ms;
 
         result.statistics.iteration_stats.push_back(iteration_stat);
 
