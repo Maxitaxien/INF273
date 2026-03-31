@@ -1,4 +1,5 @@
 #include "operators/drone_rendezvous_shift.h"
+#include "general/random.h"
 #include "general/sort_drone_collection.h"
 #include "operators/interval_helpers.h"
 #include "verification/feasibility_check.h"
@@ -6,6 +7,8 @@
 #include <algorithm>
 #include <limits>
 #include <set>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -127,4 +130,45 @@ bool drone_rendezvous_shift(
 
     sol = std::move(best_solution);
     return true;
+}
+
+bool drone_rendezvous_shift_first_improvement(
+    const Instance &inst,
+    Solution &sol)
+{
+    std::vector<std::pair<int, int>> flights;
+    for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
+    {
+        const DroneCollection &collection = sol.drones[drone];
+        const int flight_count = std::min({
+            (int)(collection.launch_indices.size()),
+            (int)(collection.land_indices.size()),
+            (int)(collection.deliver_nodes.size())});
+        for (int flight_idx = 0; flight_idx < flight_count; ++flight_idx)
+        {
+            flights.emplace_back(drone, flight_idx);
+        }
+    }
+
+    if (flights.empty())
+    {
+        return false;
+    }
+
+    std::shuffle(flights.begin(), flights.end(), gen);
+    const int window = 2;
+
+    for (const auto &[drone, flight_idx] : flights)
+    {
+        Solution candidate = sol;
+        if (!drone_rendezvous_shift(inst, candidate, drone, flight_idx, window, window))
+        {
+            continue;
+        }
+
+        sol = std::move(candidate);
+        return true;
+    }
+
+    return false;
 }

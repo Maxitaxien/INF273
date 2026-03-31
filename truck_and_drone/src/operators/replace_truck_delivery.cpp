@@ -1,11 +1,18 @@
 #include "operators/replace_truck_delivery.h"
+#include "operators/operator.h"
 #include "datahandling/instance.h"
 #include "general/sort_drone_collection.h"
 #include "operators/helpers.h"
 #include "operators/solution_fixers.h"
 #include "verification/feasibility_check.h"
+#include "verification/objective_value.h"
 #include "verification/solution.h"
 #include <algorithm>
+#include <limits>
+#include <random>
+#include <utility>
+
+extern std::mt19937 gen;
 
 namespace
 {
@@ -71,5 +78,73 @@ bool replace_truck_delivery(const Instance &inst, Solution &sol, int idx, int dr
     }
 
     return true;
+}
+
+bool replace_truck_delivery_random(const Instance &instance, Solution &sol)
+{
+    std::vector<std::pair<int, int>> candidates;
+    for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
+    {
+        for (int idx = 1; idx < (int)(sol.truck_route.size()); ++idx)
+        {
+            candidates.emplace_back(drone, idx);
+        }
+    }
+
+    if (candidates.empty())
+    {
+        return false;
+    }
+
+    std::shuffle(candidates.begin(), candidates.end(), gen);
+    const int max_attempts = std::min(10, (int)(candidates.size()));
+    Solution candidate = sol;
+
+    for (int attempt = 0; attempt < max_attempts; ++attempt)
+    {
+        const auto [drone, idx] = candidates[attempt];
+        candidate = sol;
+        if (replace_truck_delivery(instance, candidate, idx, drone))
+        {
+            sol = std::move(candidate);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
+{
+    bool success = false;
+    long long best_cost = std::numeric_limits<long long>::max();
+    Solution best_solution;
+    Solution candidate = sol;
+
+    for (int drone = 0; drone < (int)sol.drones.size(); ++drone)
+    {
+        for (int i = 1; i < (int)sol.truck_route.size(); ++i)
+        {
+            candidate = sol;
+            if (!replace_truck_delivery(instance, candidate, i, drone))
+            {
+                continue;
+            }
+
+            const long long cost = objective_function_impl(instance, candidate);
+            if (cost < best_cost)
+            {
+                best_cost = cost;
+                best_solution = std::move(candidate);
+                success = true;
+            }
+        }
+    }
+
+    if (success)
+    {
+        sol = std::move(best_solution);
+    }
+    return success;
 }
 

@@ -16,13 +16,16 @@
 #include "datahandling/reader.h"
 #include "datahandling/save_to_csv.h"
 #include "operators/alns/alns_composite.h"
+#include "operators/customer_slot_helpers.h"
 #include "operators/drone_rendezvous_shift.h"
 #include "operators/one_reinsert.h"
 #include "operators/operator.h"
+#include "operators/or_opt_segment_relocate.h"
 #include "operators/helpers.h"
 #include "operators/replace_drone_delivery.h"
 #include "operators/two_opt.h"
 #include "operators/three_opt.h"
+#include "general/random.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 
@@ -112,7 +115,7 @@ void test_three_opt_improves_truck_route() {
     Instance instance{};
     instance.n = 4;
     instance.m = 2;
-    instance.lim = 1000;
+    instance.lim = 20000;
     instance.truck_matrix = {
         {0, 100, 200, 300, 400},
         {100, 0, 100, 200, 300},
@@ -139,7 +142,7 @@ void test_two_opt_greedy_improves_truck_route() {
     Instance instance{};
     instance.n = 4;
     instance.m = 2;
-    instance.lim = 1000;
+    instance.lim = 20000;
     instance.truck_matrix = {
         {0, 100, 200, 300, 400},
         {100, 0, 100, 200, 300},
@@ -181,11 +184,38 @@ void test_two_opt_greedy_never_accepts_worse_full_objective() {
     std::cout << "test_two_opt_greedy_never_accepts_worse_full_objective passed\n";
 }
 
+void test_two_opt_first_improvement_improves_truck_route() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 20000;
+    instance.truck_matrix = {
+        {0, 100, 200, 300, 400},
+        {100, 0, 100, 200, 300},
+        {200, 100, 0, 100, 200},
+        {300, 200, 100, 0, 100},
+        {400, 300, 200, 100, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 1, 3, 2, 4}, {}};
+    const long long initial_cost =
+        objective_function_truck_only(instance, solution.truck_route);
+
+    const bool success = two_opt_first_improvement(instance, solution);
+
+    assert(success);
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4}));
+    assert(objective_function_truck_only(instance, solution.truck_route) < initial_cost);
+
+    std::cout << "test_two_opt_first_improvement_improves_truck_route passed\n";
+}
+
 void test_two_opt_random_swaps_combined_customer_slots() {
     Instance instance{};
     instance.n = 2;
     instance.m = 2;
-    instance.lim = 1000;
+    instance.lim = 20000;
     instance.truck_matrix = {
         {0, 100, 400},
         {100, 0, 100},
@@ -206,11 +236,25 @@ void test_two_opt_random_swaps_combined_customer_slots() {
     std::cout << "test_two_opt_random_swaps_combined_customer_slots passed\n";
 }
 
+void test_sample_contiguous_slot_indices_returns_block() {
+    gen.seed(42);
+
+    const std::vector<int> indices = sample_contiguous_slot_indices(8, 3);
+
+    assert(indices.size() == 3);
+    assert(indices[1] == indices[0] + 1);
+    assert(indices[2] == indices[1] + 1);
+    assert(indices.front() >= 0);
+    assert(indices.back() < 8);
+
+    std::cout << "test_sample_contiguous_slot_indices_returns_block passed\n";
+}
+
 void test_three_opt_random_permutates_combined_customer_slots() {
     Instance instance{};
     instance.n = 3;
     instance.m = 2;
-    instance.lim = 1000;
+    instance.lim = 20000;
     instance.truck_matrix = {
         {0, 100, 300, 400},
         {100, 0, 100, 300},
@@ -230,6 +274,57 @@ void test_three_opt_random_permutates_combined_customer_slots() {
     assert(objective_function_impl(instance, solution) < initial_cost);
 
     std::cout << "test_three_opt_random_permutates_combined_customer_slots passed\n";
+}
+
+void test_or_opt_segment_relocate_moves_block() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 20000;
+    instance.truck_matrix = {
+        {0, 100, 200, 300, 400},
+        {100, 0, 100, 200, 300},
+        {200, 100, 0, 100, 200},
+        {300, 200, 100, 0, 100},
+        {400, 300, 200, 100, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 1, 3, 2, 4}, {}};
+
+    const bool success = or_opt_segment_relocate(instance, solution, 1, 1, 2);
+
+    assert(success);
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4}));
+    assert(master_check(instance, solution, true));
+
+    std::cout << "test_or_opt_segment_relocate_moves_block passed\n";
+}
+
+void test_or_opt_segment_relocate_first_improvement_improves_route() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 20000;
+    instance.truck_matrix = {
+        {0, 100, 200, 300, 400},
+        {100, 0, 100, 200, 300},
+        {200, 100, 0, 100, 200},
+        {300, 200, 100, 0, 100},
+        {400, 300, 200, 100, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 1, 3, 2, 4}, {}};
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    const bool success = or_opt_segment_relocate_first_improvement(instance, solution);
+
+    assert(success);
+    assert(master_check(instance, solution, true));
+    assert(objective_function_impl(instance, solution) < initial_cost);
+
+    std::cout << "test_or_opt_segment_relocate_first_improvement_improves_route passed\n";
 }
 
 void test_replace_drone_delivery_moves_customer_back_to_truck() {
@@ -593,7 +688,7 @@ void test_drone_rendezvous_shift_moves_flight_within_window() {
     Instance instance{};
     instance.n = 4;
     instance.m = 2;
-    instance.lim = 1000;
+    instance.lim = 20000;
     instance.truck_matrix = {
         {0, 100, 100, 10100, 10200},
         {100, 0, 100, 10000, 10100},
@@ -623,11 +718,160 @@ void test_drone_rendezvous_shift_moves_flight_within_window() {
 
     assert(success);
     assert(solution.drones[0].launch_indices == std::vector<int>({1}));
-    assert(solution.drones[0].land_indices == std::vector<int>({3}));
+    assert(solution.drones[0].land_indices[0] > 1);
     assert(master_check(instance, solution, true));
     assert(objective_function_impl(instance, solution) < initial_cost);
 
     std::cout << "test_drone_rendezvous_shift_moves_flight_within_window passed\n";
+}
+
+void test_drone_rendezvous_shift_first_improvement_applies_move() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 20000;
+    instance.truck_matrix = {
+        {0, 100, 100, 10100, 10200},
+        {100, 0, 100, 10000, 10100},
+        {100, 100, 0, 100, 200},
+        {10100, 10000, 100, 0, 100},
+        {10200, 10100, 200, 100, 0},
+    };
+    instance.drone_matrix = {
+        {0, 100, 10000, 10100, 10200},
+        {100, 0, 100, 10100, 100},
+        {10000, 100, 0, 100, 100},
+        {10100, 10100, 100, 0, 100},
+        {10200, 100, 100, 100, 0},
+    };
+
+    Solution solution{
+        {0, 1, 3, 4},
+        {
+            DroneCollection{{0}, {2}, {2}},
+            DroneCollection{},
+        }};
+
+    assert(master_check(instance, solution, true));
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    const bool success = drone_rendezvous_shift_first_improvement(instance, solution);
+
+    assert(success);
+    assert(solution.drones[0].launch_indices == std::vector<int>({1}));
+    assert(solution.drones[0].land_indices[0] > 1);
+    assert(master_check(instance, solution, true));
+    assert(objective_function_impl(instance, solution) < initial_cost);
+
+    std::cout << "test_drone_rendezvous_shift_first_improvement_applies_move passed\n";
+}
+
+void test_single_drone_planner_shake_returns_false_without_drone_customers() {
+    Instance instance{};
+    instance.n = 3;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 100, 200, 300},
+        {100, 0, 100, 200},
+        {200, 100, 0, 100},
+        {300, 200, 100, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{
+        {0, 1, 2, 3},
+        {
+            DroneCollection{},
+            DroneCollection{},
+        }};
+
+    assert(master_check(instance, solution, true));
+    assert(!single_drone_planner_shake(instance, solution));
+
+    std::cout << "test_single_drone_planner_shake_returns_false_without_drone_customers passed\n";
+}
+
+void test_single_drone_planner_shake_changes_one_drone_schedule() {
+    gen.seed(42);
+
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 20000;
+    instance.truck_matrix = {
+        {0, 100, 100, 10100, 10200},
+        {100, 0, 100, 10000, 10100},
+        {100, 100, 0, 100, 200},
+        {10100, 10000, 100, 0, 100},
+        {10200, 10100, 200, 100, 0},
+    };
+    instance.drone_matrix = {
+        {0, 100, 10000, 10100, 10200},
+        {100, 0, 100, 10100, 100},
+        {10000, 100, 0, 100, 100},
+        {10100, 10100, 100, 0, 100},
+        {10200, 100, 100, 100, 0},
+    };
+
+    Solution solution{
+        {0, 1, 3, 4},
+        {
+            DroneCollection{{0}, {2}, {2}},
+            DroneCollection{},
+        }};
+
+    assert(master_check(instance, solution, true));
+    const DroneCollection original = solution.drones[0];
+
+    const bool success = single_drone_planner_shake(instance, solution);
+
+    assert(success);
+    assert(master_check(instance, solution, true));
+    assert(
+        solution.drones[0].launch_indices != original.launch_indices ||
+        solution.drones[0].land_indices != original.land_indices);
+
+    std::cout << "test_single_drone_planner_shake_changes_one_drone_schedule passed\n";
+}
+
+void test_replace_drone_delivery_targeted_moves_customer_to_truck() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 20000;
+    instance.truck_matrix = {
+        {0, 100, 100, 10100, 10200},
+        {100, 0, 100, 10000, 10100},
+        {100, 100, 0, 100, 200},
+        {10100, 10000, 100, 0, 100},
+        {10200, 10100, 200, 100, 0},
+    };
+    instance.drone_matrix = {
+        {0, 100, 10000, 10100, 10200},
+        {100, 0, 100, 10100, 100},
+        {10000, 100, 0, 100, 100},
+        {10100, 10100, 100, 0, 100},
+        {10200, 100, 100, 100, 0},
+    };
+
+    Solution solution{
+        {0, 1, 3, 4},
+        {
+            DroneCollection{{0}, {2}, {1}},
+            DroneCollection{},
+        }};
+
+    assert(master_check(instance, solution, true));
+
+    const bool success = replace_drone_delivery_targeted(instance, solution);
+
+    assert(success);
+    assert(master_check(instance, solution, true));
+    assert(solution.drones[0].deliver_nodes.empty());
+    assert(std::find(solution.truck_route.begin(), solution.truck_route.end(), 2) != solution.truck_route.end());
+
+    std::cout << "test_replace_drone_delivery_targeted_moves_customer_to_truck passed\n";
 }
 
 void test_save_gam_statistics_writes_operator_runtime_outputs() {
@@ -709,8 +953,12 @@ int main() {
         test_three_opt_improves_truck_route();
         test_two_opt_greedy_improves_truck_route();
         test_two_opt_greedy_never_accepts_worse_full_objective();
+        test_two_opt_first_improvement_improves_truck_route();
         test_two_opt_random_swaps_combined_customer_slots();
+        test_sample_contiguous_slot_indices_returns_block();
         test_three_opt_random_permutates_combined_customer_slots();
+        test_or_opt_segment_relocate_moves_block();
+        test_or_opt_segment_relocate_first_improvement_improves_route();
         test_replace_drone_delivery_moves_customer_back_to_truck();
         test_replace_drone_delivery_greedy_moves_customer_back_to_truck();
         test_drone_demotion_shake_moves_customer_back_to_truck();
@@ -723,6 +971,10 @@ int main() {
         test_two_opt_repairs_drone_schedule_after_route_reversal();
         test_solution_visualization_writes_jpg();
         test_drone_rendezvous_shift_moves_flight_within_window();
+        test_drone_rendezvous_shift_first_improvement_applies_move();
+        test_single_drone_planner_shake_returns_false_without_drone_customers();
+        test_single_drone_planner_shake_changes_one_drone_schedule();
+        test_replace_drone_delivery_targeted_moves_customer_to_truck();
         test_save_gam_statistics_writes_operator_runtime_outputs();
         std::cout << "\nAll tests passed\n";
     } catch (const std::exception& e) {

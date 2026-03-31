@@ -1,7 +1,10 @@
 #include "operators/nearest_neighbour_reassign.h"
+#include "general/random.h"
+#include "operators/operator.h"
 #include "datahandling/instance.h"
 #include "operators/helpers.h"
 #include <algorithm>
+#include <random>
 #include <utility>
 
 bool nearest_neighbour_reassign(const Instance &inst, Solution &sol, int i) {
@@ -38,4 +41,18 @@ bool nearest_neighbour_reassign(const Instance &inst, Solution &sol, int i) {
 
     sol = std::move(candidate_solution);
     return true;
+}
+
+bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol)
+{
+    if (sol.truck_route.size() <= 2)
+    {
+        return false;
+    }
+
+    const int max_valid_idx = (int)sol.truck_route.size() - 2;
+    std::uniform_int_distribution<int> dist(1, max_valid_idx);
+    const int i = dist(gen);
+
+    return nearest_neighbour_reassign(inst, sol, i);
 }

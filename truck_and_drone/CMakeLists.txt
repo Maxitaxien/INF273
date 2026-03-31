@@ -36,6 +36,7 @@ add_library(core
     src/general/random.cpp
     src/general/roulette_wheel_selection.cpp
     src/operators/helpers.cpp
+    src/operators/customer_slot_helpers.cpp
     src/operators/interval_helpers.cpp
     src/operators/route_timing.cpp
     src/operators/operator.cpp

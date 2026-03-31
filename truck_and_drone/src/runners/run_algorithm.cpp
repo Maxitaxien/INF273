@@ -213,7 +213,7 @@ void run_algorithm(
 
         for (int i = 0; i < amnt_iter; i++)
         {
-            auto start = std::chrono::high_resolution_clock::now();
+            auto start = std::chrono::steady_clock::now();
 
             initial = simple_initial_solution(instance.n);
 
@@ -223,7 +223,7 @@ void run_algorithm(
             }
 
             Solution sol = algo(instance, initial, op.op);
-            auto stop = std::chrono::high_resolution_clock::now();
+            auto stop = std::chrono::steady_clock::now();
 
             long long val = objective_function_impl(instance, sol);
             avg += val;
@@ -328,7 +328,7 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
 
         for (int i = 0; i < amnt_iter; ++i)
         {
-            auto start = std::chrono::high_resolution_clock::now();
+            auto start = std::chrono::steady_clock::now();
 
             initial = simple_initial_solution(instance.n);
 
@@ -338,7 +338,7 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
             }
 
             GAMResult gam_result = general_adaptive_metaheuristic(instance, initial, ops, weights);
-            auto stop = std::chrono::high_resolution_clock::now();
+            auto stop = std::chrono::steady_clock::now();
 
             const long long val = objective_function_impl(instance, gam_result.solution);
             avg += val;

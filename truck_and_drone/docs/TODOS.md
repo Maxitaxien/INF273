@@ -80,3 +80,5 @@ cached drone feasibility filters
 remove/downweight Drone replacement greedy
 schedule Three-Opt
 planner trigger rules
+
+https://www.mdpi.com/2032-6653/16/11/612

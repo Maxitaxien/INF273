@@ -396,7 +396,7 @@ GAMResult general_adaptive_metaheuristic(
             result.statistics.operator_stats[selected_idx];
         operator_statistics.uses++;
 
-        const auto evaluation_start = std::chrono::high_resolution_clock::now();
+        const auto evaluation_start = std::chrono::steady_clock::now();
         Solution neighbour = incumbent;
         if (!ops[selected_idx].op(instance, neighbour))
         {
@@ -494,10 +494,11 @@ GAMResult general_adaptive_metaheuristic(
             }
         }
 
-        iteration_stat.runtime_ms =
+        iteration_stat.runtime_ms = std::max(
+            0.0,
             std::chrono::duration<double, std::milli>(
-                std::chrono::high_resolution_clock::now() - evaluation_start)
-                .count();
+                std::chrono::steady_clock::now() - evaluation_start)
+                .count());
         operator_statistics.total_runtime_ms += iteration_stat.runtime_ms;
 
         result.statistics.iteration_stats.push_back(iteration_stat);

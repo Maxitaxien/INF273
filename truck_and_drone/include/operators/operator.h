@@ -104,12 +104,30 @@ bool replace_drone_delivery_random(const Instance &instance, Solution &sol);
 bool replace_drone_delivery_greedy(const Instance &instance, Solution &sol);
 
 /**
+ * Targeted drone-to-truck reassignment for weak sorties.
+ *
+ * This ranks current drone flights by a cheap weakness signal, then tries a
+ * small shortlist of candidates using a global best truck insertion for the
+ * removed customer. The outer metaheuristic decides whether to accept the move.
+ */
+bool replace_drone_delivery_targeted(const Instance &instance, Solution &sol);
+
+/**
  * Greedily move one or two drone deliveries back to the truck route.
  *
  * This is intended as a mild shake operator when the drone customer set has
  * become too static.
  */
 bool drone_demotion_shake(const Instance &instance, Solution &sol);
+
+/**
+ * First-improving wrapper around local drone rendezvous shifts.
+ *
+ * This scans existing drone flights in random order, tries bounded launch/land
+ * reassignments for one flight at a time, and commits the first improving
+ * feasible move it finds.
+ */
+bool drone_rendezvous_shift_first_improvement(const Instance &instance, Solution &sol);
 
 /**
  * Swap two random customers in the combined Part 1 + Part 2 representation,
@@ -124,6 +142,14 @@ bool two_opt_random(const Instance &inst, Solution &sol);
  * objective as the acceptance criterion.
  */
 bool two_opt_greedy(const Instance &inst, Solution &sol);
+
+/**
+ * First-improvement 2-opt using the same truck-gain screen and repaired
+ * full-objective acceptance as the greedy version.
+ *
+ * Scans edge pairs in order and commits the first improving feasible reversal.
+ */
+bool two_opt_first_improvement(const Instance &inst, Solution &sol);
 
 /**
  * Permute three random customers in the combined Part 1 + Part 2
@@ -153,3 +179,23 @@ bool drone_planner_improve(const Instance &instance, Solution &sol);
  * planner can act as a cheap intensifier inside GAM.
  */
 bool drone_planner_light_improve(const Instance &instance, Solution &sol);
+
+/**
+ * Replan a single randomly chosen non-empty drone route.
+ *
+ * This is a narrower planner-based shake than the full drone planner operator.
+ * It commits any changed feasible one-drone replan and leaves acceptance to
+ * the outer metaheuristic.
+ */
+bool single_drone_planner_shake(const Instance &instance, Solution &sol);
+
+/**
+ * Random Or-opt relocation on the combined Part 1 + Part 2 customer vector.
+ */
+bool or_opt_segment_relocate_random(const Instance &inst, Solution &sol);
+
+/**
+ * First-improvement Or-opt relocation on the combined Part 1 + Part 2
+ * customer vector.
+ */
+bool or_opt_segment_relocate_first_improvement(const Instance &inst, Solution &sol);

@@ -1,8 +1,9 @@
 #include "operators/drone_planner.h"
+#include "general/random.h"
 #include "general/get_customer_positions.h"
 #include "general/get_not_covered_by_truck.h"
-#include "general/random.h"
 #include "general/sort_drone_collection.h"
+#include "operators/operator.h"
 #include "operators/route_timing.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
@@ -91,6 +92,17 @@ void clear_drone_schedule(DroneCollection &drone)
 {
     drone.launch_indices.clear();
     drone.land_indices.clear();
+}
+
+int count_drone_deliveries(const Solution &sol)
+{
+    int delivery_count = 0;
+    for (const DroneCollection &drone : sol.drones)
+    {
+        delivery_count += (int)(drone.deliver_nodes.size());
+    }
+
+    return delivery_count;
 }
 
 void update_p(
@@ -201,6 +213,178 @@ P build_p_impl(
 
     return result;
 }
+
+bool planner_improve_with_budget(
+    const Instance &instance,
+    Solution &sol,
+    int iterations,
+    int max_flights_per_customer,
+    int drone_to_replan)
+{
+    if (count_drone_deliveries(sol) == 0)
+    {
+        return false;
+    }
+
+    const long long current_cost = objective_function_impl(instance, sol);
+    const auto [planned_cost, planned_solution] = drone_planner(
+        instance,
+        sol,
+        iterations,
+        max_flights_per_customer,
+        drone_to_replan);
+
+    if (planned_cost >= current_cost)
+    {
+        return false;
+    }
+
+    sol = planned_solution;
+    return true;
+}
+
+bool same_drone_schedule(
+    const DroneCollection &lhs,
+    const DroneCollection &rhs)
+{
+    return lhs.launch_indices == rhs.launch_indices &&
+        lhs.land_indices == rhs.land_indices &&
+        lhs.deliver_nodes == rhs.deliver_nodes;
+}
+
+bool sample_changed_single_drone_replan(
+    const Instance &inst,
+    const Solution &curr_sol,
+    int drone_to_replan,
+    int iterations,
+    int max_flights_per_customer,
+    Solution &sampled_solution)
+{
+    if (drone_to_replan < 0 || drone_to_replan >= (int)(curr_sol.drones.size()))
+    {
+        return false;
+    }
+
+    const std::vector<int> &customers = curr_sol.drones[drone_to_replan].deliver_nodes;
+    if (customers.empty())
+    {
+        return false;
+    }
+
+    const int attempts = std::max(1, iterations);
+    const std::unordered_map<int, int> customer_positions = get_customer_positions(curr_sol);
+    const P base_p = build_p_impl(
+        inst,
+        curr_sol,
+        customers,
+        max_flights_per_customer);
+
+    for (int iter = 0; iter < attempts; ++iter)
+    {
+        Solution curr = curr_sol;
+        clear_drone_schedule(curr.drones[drone_to_replan]);
+
+        P drone_candidates;
+        drone_candidates.reserve(customers.size());
+        for (int customer : customers)
+        {
+            auto it = base_p.find(customer);
+            if (it != base_p.end())
+            {
+                drone_candidates.emplace(customer, it->second);
+            }
+        }
+
+        curr.drones[drone_to_replan].launch_indices.reserve(customers.size());
+        curr.drones[drone_to_replan].land_indices.reserve(customers.size());
+
+        bool iteration_valid = true;
+
+        for (int customer_idx = 0; customer_idx < (int)(customers.size()); ++customer_idx)
+        {
+            const int customer = customers[customer_idx];
+            auto it = drone_candidates.find(customer);
+            if (it == drone_candidates.end() || it->second.empty())
+            {
+                iteration_valid = false;
+                break;
+            }
+
+            const RouteTiming timing = compute_route_timing(inst, curr);
+            std::vector<Flight> feasible_flights;
+            feasible_flights.reserve(it->second.size());
+            for (const Flight &candidate : it->second)
+            {
+                if (flight_feasible_with_timing(
+                        inst,
+                        curr,
+                        timing,
+                        drone_to_replan,
+                        customer,
+                        candidate,
+                        customer_positions))
+                {
+                    feasible_flights.push_back(candidate);
+                }
+            }
+
+            if (feasible_flights.empty())
+            {
+                iteration_valid = false;
+                break;
+            }
+
+            const int original_launch =
+                curr_sol.drones[drone_to_replan].launch_indices[customer_idx];
+            const int original_land =
+                curr_sol.drones[drone_to_replan].land_indices[customer_idx];
+
+            std::vector<Flight> changed_flights;
+            changed_flights.reserve(feasible_flights.size());
+            for (const Flight &flight : feasible_flights)
+            {
+                const int launch_idx = customer_positions.at(flight.first);
+                const int land_idx = customer_positions.at(flight.second);
+                if (launch_idx != original_launch || land_idx != original_land)
+                {
+                    changed_flights.push_back(flight);
+                }
+            }
+
+            const std::vector<Flight> &choice_pool =
+                changed_flights.empty() ? feasible_flights : changed_flights;
+            const Flight new_flight = get_random(choice_pool);
+            curr.drones[drone_to_replan].launch_indices.push_back(customer_positions.at(new_flight.first));
+            curr.drones[drone_to_replan].land_indices.push_back(customer_positions.at(new_flight.second));
+            update_p(drone_candidates, customer, new_flight, customer_positions);
+        }
+
+        if (!iteration_valid)
+        {
+            continue;
+        }
+
+        if (customers.size() > 1)
+        {
+            sort_drone_collection(curr.drones[drone_to_replan]);
+        }
+
+        if (!master_check(inst, curr, false))
+        {
+            continue;
+        }
+
+        if (same_drone_schedule(curr.drones[drone_to_replan], curr_sol.drones[drone_to_replan]))
+        {
+            continue;
+        }
+
+        sampled_solution = std::move(curr);
+        return true;
+    }
+
+    return false;
+}
 }
 
 P build_p(const Instance &inst, const Solution &curr_sol)
@@ -212,7 +396,7 @@ std::pair<long long, Solution> drone_planner(
     const Instance &inst,
     const Solution &curr_sol)
 {
-    return drone_planner(inst, curr_sol, 10, 0);
+    return drone_planner(inst, curr_sol, 5, 0);
 }
 
 std::pair<long long, Solution> drone_planner(
@@ -344,5 +528,90 @@ std::pair<long long, Solution> drone_planner(
     }
 
     return {best, best_sol};
+}
+
+bool drone_planner_improve(const Instance &instance, Solution &sol)
+{
+    if (instance.n >= 50)
+    {
+        return drone_planner_light_improve(instance, sol);
+    }
+
+    return planner_improve_with_budget(instance, sol, 5, 0, -1);
+}
+
+bool drone_planner_light_improve(const Instance &instance, Solution &sol)
+{
+    std::vector<int> candidate_drones;
+    candidate_drones.reserve(sol.drones.size());
+    int drone_deliveries = 0;
+    for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
+    {
+        const int deliveries = (int)(sol.drones[drone].deliver_nodes.size());
+        drone_deliveries += deliveries;
+        if (deliveries > 0)
+        {
+            candidate_drones.push_back(drone);
+        }
+    }
+
+    if (candidate_drones.empty())
+    {
+        return false;
+    }
+
+    std::uniform_int_distribution<int> drone_dist(0, (int)(candidate_drones.size()) - 1);
+    const int drone_to_replan = candidate_drones[drone_dist(gen)];
+    const int iterations = drone_deliveries >= 20 ? 1 : 2;
+    const int max_flights_per_customer = drone_deliveries >= 20 ? 8 : 12;
+    return planner_improve_with_budget(
+        instance,
+        sol,
+        iterations,
+        max_flights_per_customer,
+        drone_to_replan);
+}
+
+bool single_drone_planner_shake(const Instance &instance, Solution &sol)
+{
+    std::vector<int> candidate_drones;
+    candidate_drones.reserve(sol.drones.size());
+    for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
+    {
+        if (!sol.drones[drone].deliver_nodes.empty())
+        {
+            candidate_drones.push_back(drone);
+        }
+    }
+
+    if (candidate_drones.empty())
+    {
+        return false;
+    }
+
+    std::shuffle(candidate_drones.begin(), candidate_drones.end(), gen);
+
+    for (int drone_to_replan : candidate_drones)
+    {
+        const int delivery_count = (int)(sol.drones[drone_to_replan].deliver_nodes.size());
+        const int iterations = delivery_count >= 8 ? 4 : 6;
+        const int max_flights_per_customer = instance.n >= 50 ? 8 : 12;
+        Solution candidate;
+        if (!sample_changed_single_drone_replan(
+                instance,
+                sol,
+                drone_to_replan,
+                iterations,
+                max_flights_per_customer,
+                candidate))
+        {
+            continue;
+        }
+
+        sol = std::move(candidate);
+        return true;
+    }
+
+    return false;
 }
 

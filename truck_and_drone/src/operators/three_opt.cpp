@@ -1,10 +1,38 @@
 #include "operators/three_opt.h"
+#include "general/random.h"
+#include "operators/customer_slot_helpers.h"
+#include "operators/drone_planner.h"
+#include "operators/operator.h"
+#include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <algorithm>
+#include <array>
+#include <numeric>
 #include <vector>
 
 namespace
 {
+
+bool repair_with_drone_planner_if_needed(
+    const Instance &inst,
+    Solution &candidate)
+{
+    if (master_check(inst, candidate, false))
+    {
+        return true;
+    }
+
+    const auto [planned_cost, planned_solution] = drone_planner(inst, candidate);
+    (void)planned_cost;
+    if (!master_check(inst, planned_solution, false))
+    {
+        return false;
+    }
+
+    candidate = planned_solution;
+    return true;
+}
+
 std::vector<int> reversed_copy(const std::vector<int> &segment)
 {
     std::vector<int> result = segment;
@@ -99,5 +127,75 @@ bool three_opt(const Instance &inst, Solution &sol, int first, int second, int t
     }
 
     sol.truck_route = std::move(best_route);
+    return true;
+}
+
+bool three_opt_random(const Instance &inst, Solution &sol)
+{
+    const std::vector<CustomerSlot> slots = collect_customer_slots(sol);
+    if ((int)(slots.size()) < 3)
+    {
+        return false;
+    }
+
+    const long long current_truck_cost =
+        objective_function_truck_only(inst, sol.truck_route);
+    const std::vector<int> selected = sample_slot_indices((int)(slots.size()), 3);
+    const std::array<int, 3> customers = {
+        read_customer_at_slot(sol, slots[selected[0]]),
+        read_customer_at_slot(sol, slots[selected[1]]),
+        read_customer_at_slot(sol, slots[selected[2]]),
+    };
+    constexpr std::array<std::array<int, 3>, 3> permutations = {{
+        {{0, 2, 1}},
+        {{1, 0, 2}},
+        {{2, 1, 0}},
+        // {{1, 2, 0}}, // 3-cycle, currently disabled as a weaker truck surrogate candidate.
+        // {{2, 0, 1}}, // 3-cycle, currently disabled as a weaker truck surrogate candidate.
+    }};
+    std::array<int, 3> permutation_order = {0, 1, 2};
+    std::shuffle(permutation_order.begin(), permutation_order.end(), gen);
+    const int permutation_budget = std::min(
+        (int)(permutation_order.size()),
+        inst.n >= 50 ? 2 : 3);
+
+    bool found_improvement = false;
+    long long best_truck_cost = current_truck_cost;
+    Solution best_solution;
+    Solution candidate = sol;
+
+    for (int attempt = 0; attempt < permutation_budget; ++attempt)
+    {
+        candidate = sol;
+        const auto &permutation = permutations[permutation_order[attempt]];
+        for (int idx = 0; idx < 3; ++idx)
+        {
+            write_customer_at_slot(
+                candidate,
+                slots[selected[idx]],
+                customers[permutation[idx]]);
+        }
+
+        if (!repair_with_drone_planner_if_needed(inst, candidate))
+        {
+            continue;
+        }
+
+        const long long candidate_truck_cost =
+            objective_function_truck_only(inst, candidate.truck_route);
+        if (candidate_truck_cost < best_truck_cost)
+        {
+            best_truck_cost = candidate_truck_cost;
+            best_solution = std::move(candidate);
+            found_improvement = true;
+        }
+    }
+
+    if (!found_improvement)
+    {
+        return false;
+    }
+
+    sol = std::move(best_solution);
     return true;
 }

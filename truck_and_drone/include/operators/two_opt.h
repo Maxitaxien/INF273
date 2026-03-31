@@ -24,3 +24,12 @@ bool two_opt(const Instance &inst, Solution &solution, int first, int second);
  * committed if the repaired full truck+drone objective improves.
  */
 bool two_opt_greedy(const Instance &inst, Solution &solution);
+
+/**
+ * First-improvement 2-opt with a truck-gain screen and full-objective
+ * evaluation.
+ *
+ * This stops at the first improving feasible reversal instead of scanning the
+ * full neighbourhood for the best gain.
+ */
+bool two_opt_first_improvement(const Instance &inst, Solution &solution);
