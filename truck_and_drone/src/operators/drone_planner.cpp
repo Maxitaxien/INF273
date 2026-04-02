@@ -533,12 +533,14 @@ std::pair<long long, Solution> drone_planner(
 
 bool drone_planner_improve(const Instance &instance, Solution &sol)
 {
+    /* 
     if (instance.n >= 50)
     {
         return drone_planner_light_improve(instance, sol);
     }
+    */
 
-    return planner_improve_with_budget(instance, sol, 5, 0, -1);
+    return planner_improve_with_budget(instance, sol, 10, 0, -1);
 }
 
 bool drone_planner_light_improve(const Instance &instance, Solution &sol)
