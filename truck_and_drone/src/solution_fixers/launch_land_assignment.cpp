@@ -92,14 +92,26 @@ std::pair<bool, Solution> assign_launch_and_land_n_lookahead_impl(
         const long long truck_wait = std::max(
             drone_return - timing.truck_arrival[land_idx],
             0LL);
+        const long long downstream_stops = std::max(0, route_size - land_idx - 1);
+        const long long downstream_delay_impact = truck_wait * downstream_stops;
         if (!best.feasible ||
-            truck_wait < best.truck_wait ||
-            (truck_wait == best.truck_wait && land_idx < best.land_idx))
+            downstream_delay_impact < best.downstream_delay_impact ||
+            (downstream_delay_impact == best.downstream_delay_impact &&
+             truck_wait < best.truck_wait) ||
+            (downstream_delay_impact == best.downstream_delay_impact &&
+             truck_wait == best.truck_wait &&
+             drone_wait < best.drone_wait) ||
+            (downstream_delay_impact == best.downstream_delay_impact &&
+             truck_wait == best.truck_wait &&
+             drone_wait == best.drone_wait &&
+             land_idx < best.land_idx))
         {
             best.feasible = true;
             best.launch_idx = idx;
             best.land_idx = land_idx;
+            best.downstream_delay_impact = downstream_delay_impact;
             best.truck_wait = truck_wait;
+            best.drone_wait = drone_wait;
             best.drone_arrival = drone_arrival;
         }
     }

@@ -13,7 +13,9 @@ struct FlightAssignment
     bool feasible = false;
     int launch_idx = -1;
     int land_idx = -1;
+    long long downstream_delay_impact = std::numeric_limits<long long>::max();
     long long truck_wait = std::numeric_limits<long long>::max();
+    long long drone_wait = std::numeric_limits<long long>::max();
     long long drone_arrival = std::numeric_limits<long long>::max();
 };
 
