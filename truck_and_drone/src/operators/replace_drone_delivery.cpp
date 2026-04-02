@@ -50,9 +50,11 @@ struct DroneDemotionCandidate
 {
     int drone = -1;
     int flight_idx = -1;
+    int land_idx = -1;
     int span = std::numeric_limits<int>::max();
     long long truck_wait = 0;
     long long drone_duration = 0;
+    long long downstream_delay_impact = 0;
 };
 
 bool replace_drone_delivery_with_bounds(
@@ -163,13 +165,17 @@ std::vector<DroneDemotionCandidate> rank_drone_demotion_candidates(
             const long long truck_wait = std::max(
                 drone_return - timing.truck_arrival[land_idx],
                 0LL);
+            const long long downstream_stops =
+                std::max(0, route_size - land_idx - 1);
 
             candidates.push_back(DroneDemotionCandidate{
                 drone,
                 flight_idx,
+                land_idx,
                 land_idx - launch_idx,
                 truck_wait,
-                out_time + back_time});
+                out_time + back_time,
+                truck_wait * downstream_stops});
         }
     }
 
@@ -177,17 +183,25 @@ std::vector<DroneDemotionCandidate> rank_drone_demotion_candidates(
         candidates.begin(),
         candidates.end(),
         [](const DroneDemotionCandidate &lhs, const DroneDemotionCandidate &rhs) {
-            if (lhs.span != rhs.span)
+            if (lhs.downstream_delay_impact != rhs.downstream_delay_impact)
             {
-                return lhs.span < rhs.span;
+                return lhs.downstream_delay_impact > rhs.downstream_delay_impact;
             }
             if (lhs.truck_wait != rhs.truck_wait)
             {
                 return lhs.truck_wait > rhs.truck_wait;
             }
+            if (lhs.land_idx != rhs.land_idx)
+            {
+                return lhs.land_idx < rhs.land_idx;
+            }
             if (lhs.drone_duration != rhs.drone_duration)
             {
                 return lhs.drone_duration > rhs.drone_duration;
+            }
+            if (lhs.span != rhs.span)
+            {
+                return lhs.span < rhs.span;
             }
             if (lhs.drone != rhs.drone)
             {

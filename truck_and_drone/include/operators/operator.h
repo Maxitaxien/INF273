@@ -130,6 +130,15 @@ bool drone_demotion_shake(const Instance &instance, Solution &sol);
 bool drone_rendezvous_shift_first_improvement(const Instance &instance, Solution &sol);
 
 /**
+ * Best-improvement wrapper around local drone rendezvous shifts.
+ *
+ * This evaluates the best window-2 shift for every existing drone flight and
+ * commits the best feasible candidate across all of them. Acceptance is left
+ * to the outer metaheuristic.
+ */
+bool drone_rendezvous_shift_best_improvement(const Instance &instance, Solution &sol);
+
+/**
  * Swap two random customers in the combined Part 1 + Part 2 representation,
  * then repair the drone schedule with the planner if needed.
  *

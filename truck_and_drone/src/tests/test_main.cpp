@@ -933,6 +933,126 @@ void test_drone_rendezvous_shift_first_improvement_applies_move() {
     std::cout << "test_drone_rendezvous_shift_first_improvement_applies_move passed\n";
 }
 
+void test_drone_rendezvous_shift_best_improvement_picks_best_flight() {
+    Instance instance{};
+    instance.n = 7;
+    instance.m = 2;
+    instance.lim = 20000;
+
+    instance.truck_matrix.assign(8, std::vector<long long>(8, 10000));
+    instance.drone_matrix.assign(8, std::vector<long long>(8, 10000));
+    for (int i = 0; i < 8; ++i)
+    {
+        instance.truck_matrix[i][i] = 0;
+        instance.drone_matrix[i][i] = 0;
+    }
+
+    const std::vector<int> route = {0, 1, 3, 4, 6, 7};
+    for (int idx = 1; idx < (int)route.size(); ++idx)
+    {
+        const int prev = route[idx - 1];
+        const int curr = route[idx];
+        instance.truck_matrix[prev][curr] = 100;
+        instance.truck_matrix[curr][prev] = 100;
+    }
+
+    instance.drone_matrix[0][2] = 10000;
+    instance.drone_matrix[1][2] = 100;
+    instance.drone_matrix[3][2] = 150;
+    instance.drone_matrix[4][2] = 250;
+    instance.drone_matrix[2][3] = 100;
+    instance.drone_matrix[2][4] = 200;
+    instance.drone_matrix[2][6] = 300;
+    instance.drone_matrix[2][7] = 400;
+
+    instance.drone_matrix[1][5] = 650;
+    instance.drone_matrix[3][5] = 450;
+    instance.drone_matrix[4][5] = 500;
+    instance.drone_matrix[6][5] = 100;
+    instance.drone_matrix[5][4] = 120;
+    instance.drone_matrix[5][6] = 100;
+    instance.drone_matrix[5][7] = 100;
+
+    Solution solution{
+        route,
+        {
+            DroneCollection{{0}, {2}, {2}},
+            DroneCollection{{3}, {5}, {5}},
+        }};
+
+    assert(master_check(instance, solution, true));
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    int improving_shifts = 0;
+    long long best_cost = std::numeric_limits<long long>::max();
+
+    for (int drone = 0; drone < (int)(solution.drones.size()); ++drone)
+    {
+        const int flight_count = (int)(solution.drones[drone].deliver_nodes.size());
+        for (int flight_idx = 0; flight_idx < flight_count; ++flight_idx)
+        {
+            Solution candidate = solution;
+            if (!drone_rendezvous_shift(instance, candidate, drone, flight_idx, 2, 2))
+            {
+                continue;
+            }
+
+            const long long candidate_cost = objective_function_impl(instance, candidate);
+            if (candidate_cost < initial_cost)
+            {
+                ++improving_shifts;
+                best_cost = std::min(best_cost, candidate_cost);
+            }
+        }
+    }
+
+    assert(improving_shifts >= 2);
+
+    const bool success = drone_rendezvous_shift_best_improvement(instance, solution);
+
+    assert(success);
+    assert(master_check(instance, solution, true));
+    assert(objective_function_impl(instance, solution) == best_cost);
+    assert(best_cost < initial_cost);
+
+    std::cout << "test_drone_rendezvous_shift_best_improvement_picks_best_flight passed\n";
+}
+
+void test_drone_rendezvous_shift_best_improvement_returns_best_feasible_move() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 100, 100, 100, 100},
+        {100, 0, 100, 100, 100},
+        {100, 100, 0, 100, 100},
+        {100, 100, 100, 0, 100},
+        {100, 100, 100, 100, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{
+        {0, 1, 3, 4},
+        {
+            DroneCollection{{0}, {2}, {2}},
+            DroneCollection{},
+        }};
+
+    assert(master_check(instance, solution, true));
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    const bool success = drone_rendezvous_shift_best_improvement(instance, solution);
+
+    assert(success);
+    assert(master_check(instance, solution, true));
+    assert(objective_function_impl(instance, solution) == initial_cost);
+    assert(solution.drones[0].launch_indices != std::vector<int>({0}) ||
+           solution.drones[0].land_indices != std::vector<int>({2}));
+
+    std::cout << "test_drone_rendezvous_shift_best_improvement_returns_best_feasible_move passed\n";
+}
+
 void test_single_drone_planner_shake_returns_false_without_drone_customers() {
     Instance instance{};
     instance.n = 3;
@@ -1144,6 +1264,8 @@ int main() {
         test_solution_visualization_writes_jpg();
         test_drone_rendezvous_shift_moves_flight_within_window();
         test_drone_rendezvous_shift_first_improvement_applies_move();
+        test_drone_rendezvous_shift_best_improvement_picks_best_flight();
+        test_drone_rendezvous_shift_best_improvement_returns_best_feasible_move();
         test_single_drone_planner_shake_returns_false_without_drone_customers();
         test_single_drone_planner_shake_changes_one_drone_schedule();
         test_replace_drone_delivery_targeted_moves_customer_to_truck();

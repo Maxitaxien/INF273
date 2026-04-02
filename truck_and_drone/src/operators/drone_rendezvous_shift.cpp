@@ -39,15 +39,16 @@ bool can_place_without_overlap(
 
     return !overlaps(intervals, launch_idx, land_idx);
 }
-}
 
-bool drone_rendezvous_shift(
+bool find_best_shift_for_flight(
     const Instance &inst,
-    Solution &sol,
+    const Solution &sol,
     int drone,
     int flight_idx,
     int launch_window,
-    int land_window)
+    int land_window,
+    Solution &best_solution_out,
+    long long &best_cost_out)
 {
     if (!valid_drone_and_flight(sol, drone, flight_idx))
     {
@@ -126,6 +127,35 @@ bool drone_rendezvous_shift(
         return false;
     }
 
+    best_cost_out = best_cost;
+    best_solution_out = std::move(best_solution);
+    return true;
+}
+}
+
+bool drone_rendezvous_shift(
+    const Instance &inst,
+    Solution &sol,
+    int drone,
+    int flight_idx,
+    int launch_window,
+    int land_window)
+{
+    Solution best_solution;
+    long long ignored_cost = 0;
+    if (!find_best_shift_for_flight(
+            inst,
+            sol,
+            drone,
+            flight_idx,
+            launch_window,
+            land_window,
+            best_solution,
+            ignored_cost))
+    {
+        return false;
+    }
+
     sol = std::move(best_solution);
     return true;
 }
@@ -169,4 +199,57 @@ bool drone_rendezvous_shift_first_improvement(
     }
 
     return false;
+}
+
+bool drone_rendezvous_shift_best_improvement(
+    const Instance &inst,
+    Solution &sol)
+{
+    const int window = 3;
+
+    bool found_feasible = false;
+    long long best_cost = std::numeric_limits<long long>::max();
+    Solution best_solution;
+
+    for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
+    {
+        const DroneCollection &collection = sol.drones[drone];
+        const int flight_count = std::min({
+            (int)(collection.launch_indices.size()),
+            (int)(collection.land_indices.size()),
+            (int)(collection.deliver_nodes.size())});
+
+        for (int flight_idx = 0; flight_idx < flight_count; ++flight_idx)
+        {
+            Solution candidate;
+            long long candidate_cost = 0;
+            if (!find_best_shift_for_flight(
+                    inst,
+                    sol,
+                    drone,
+                    flight_idx,
+                    window,
+                    window,
+                    candidate,
+                    candidate_cost))
+            {
+                continue;
+            }
+
+            if (!found_feasible || candidate_cost < best_cost)
+            {
+                found_feasible = true;
+                best_cost = candidate_cost;
+                best_solution = std::move(candidate);
+            }
+        }
+    }
+
+    if (!found_feasible)
+    {
+        return false;
+    }
+
+    sol = std::move(best_solution);
+    return true;
 }
