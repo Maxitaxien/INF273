@@ -20,7 +20,7 @@ int main()
         // NamedOperator{"Drone demotion shake", drone_demotion_shake},
         NamedOperator{"Drone rendezvous shift first improvement", drone_rendezvous_shift_first_improvement},
         // NamedOperator{"Single-drone planner shake", single_drone_planner_shake},
-        NamedOperator{"Or-Opt random", or_opt_segment_relocate_random}
+        // NamedOperator{"Or-Opt random", or_opt_segment_relocate_random}
     };
 
     // Keep the stronger truck-route operators active while letting the
@@ -39,7 +39,7 @@ int main()
         // 0.20, // Drone demotion shake
         0.08, // Drone rendezvous shift
         // 0.05, // Single-drone planner shake
-        0.04, // Or-opt segment random improvement
+        // 0.04, // Or-opt segment random improvement
     };
     run_gam(ops, weights);
 }

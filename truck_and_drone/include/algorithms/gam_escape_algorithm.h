@@ -1,7 +1,5 @@
 #pragma once
 #include "verification/solution.h"
-#include "verification/feasibility_check.h"
-#include "general/roulette_wheel_selection.h"
 #include "operators/operator.h"
 
 #include <vector>
@@ -9,7 +7,9 @@
 struct GAMEscapeResult
 {
     Solution incumbent;
+    long long incumbent_cost = 0;
     Solution best_seen;
+    long long best_seen_cost = 0;
     bool found_new_best = false;
 };
 

@@ -15,7 +15,6 @@ Solution local_search(const Instance &instance,
     long long best_cost = objective_function_impl(instance, current);
 
     int amnt_iterations = 0;
-    Operator current_operator;
 
     while (amnt_iterations < 10000)
     {

@@ -14,11 +14,6 @@ std::vector<std::string> split(const std::string& s, char delimiter);
  */
 bool includes_all_nodes(int n, const Solution& solution, bool debug);
 
-bool specific_drone_flight_under_lim(const Instance& instance,
-                                     const Solution& solution,
-                                     int drone_idx,
-                                     int flight_idx);
-
 /**
  * Check whether all drone flights are under the flight limit including truck waiting at the rendezvous.
  */

@@ -40,14 +40,21 @@ GAMEscapeResult gam_escape_algorithm(
     const std::vector<double> &selection_weights,
     int amnt_iter
 ) {
+    const long long initial_cost = objective_function_impl(inst, incumbent);
     if (ops.empty() || amnt_iter <= 0)
     {
         Solution best_seen = incumbent;
-        return GAMEscapeResult{std::move(incumbent), std::move(best_seen), false};
+        return GAMEscapeResult{
+            std::move(incumbent),
+            initial_cost,
+            std::move(best_seen),
+            initial_cost,
+            false};
     }
 
     Solution best = incumbent;
-    long long best_cost = objective_function_impl(inst, incumbent);
+    long long incumbent_cost = initial_cost;
+    long long best_cost = initial_cost;
     bool found_new_best = false;
 
     for (int i = 0; i < amnt_iter; i ++) {
@@ -57,8 +64,8 @@ GAMEscapeResult gam_escape_algorithm(
         if (ops[selected_idx].op(inst, neighbour) &&
             !same_solution(neighbour, incumbent) &&
             master_check(inst, neighbour, false)) {
-            incumbent = neighbour;
-            const long long incumbent_cost = objective_function_impl(inst, incumbent);
+            incumbent = std::move(neighbour);
+            incumbent_cost = objective_function_impl(inst, incumbent);
             if (incumbent_cost < best_cost)
             {
                 best = incumbent;
@@ -70,6 +77,8 @@ GAMEscapeResult gam_escape_algorithm(
 
     return GAMEscapeResult{
         std::move(incumbent),
+        incumbent_cost,
         std::move(best),
+        best_cost,
         found_new_best};
 }

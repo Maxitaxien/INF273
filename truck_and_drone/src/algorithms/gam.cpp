@@ -394,17 +394,14 @@ GAMResult general_adaptive_metaheuristic(
                 selection_weights,
                 escape_budget);
             incumbent = escape_result.incumbent;
-
-            incumbent_cost = objective_function_impl(instance, incumbent);
+            incumbent_cost = escape_result.incumbent_cost;
 
             if (escape_result.found_new_best)
             {
-                const long long escaped_best_cost =
-                    objective_function_impl(instance, escape_result.best_seen);
-                if (escaped_best_cost < best_cost)
+                if (escape_result.best_seen_cost < best_cost)
                 {
                     best = escape_result.best_seen;
-                    best_cost = escaped_best_cost;
+                    best_cost = escape_result.best_seen_cost;
                     result.statistics.best_updates++;
                     result.statistics.best_found_iteration = i + 1;
                 }

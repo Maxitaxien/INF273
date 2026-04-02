@@ -99,30 +99,6 @@ bool includes_all_nodes(int n, const Solution& solution, bool debug) {
     return ok;
 }
 
-bool specific_drone_flight_under_lim(const Instance& instance,
-                                     const Solution& solution,
-                                     int drone_idx, int flight_idx) {
-    const DroneCollection& c = solution.drones[drone_idx];
-    int launch_idx = c.launch_indices[flight_idx];
-    int land_idx   = c.land_indices[flight_idx];
-    int deliver    = c.deliver_nodes[flight_idx];
-
-    if (launch_idx < 0 || land_idx < 0 || deliver < 0) return false;
-
-    // Check indices are within the truck route
-    if (launch_idx >= (int)solution.truck_route.size() || land_idx >= (int)solution.truck_route.size()) {
-        return false;
-    }
-
-    int launch_node = solution.truck_route[launch_idx];
-    int land_node = solution.truck_route[land_idx];
-
-    long long drone_total_duration =
-        instance.drone_matrix[launch_node][deliver] + instance.drone_matrix[deliver][land_node];
-
-    return drone_total_duration <= instance.lim;
-}
-
 bool all_drone_flights_under_lim_with_wait(const Instance& instance,
                                            const Solution& solution,
                                            bool debug = false) {

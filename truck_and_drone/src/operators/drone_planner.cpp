@@ -375,12 +375,12 @@ bool sample_changed_single_drone_replan(
             sort_drone_collection(curr.drones[drone_to_replan]);
         }
 
-        if (!master_check(inst, curr, false))
+        if (same_drone_schedule(curr.drones[drone_to_replan], curr_sol.drones[drone_to_replan]))
         {
             continue;
         }
 
-        if (same_drone_schedule(curr.drones[drone_to_replan], curr_sol.drones[drone_to_replan]))
+        if (!master_check(inst, curr, false))
         {
             continue;
         }
@@ -391,11 +391,6 @@ bool sample_changed_single_drone_replan(
 
     return false;
 }
-}
-
-P build_p(const Instance &inst, const Solution &curr_sol)
-{
-    return build_p_impl(inst, curr_sol, get_not_covered_by_truck(curr_sol), 0);
 }
 
 std::pair<long long, Solution> drone_planner(
