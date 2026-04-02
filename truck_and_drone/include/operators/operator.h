@@ -121,11 +121,11 @@ bool replace_drone_delivery_targeted(const Instance &instance, Solution &sol);
 bool drone_demotion_shake(const Instance &instance, Solution &sol);
 
 /**
- * First-improving wrapper around local drone rendezvous shifts.
+ * Proposal wrapper around local drone rendezvous shifts.
  *
  * This scans existing drone flights in random order, tries bounded launch/land
- * reassignments for one flight at a time, and commits the first improving
- * feasible move it finds.
+ * reassignments for one flight at a time, and commits the first feasible move
+ * it finds. Acceptance is left to the outer metaheuristic.
  */
 bool drone_rendezvous_shift_first_improvement(const Instance &instance, Solution &sol);
 
@@ -152,8 +152,10 @@ bool two_opt_greedy(const Instance &inst, Solution &sol);
 bool two_opt_first_improvement(const Instance &inst, Solution &sol);
 
 /**
- * 2-opt ranked by truck-arrival surrogate, with repaired full-objective
- * evaluation only on the top few candidates.
+ * 2-opt ranked by truck-arrival surrogate, trying only the top few candidates.
+ *
+ * The first feasible screened move is returned and acceptance is left to the
+ * outer metaheuristic.
  */
 bool two_opt_arrival_screened(const Instance &inst, Solution &sol);
 

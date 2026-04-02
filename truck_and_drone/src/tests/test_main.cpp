@@ -24,6 +24,7 @@
 #include "operators/or_opt_segment_relocate.h"
 #include "operators/helpers.h"
 #include "operators/replace_drone_delivery.h"
+#include "solution_fixers/solution_fixers.h"
 #include "operators/two_opt.h"
 #include "operators/three_opt.h"
 #include "general/random.h"
@@ -661,16 +662,16 @@ void test_adaptive_composite_operator_rolls_back_failed_insert() {
     std::cout << "test_adaptive_composite_operator_rolls_back_failed_insert passed\n";
 }
 
-void test_gam_escape_algorithm_returns_best_seen_solution() {
+void test_gam_escape_algorithm_tracks_best_seen_while_returning_endpoint() {
     Instance instance{};
     instance.n = 3;
     instance.m = 2;
     instance.lim = 1000;
     instance.truck_matrix = {
-        {0, 1, 10, 10},
-        {1, 0, 1, 1},
-        {10, 1, 0, 5},
-        {10, 1, 5, 0},
+        {0, 100, 1000, 1000},
+        {100, 0, 500, 100},
+        {1000, 500, 0, 100},
+        {1000, 100, 100, 0},
     };
     instance.drone_matrix = instance.truck_matrix;
 
@@ -678,18 +679,32 @@ void test_gam_escape_algorithm_returns_best_seen_solution() {
     const long long initial_cost = objective_function_impl(instance, initial);
 
     std::vector<NamedOperator> ops = {
-        {"Worsen route", [](const Instance &, Solution &sol) {
-             std::swap(sol.truck_route[2], sol.truck_route[3]);
+        {"Walk route", [step = 0](const Instance &, Solution &sol) mutable {
+             if (step == 0)
+             {
+                 sol.truck_route = {0, 1, 3, 2};
+             }
+             else
+             {
+                 sol.truck_route = {0, 3, 1, 2};
+             }
+             ++step;
              return true;
          }}};
     std::vector<double> weights = {1.0};
 
-    Solution escaped = gam_escape_algorithm(instance, initial, ops, weights, 3);
+    const GAMEscapeResult escaped =
+        gam_escape_algorithm(instance, initial, ops, weights, 2);
 
-    assert(escaped.truck_route == initial.truck_route);
-    assert(objective_function_impl(instance, escaped) == initial_cost);
+    assert(escaped.incumbent.truck_route == std::vector<int>({0, 3, 1, 2}));
+    assert(escaped.best_seen.truck_route == std::vector<int>({0, 1, 3, 2}));
+    assert(escaped.found_new_best);
+    assert(objective_function_impl(instance, escaped.best_seen) < initial_cost);
+    assert(
+        objective_function_impl(instance, escaped.incumbent) >
+        objective_function_impl(instance, escaped.best_seen));
 
-    std::cout << "test_gam_escape_algorithm_returns_best_seen_solution passed\n";
+    std::cout << "test_gam_escape_algorithm_tracks_best_seen_while_returning_endpoint passed\n";
 }
 
 void test_two_opt_repairs_drone_schedule_after_route_reversal() {
@@ -725,6 +740,63 @@ void test_two_opt_repairs_drone_schedule_after_route_reversal() {
     assert(solution.truck_route.end() == std::find(solution.truck_route.begin(), solution.truck_route.end(), 2));
 
     std::cout << "test_two_opt_repairs_drone_schedule_after_route_reversal passed\n";
+}
+
+void test_collect_two_opt_affected_drone_flights_returns_intersections() {
+    Solution solution{
+        {0, 1, 3, 4, 6, 7, 8},
+        {
+            DroneCollection{{1, 4}, {2, 5}, {3, 5}},
+            DroneCollection{},
+        }};
+
+    const std::vector<AffectedDroneFlight> affected =
+        collect_two_opt_affected_drone_flights(solution, 1, 3);
+
+    assert(affected.size() == 1);
+    assert(affected[0].drone == 0);
+    assert(affected[0].flight_idx == 0);
+    assert(affected[0].delivery == 2);
+    assert(affected[0].launch_idx == 1);
+    assert(affected[0].land_idx == 3);
+
+    std::cout << "test_collect_two_opt_affected_drone_flights_returns_intersections passed\n";
+}
+
+void test_repair_after_two_opt_localized_repairs_candidate() {
+    Instance instance{};
+    instance.n = 5;
+    instance.m = 2;
+    instance.lim = 5;
+    instance.truck_matrix = {
+        {0, 1, 2, 3, 10, 11},
+        {1, 0, 1, 2, 9, 10},
+        {2, 1, 0, 1, 8, 9},
+        {3, 2, 1, 0, 7, 8},
+        {10, 9, 8, 7, 0, 1},
+        {11, 10, 9, 8, 1, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution before_move{
+        {0, 1, 3, 4, 5},
+        {
+            DroneCollection{{1}, {2}, {2}},
+            DroneCollection{},
+        }};
+
+    Solution candidate = before_move;
+    std::reverse(
+        candidate.truck_route.begin() + 2,
+        candidate.truck_route.begin() + 4);
+
+    assert(!master_check(instance, candidate, false));
+    assert(repair_after_two_opt_localized(instance, before_move, 1, 3, candidate));
+    assert(master_check(instance, candidate, true));
+    assert(candidate.truck_route == std::vector<int>({0, 1, 4, 3, 5}));
+    assert(candidate.drones[0].deliver_nodes == std::vector<int>({2}));
+
+    std::cout << "test_repair_after_two_opt_localized_repairs_candidate passed\n";
 }
 
 void test_solution_visualization_writes_jpg() {
@@ -1065,8 +1137,10 @@ int main() {
         test_alns_operator_rolls_back_failed_insert();
         test_alns_pair_combination_materializes_named_operators();
         test_adaptive_composite_operator_rolls_back_failed_insert();
-        test_gam_escape_algorithm_returns_best_seen_solution();
+        test_gam_escape_algorithm_tracks_best_seen_while_returning_endpoint();
         test_two_opt_repairs_drone_schedule_after_route_reversal();
+        test_collect_two_opt_affected_drone_flights_returns_intersections();
+        test_repair_after_two_opt_localized_repairs_candidate();
         test_solution_visualization_writes_jpg();
         test_drone_rendezvous_shift_moves_flight_within_window();
         test_drone_rendezvous_shift_first_improvement_applies_move();

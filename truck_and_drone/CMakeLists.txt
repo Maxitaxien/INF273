@@ -54,7 +54,11 @@ add_library(core
     src/operators/drone_rendezvous_shift.cpp
     src/operators/late_customer_drone_promotion.cpp
     src/operators/nearest_neighbour_reassign.cpp
-    src/operators/solution_fixers.cpp
+    src/solution_fixers/helper_methods.cpp
+    src/solution_fixers/launch_land_assignment.cpp
+    src/solution_fixers/two_opt_fixers.cpp
+    src/solution_fixers/simple_feasibility_fixers.cpp
+    src/solution_fixers/drone_planner_fixers.cpp
     src/operators/drone_planner.cpp
     src/verification/feasibility_check.cpp
     src/verification/objective_value.cpp
