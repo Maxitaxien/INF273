@@ -18,8 +18,8 @@ int main()
         // NamedOperator{"Drone planner", drone_planner_improve},
         // NamedOperator{"Drone replacement greedy", replace_drone_delivery_greedy},
         // NamedOperator{"Drone demotion shake", drone_demotion_shake},
-        // NamedOperator{"Drone rendezvous shift first improvement", drone_rendezvous_shift_first_improvement},
-        NamedOperator{"Single-drone planner shake", single_drone_planner_shake},
+        NamedOperator{"Drone rendezvous shift first improvement", drone_rendezvous_shift_first_improvement},
+        // NamedOperator{"Single-drone planner shake", single_drone_planner_shake},
         NamedOperator{"Or-Opt random", or_opt_segment_relocate_random}
     };
 
@@ -31,15 +31,15 @@ int main()
         // 0.70, // Two-Opt First Improvement
         0.70, // Two-Opt Arrival Screened
         // 0.10, // Two-Opt Random
-        0.80, // Truck replacement greedy
-        0.12, // Targeted drone-to-truck
+        0.55, // Truck replacement greedy
+        0.20, // Targeted drone-to-truck
         // 0.12, // Three-Opt
         // 0.15, // Drone planner
         // 0.10, // Drone replacement greedy
         // 0.20, // Drone demotion shake
-        // 0.40, // Drone rendezvous shift
-        0.05, // Single-drone planner shake
-        0.05, // Or-opt segment random improvement
+        0.08, // Drone rendezvous shift
+        // 0.05, // Single-drone planner shake
+        0.04, // Or-opt segment random improvement
     };
     run_gam(ops, weights);
 }

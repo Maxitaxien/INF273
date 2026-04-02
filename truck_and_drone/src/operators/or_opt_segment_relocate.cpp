@@ -1,7 +1,7 @@
 #include "operators/or_opt_segment_relocate.h"
 #include "operators/customer_slot_helpers.h"
 #include "operators/drone_planner.h"
-#include "general/sort_drone_collection.h"
+#include "solution_fixers/solution_fixers.h"
 #include "general/random.h"
 #include "datahandling/instance.h"
 #include "verification/solution.h"
@@ -9,7 +9,6 @@
 #include "verification/objective_value.h"
 #include <algorithm>
 #include <numeric>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -97,69 +96,6 @@ std::vector<int> valid_insert_after_positions(int slot_count, int start_idx, int
     }
 
     return positions;
-}
-
-void remap_drone_anchor_indices_by_node(
-    const Solution &before,
-    Solution &after)
-{
-    std::unordered_map<int, int> new_truck_positions;
-    new_truck_positions.reserve(after.truck_route.size());
-    for (int idx = 0; idx < (int)(after.truck_route.size()); ++idx)
-    {
-        new_truck_positions[after.truck_route[idx]] = idx;
-    }
-
-    const int drone_count = std::min(
-        (int)(before.drones.size()),
-        (int)(after.drones.size()));
-    for (int drone = 0; drone < drone_count; ++drone)
-    {
-        const DroneCollection &before_collection = before.drones[drone];
-        DroneCollection &after_collection = after.drones[drone];
-        const int flight_count = std::min({
-            (int)(before_collection.launch_indices.size()),
-            (int)(before_collection.land_indices.size()),
-            (int)(after_collection.launch_indices.size()),
-            (int)(after_collection.land_indices.size())});
-
-        for (int flight_idx = 0; flight_idx < flight_count; ++flight_idx)
-        {
-            const int old_launch_idx = before_collection.launch_indices[flight_idx];
-            const int old_land_idx = before_collection.land_indices[flight_idx];
-            if (old_launch_idx < 0 || old_land_idx < 0 ||
-                old_launch_idx >= (int)(before.truck_route.size()) ||
-                old_land_idx >= (int)(before.truck_route.size()))
-            {
-                continue;
-            }
-
-            const int launch_node = before.truck_route[old_launch_idx];
-            const int land_node = before.truck_route[old_land_idx];
-            const auto new_launch_it = new_truck_positions.find(launch_node);
-            const auto new_land_it = new_truck_positions.find(land_node);
-            if (new_launch_it == new_truck_positions.end() ||
-                new_land_it == new_truck_positions.end())
-            {
-                continue;
-            }
-
-            const int new_launch_idx = new_launch_it->second;
-            const int new_land_idx = new_land_it->second;
-            if (new_launch_idx >= new_land_idx)
-            {
-                continue;
-            }
-
-            after_collection.launch_indices[flight_idx] = new_launch_idx;
-            after_collection.land_indices[flight_idx] = new_land_idx;
-        }
-
-        if (flight_count > 1)
-        {
-            sort_drone_collection(after_collection);
-        }
-    }
 }
 
 std::vector<int> collect_customer_values(

@@ -6,13 +6,21 @@
 
 #include <vector>
 
+struct GAMEscapeResult
+{
+    Solution incumbent;
+    Solution best_seen;
+    bool found_new_best = false;
+};
+
 /**
- * Escape algorithm: 
- * 
- * Applies a short random walk over the current operator set, but only keeps
- * feasible intermediate solutions.
+ * Escape algorithm:
+ *
+ * Applies a short random walk over the current operator set, keeping the final
+ * feasible incumbent while also tracking the best solution seen during the
+ * walk.
  */
-Solution gam_escape_algorithm(
+GAMEscapeResult gam_escape_algorithm(
     const Instance& inst, 
     Solution incumbent, 
     const std::vector<NamedOperator> &ops, 

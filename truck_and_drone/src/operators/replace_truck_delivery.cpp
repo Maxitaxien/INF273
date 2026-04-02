@@ -1,12 +1,10 @@
 #include "operators/replace_truck_delivery.h"
-#include "operators/operator.h"
 #include "datahandling/instance.h"
 #include "general/sort_drone_collection.h"
 #include "operators/helpers.h"
-#include "operators/solution_fixers.h"
+#include "solution_fixers/solution_fixers.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
-#include "verification/solution.h"
 #include <algorithm>
 #include <limits>
 #include <random>

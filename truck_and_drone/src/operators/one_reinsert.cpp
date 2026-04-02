@@ -1,11 +1,8 @@
 #include "operators/one_reinsert.h"
-#include "operators/operator.h"
-#include "algorithms/simple_initial_solution.h"
 #include "verification/feasibility_check.h"
 #include "operators/helpers.h"
-#include "operators/solution_fixers.h"
+#include "solution_fixers/solution_fixers.h"
 #include <algorithm>
-#include <iostream>
 #include <random>
 
 extern std::mt19937 gen;
@@ -72,6 +69,11 @@ bool one_reinsert(const Instance &inst, Solution &sol,
     }
 
     /* --- 3. keep the solution feasible/valid --- */
+    if (master_check(inst, sol, false))
+    {
+        return true;
+    }
+
     sol = fix_overall_feasibility(inst, sol);
     return master_check(inst, sol, false);
 }

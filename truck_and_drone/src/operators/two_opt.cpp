@@ -1,8 +1,6 @@
 #include "operators/two_opt.h"
-#include "general/random.h"
 #include "operators/drone_planner.h"
-#include "operators/operator.h"
-#include "operators/solution_fixers.h"
+#include "solution_fixers/solution_fixers.h"
 #include "operators/customer_slot_helpers.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
@@ -55,25 +53,22 @@ int count_affected_drone_flights(
     int first,
     int second)
 {
-    const int reversed_start = first + 1;
-    const int reversed_end = second;
     int affected = 0;
+    const int segment_start = first + 1;
 
-    for (const DroneCollection &drone : solution.drones)
+    for (const DroneCollection &dc : solution.drones)
     {
-        const int flight_count = std::min(
-            (int)(drone.launch_indices.size()),
-            (int)(drone.land_indices.size()));
-        for (int flight_idx = 0; flight_idx < flight_count; ++flight_idx)
-        {
-            const int launch_idx = drone.launch_indices[flight_idx];
-            const int land_idx = drone.land_indices[flight_idx];
-            if (launch_idx > reversed_end || land_idx < reversed_start)
-            {
-                continue;
-            }
+        const int flight_count = std::min({
+            (int)(dc.launch_indices.size()),
+            (int)(dc.land_indices.size()),
+            (int)(dc.deliver_nodes.size())});
 
-            ++affected;
+        for (int idx = 0; idx < flight_count; ++idx)
+        {
+            if (dc.launch_indices[idx] <= second && dc.land_indices[idx] >= segment_start)
+            {
+                ++affected;
+            }
         }
     }
 
@@ -113,10 +108,13 @@ bool two_opt(const Instance &inst, Solution &solution, int first, int second)
 
     if (!master_check(inst, candidate, false))
     {
-        candidate = fix_overall_feasibility(inst, candidate);
-        if (!master_check(inst, candidate, false))
+        if (!repair_after_two_opt_localized(inst, solution, first, second, candidate))
         {
-            return false;
+            candidate = fix_overall_feasibility(inst, candidate);
+            if (!master_check(inst, candidate, false))
+            {
+                return false;
+            }
         }
     }
 
@@ -263,7 +261,6 @@ bool two_opt_arrival_screened(const Instance &inst, Solution &solution)
         return false;
     }
 
-    const long long current_cost = objective_function_impl(inst, solution);
     const long long current_arrival_score =
         truck_arrival_sum_only(inst, solution.truck_route);
 
@@ -323,12 +320,8 @@ bool two_opt_arrival_screened(const Instance &inst, Solution &solution)
             continue;
         }
 
-        const long long candidate_cost = objective_function_impl(inst, candidate);
-        if (candidate_cost < current_cost)
-        {
-            solution = std::move(candidate);
-            return true;
-        }
+        solution = std::move(candidate);
+        return true;
     }
 
     return false;

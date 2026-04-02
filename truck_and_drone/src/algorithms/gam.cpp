@@ -14,6 +14,28 @@
 
 namespace
 {
+bool same_solution(const Solution &lhs, const Solution &rhs)
+{
+    if (lhs.truck_route != rhs.truck_route || lhs.drones.size() != rhs.drones.size())
+    {
+        return false;
+    }
+
+    for (int drone = 0; drone < (int)(lhs.drones.size()); ++drone)
+    {
+        const DroneCollection &lhs_collection = lhs.drones[drone];
+        const DroneCollection &rhs_collection = rhs.drones[drone];
+        if (lhs_collection.launch_indices != rhs_collection.launch_indices ||
+            lhs_collection.deliver_nodes != rhs_collection.deliver_nodes ||
+            lhs_collection.land_indices != rhs_collection.land_indices)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 struct GAMOperatorState
 {
     std::string name;
@@ -50,7 +72,9 @@ double average_positive_delta_sample(
     {
         const NamedOperator &op = ops[attempt % ops.size()];
         Solution neighbour = reference_solution;
-        if (!op.op(instance, neighbour) || !master_check(instance, neighbour, false))
+        if (!op.op(instance, neighbour) ||
+            same_solution(neighbour, reference_solution) ||
+            !master_check(instance, neighbour, false))
         {
             continue;
         }
@@ -363,16 +387,29 @@ GAMResult general_adaptive_metaheuristic(
                     ? std::min(20, max_iterations - i)
                     : std::min(10, max_iterations - i);
 
-            incumbent = gam_escape_algorithm(
+            const GAMEscapeResult escape_result = gam_escape_algorithm(
                 instance,
                 incumbent,
                 ops,
                 selection_weights,
                 escape_budget);
+            incumbent = escape_result.incumbent;
 
             incumbent_cost = objective_function_impl(instance, incumbent);
 
-            if (incumbent_cost < best_cost)
+            if (escape_result.found_new_best)
+            {
+                const long long escaped_best_cost =
+                    objective_function_impl(instance, escape_result.best_seen);
+                if (escaped_best_cost < best_cost)
+                {
+                    best = escape_result.best_seen;
+                    best_cost = escaped_best_cost;
+                    result.statistics.best_updates++;
+                    result.statistics.best_found_iteration = i + 1;
+                }
+            }
+            else if (incumbent_cost < best_cost)
             {
                 best = incumbent;
                 best_cost = incumbent_cost;
@@ -399,6 +436,12 @@ GAMResult general_adaptive_metaheuristic(
         const auto evaluation_start = std::chrono::steady_clock::now();
         Solution neighbour = incumbent;
         if (!ops[selected_idx].op(instance, neighbour))
+        {
+            result.statistics.operator_failures++;
+            operator_statistics.failures++;
+            non_improving_iterations++;
+        }
+        else if (same_solution(neighbour, incumbent))
         {
             result.statistics.operator_failures++;
             operator_statistics.failures++;

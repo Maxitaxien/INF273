@@ -72,8 +72,6 @@ bool drone_rendezvous_shift(
 
     const int safe_launch_window = std::max(0, launch_window);
     const int safe_land_window = std::max(0, land_window);
-    const long long initial_cost = objective_function_impl(inst, sol);
-
     std::set<Interval> occupied = get_intervals(sol, drone);
     occupied.erase(Interval{current_launch, current_land});
 
@@ -83,7 +81,7 @@ bool drone_rendezvous_shift(
     const int max_land = std::min(route_size - 1, current_land + safe_land_window);
 
     bool found = false;
-    long long best_cost = initial_cost;
+    long long best_cost = std::numeric_limits<long long>::max();
     Solution best_solution;
 
     for (int new_launch = min_launch; new_launch <= max_launch; ++new_launch)
@@ -114,7 +112,7 @@ bool drone_rendezvous_shift(
             }
 
             const long long candidate_cost = objective_function_impl(inst, candidate);
-            if (candidate_cost < best_cost)
+            if (!found || candidate_cost < best_cost)
             {
                 best_cost = candidate_cost;
                 best_solution = std::move(candidate);

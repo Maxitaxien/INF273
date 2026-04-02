@@ -8,6 +8,30 @@
 #include "general/random.h"
 #include <numeric>
 
+namespace
+{
+bool same_solution(const Solution &lhs, const Solution &rhs)
+{
+    if (lhs.truck_route != rhs.truck_route || lhs.drones.size() != rhs.drones.size())
+    {
+        return false;
+    }
+
+    for (int drone = 0; drone < (int)(lhs.drones.size()); ++drone)
+    {
+        const DroneCollection &lhs_collection = lhs.drones[drone];
+        const DroneCollection &rhs_collection = rhs.drones[drone];
+        if (lhs_collection.launch_indices != rhs_collection.launch_indices ||
+            lhs_collection.deliver_nodes != rhs_collection.deliver_nodes ||
+            lhs_collection.land_indices != rhs_collection.land_indices)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+}
 
 // Warmup: return average delta, update incumbent & best properly
 double warmup_phase(
@@ -26,6 +50,9 @@ double warmup_phase(
     {
         Solution neighbour = incumbent; // try move on copy
         if (!op(instance, neighbour))
+            continue;
+
+        if (same_solution(neighbour, incumbent))
             continue;
 
         if (!master_check(instance, neighbour, false))
@@ -83,6 +110,9 @@ Solution simulated_annealing(
     {
         Solution neighbour = incumbent;
         if (!op(instance, neighbour))
+            continue;
+
+        if (same_solution(neighbour, incumbent))
             continue;
 
         if (!master_check(instance, neighbour, false))

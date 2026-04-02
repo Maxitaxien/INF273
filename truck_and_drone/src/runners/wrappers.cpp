@@ -6,6 +6,31 @@
 #include "algorithms/simulated_annealing.h"
 #include "verification/feasibility_check.h"
 
+namespace
+{
+bool same_solution(const Solution &lhs, const Solution &rhs)
+{
+    if (lhs.truck_route != rhs.truck_route || lhs.drones.size() != rhs.drones.size())
+    {
+        return false;
+    }
+
+    for (int drone = 0; drone < (int)(lhs.drones.size()); ++drone)
+    {
+        const DroneCollection &lhs_collection = lhs.drones[drone];
+        const DroneCollection &rhs_collection = rhs.drones[drone];
+        if (lhs_collection.launch_indices != rhs_collection.launch_indices ||
+            lhs_collection.deliver_nodes != rhs_collection.deliver_nodes ||
+            lhs_collection.land_indices != rhs_collection.land_indices)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+}
+
 Solution blind_random_wrapper(
     const Instance &instance,
     Solution initial,
@@ -63,6 +88,11 @@ Solution random_escape_wrapper(
     {
         Solution candidate = current;
         if (!op(instance, candidate))
+        {
+            continue;
+        }
+
+        if (same_solution(candidate, current))
         {
             continue;
         }
