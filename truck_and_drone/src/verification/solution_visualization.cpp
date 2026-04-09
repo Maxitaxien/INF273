@@ -699,9 +699,36 @@ bool Solution::save_visualization(const Instance &instance, const std::string &o
 
     const Color white{255, 255, 255};
     const Color black{0, 0, 0};
-    const Color blue{52, 120, 246};
-    const std::array<Color, 4> drone_colors = {black, blue, Color{0, 140, 90}, Color{160, 70, 0}};
+    const std::array<Color, 4> drone_colors = {
+        Color{214, 48, 49},
+        Color{52, 120, 246},
+        Color{0, 140, 90},
+        Color{160, 70, 0}};
     Canvas canvas(width, height, white);
+
+    if (truck_route.size() >= 2)
+    {
+        for (int idx = 0; idx < (int)(truck_route.size()); ++idx)
+        {
+            const int from = truck_route[idx];
+            const int to = (idx + 1 < (int)(truck_route.size()))
+                ? truck_route[idx + 1]
+                : 0;
+
+            if (from < 0 || from > instance.n || to < 0 || to > instance.n)
+            {
+                continue;
+            }
+
+            canvas.draw_arrow(
+                screen_positions[from],
+                screen_positions[to],
+                black,
+                truck_thickness,
+                truck_head_length,
+                truck_head_width);
+        }
+    }
 
     for (int drone = 0; drone < (int)(drones.size()); ++drone)
     {
@@ -745,30 +772,6 @@ bool Solution::save_visualization(const Instance &instance, const std::string &o
                 drone_gap_length,
                 drone_head_length,
                 drone_head_width);
-        }
-    }
-
-    if (truck_route.size() >= 2)
-    {
-        for (int idx = 0; idx < (int)(truck_route.size()); ++idx)
-        {
-            const int from = truck_route[idx];
-            const int to = (idx + 1 < (int)(truck_route.size()))
-                ? truck_route[idx + 1]
-                : 0;
-
-            if (from < 0 || from > instance.n || to < 0 || to > instance.n)
-            {
-                continue;
-            }
-
-            canvas.draw_arrow(
-                screen_positions[from],
-                screen_positions[to],
-                black,
-                truck_thickness,
-                truck_head_length,
-                truck_head_width);
         }
     }
 

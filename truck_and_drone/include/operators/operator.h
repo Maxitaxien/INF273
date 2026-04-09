@@ -132,7 +132,7 @@ bool drone_rendezvous_shift_first_improvement(const Instance &instance, Solution
 /**
  * Best-improvement wrapper around local drone rendezvous shifts.
  *
- * This evaluates the best window-2 shift for every existing drone flight and
+ * This evaluates the best bounded local shift for every existing drone flight and
  * commits the best feasible candidate across all of them. Acceptance is left
  * to the outer metaheuristic.
  */
