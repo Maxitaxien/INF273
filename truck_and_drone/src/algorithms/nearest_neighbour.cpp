@@ -35,8 +35,9 @@ Solution nearest_neighbour(const Instance& problem_instance) {
 
     s.truck_route = tour;
 
-    // Build empty drone trips
-    s.drones = std::vector<DroneCollection>();
+    // Keep the standard two-drone scaffold so truck-to-drone operators
+    // can act on NN-seeded solutions.
+    s.drones.resize(2);
 
     return s;
 }

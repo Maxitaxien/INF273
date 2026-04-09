@@ -1,5 +1,7 @@
 #include "algorithms/gam.h"
 #include "algorithms/gam_escape_algorithm.h"
+#include "algorithms/nearest_neighbour.h"
+#include "algorithms/greedy_drone_cover.h"
 #include "general/random.h"
 #include "general/roulette_wheel_selection.h"
 #include "verification/feasibility_check.h"
@@ -315,8 +317,12 @@ GAMResult general_adaptive_metaheuristic(
     const std::vector<NamedOperator> &ops,
     const std::vector<double> &initial_weights)
 {
+    // TEST: With NN initial solution (easier to start with than greedy drone cover solution)
+    initial = nearest_neighbour(instance);
+    // initial = greedy_drone_cover(instance, initial);
+
     constexpr int max_iterations = 10000;
-    const int segment_length = instance.n >= 50 ? 200 : 100;
+    const int segment_length = 100;
     int stopping_condition = std::max(
         segment_length / 2,
         instance.n >= 50 ? instance.n * 3 : instance.n * 2);
