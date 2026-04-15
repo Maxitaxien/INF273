@@ -7,6 +7,7 @@
 #include <sstream>
 #include <vector>
 #include "algorithms/gam_escape_algorithm.h"
+#include "algorithms/gam_solution_cache.h"
 #include "algorithms/greedy_drone_cover.h"
 #include "algorithms/nearest_neighbour.h"
 #include "algorithms/simple_initial_solution.h"
@@ -707,6 +708,39 @@ void test_gam_escape_algorithm_tracks_best_seen_while_returning_endpoint() {
     std::cout << "test_gam_escape_algorithm_tracks_best_seen_while_returning_endpoint passed\n";
 }
 
+void test_gam_solution_cache_marks_first_visit_and_reuses_evaluation() {
+    Instance instance{};
+    instance.n = 3;
+    instance.m = 2;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 100, 1000, 1000},
+        {100, 0, 500, 100},
+        {1000, 500, 0, 100},
+        {1000, 100, 100, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 1, 3, 2}, {DroneCollection{}, DroneCollection{}}};
+    GAMSolutionCache cache;
+
+    const GAMSolutionEvaluation first =
+        evaluate_solution_with_cache(instance, solution, &cache);
+    const GAMSolutionEvaluation second =
+        evaluate_solution_with_cache(instance, solution, &cache);
+
+    assert(first.is_new_solution);
+    assert(first.feasible);
+    assert(first.objective_known);
+    assert(!second.is_new_solution);
+    assert(second.feasible);
+    assert(second.objective_known);
+    assert(first.objective == second.objective);
+    assert(cache.size() == 1);
+
+    std::cout << "test_gam_solution_cache_marks_first_visit_and_reuses_evaluation passed\n";
+}
+
 void test_two_opt_repairs_drone_schedule_after_route_reversal() {
     Instance instance{};
     instance.n = 5;
@@ -1265,6 +1299,7 @@ int main() {
         test_alns_pair_combination_materializes_named_operators();
         test_adaptive_composite_operator_rolls_back_failed_insert();
         test_gam_escape_algorithm_tracks_best_seen_while_returning_endpoint();
+        test_gam_solution_cache_marks_first_visit_and_reuses_evaluation();
         test_two_opt_repairs_drone_schedule_after_route_reversal();
         test_collect_two_opt_affected_drone_flights_returns_intersections();
         test_repair_after_two_opt_localized_repairs_candidate();

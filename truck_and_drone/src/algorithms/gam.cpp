@@ -1,5 +1,6 @@
 #include "algorithms/gam.h"
 #include "algorithms/gam_escape_algorithm.h"
+#include "algorithms/gam_solution_cache.h"
 #include "algorithms/nearest_neighbour.h"
 #include "algorithms/greedy_drone_cover.h"
 #include "general/random.h"
@@ -57,7 +58,8 @@ double average_positive_delta_sample(
     const Instance &instance,
     const Solution &reference_solution,
     long long reference_cost,
-    const std::vector<NamedOperator> &ops)
+    const std::vector<NamedOperator> &ops,
+    GAMSolutionCache *cache)
 {
     constexpr int target_samples = 50;
     constexpr int max_attempts = 250;
@@ -75,13 +77,19 @@ double average_positive_delta_sample(
         const NamedOperator &op = ops[attempt % ops.size()];
         Solution neighbour = reference_solution;
         if (!op.op(instance, neighbour) ||
-            same_solution(neighbour, reference_solution) ||
-            !master_check(instance, neighbour, false))
+            same_solution(neighbour, reference_solution))
         {
             continue;
         }
 
-        const long long candidate_cost = objective_function_impl(instance, neighbour);
+        const GAMSolutionEvaluation evaluation =
+            evaluate_solution_with_cache(instance, neighbour, cache);
+        if (!evaluation.feasible || !evaluation.objective_known)
+        {
+            continue;
+        }
+
+        const long long candidate_cost = evaluation.objective;
         const long long delta = candidate_cost - reference_cost;
         if (delta > 0)
         {
@@ -172,10 +180,12 @@ double compute_operator_reward(
     long long delta_e,
     bool accepted,
     bool new_best,
+    bool new_solution,
     double delta_scale)
 {
     const double safe_scale = std::max(1.0, delta_scale);
     double reward = 0.0;
+    constexpr double novel_solution_bonus = 0.05;
 
     if (delta_e < 0)
     {
@@ -191,6 +201,11 @@ double compute_operator_reward(
     if (new_best)
     {
         reward += 2.0;
+    }
+
+    if (new_solution)
+    {
+        reward += novel_solution_bonus;
     }
 
     return reward;
@@ -347,12 +362,15 @@ GAMResult general_adaptive_metaheuristic(
         build_operator_state(ops, initial_selection_weights);
     std::vector<double> selection_weights = build_selection_weights(operator_state);
 
+    GAMSolutionCache solution_cache;
     const long long initial_cost = objective_function_impl(instance, initial);
+    gam_cache_known_feasible_solution(solution_cache, initial, initial_cost);
     const double sampled_positive_delta = average_positive_delta_sample(
         instance,
         initial,
         initial_cost,
-        ops);
+        ops,
+        &solution_cache);
 
     const double target_initial_worsening_acceptance =
         instance.n >= 50 ? 0.12 : 0.18;
@@ -398,7 +416,8 @@ GAMResult general_adaptive_metaheuristic(
                 incumbent,
                 ops,
                 selection_weights,
-                escape_budget);
+                escape_budget,
+                &solution_cache);
             incumbent = escape_result.incumbent;
             incumbent_cost = escape_result.incumbent_cost;
 
@@ -450,93 +469,104 @@ GAMResult general_adaptive_metaheuristic(
             operator_statistics.failures++;
             non_improving_iterations++;
         }
-        else if (!master_check(instance, neighbour, false))
-        {
-            result.statistics.infeasible_candidates++;
-            operator_statistics.successful_calls++;
-            operator_statistics.infeasible_candidates++;
-            non_improving_iterations++;
-        }
         else
         {
-            selected.segment_successes++;
-            operator_statistics.successful_calls++;
-            operator_statistics.feasible_candidates++;
+            const GAMSolutionEvaluation evaluation =
+                evaluate_solution_with_cache(instance, neighbour, &solution_cache);
 
-            const long long cost = objective_function_impl(instance, neighbour);
-            const long long delta_e = cost - incumbent_cost;
-
-            iteration_stat.delta = delta_e;
-            iteration_stat.has_delta = true;
-            operator_statistics.delta_sum += delta_e;
-            operator_statistics.delta_samples++;
-
-            bool accept = delta_e <= 0;
-            double acceptance_probability = 1.0;
-
-            if (delta_e > 0)
+            if (!evaluation.feasible || !evaluation.objective_known)
             {
-                acceptance_probability = compute_acceptance_probability(delta_e, temperature);
-                accept = unit_dist(gen) < acceptance_probability;
-                iteration_stat.worsening_acceptance_probability = acceptance_probability;
-            }
-
-            if (accept)
-            {
-                selected.segment_accepts++;
-                operator_statistics.accepted_moves++;
-                incumbent = neighbour;
-                incumbent_cost = cost;
-                result.statistics.accepted_moves++;
-
-                if (delta_e < 0)
-                {
-                    result.statistics.improving_accepts++;
-                    operator_statistics.improving_accepts++;
-                }
-                else
-                {
-                    result.statistics.non_improving_accepts++;
-                }
-            }
-
-            const bool new_best = cost < best_cost;
-            const bool incumbent_improved = accept && delta_e < 0;
-
-            if (delta_e < 0)
-            {
-                selected.segment_improvements++;
-                selected.segment_improvement +=
-                    std::min(5.0, (double)(-delta_e) / std::max(1.0, reward_delta_scale));
-            }
-
-            if (new_best)
-            {
-                selected.segment_new_bests++;
-                operator_statistics.new_bests++;
-                best = neighbour;
-                best_cost = cost;
-                result.statistics.best_updates++;
-                result.statistics.best_found_iteration = i + 1;
-                non_improving_iterations = 0;
-            }
-            else if (incumbent_improved)
-            {
-                non_improving_iterations = 0;
+                result.statistics.infeasible_candidates++;
+                operator_statistics.successful_calls++;
+                operator_statistics.infeasible_candidates++;
+                non_improving_iterations++;
             }
             else
             {
-                non_improving_iterations++;
-            }
+                selected.segment_successes++;
+                operator_statistics.successful_calls++;
+                operator_statistics.feasible_candidates++;
 
-            const double reward =
-                compute_operator_reward(delta_e, accept, new_best, reward_delta_scale);
-            selected.segment_score += reward;
+                const long long cost = evaluation.objective;
+                const long long delta_e = cost - incumbent_cost;
 
-            if (delta_e != 0)
-            {
-                const double abs_delta = std::abs((double)delta_e);
-                reward_delta_scale = 0.95 * reward_delta_scale + 0.05 * std::max(1.0, abs_delta);
+                iteration_stat.delta = delta_e;
+                iteration_stat.has_delta = true;
+                operator_statistics.delta_sum += delta_e;
+                operator_statistics.delta_samples++;
+
+                bool accept = delta_e <= 0;
+                double acceptance_probability = 1.0;
+
+                if (delta_e > 0)
+                {
+                    acceptance_probability = compute_acceptance_probability(delta_e, temperature);
+                    accept = unit_dist(gen) < acceptance_probability;
+                    iteration_stat.worsening_acceptance_probability = acceptance_probability;
+                }
+
+                if (accept)
+                {
+                    selected.segment_accepts++;
+                    operator_statistics.accepted_moves++;
+                    incumbent = neighbour;
+                    incumbent_cost = cost;
+                    result.statistics.accepted_moves++;
+
+                    if (delta_e < 0)
+                    {
+                        result.statistics.improving_accepts++;
+                        operator_statistics.improving_accepts++;
+                    }
+                    else
+                    {
+                        result.statistics.non_improving_accepts++;
+                    }
+                }
+
+                const bool new_best = cost < best_cost;
+                const bool incumbent_improved = accept && delta_e < 0;
+
+                if (delta_e < 0)
+                {
+                    selected.segment_improvements++;
+                    selected.segment_improvement +=
+                        std::min(5.0, (double)(-delta_e) / std::max(1.0, reward_delta_scale));
+                }
+
+                if (new_best)
+                {
+                    selected.segment_new_bests++;
+                    operator_statistics.new_bests++;
+                    best = neighbour;
+                    best_cost = cost;
+                    result.statistics.best_updates++;
+                    result.statistics.best_found_iteration = i + 1;
+                    non_improving_iterations = 0;
+                }
+                else if (incumbent_improved)
+                {
+                    non_improving_iterations = 0;
+                }
+                else
+                {
+                    non_improving_iterations++;
+                }
+
+                const double reward =
+                    compute_operator_reward(
+                        delta_e,
+                        accept,
+                        new_best,
+                        evaluation.is_new_solution,
+                        reward_delta_scale);
+                selected.segment_score += reward;
+
+                if (delta_e != 0)
+                {
+                    const double abs_delta = std::abs((double)delta_e);
+                    reward_delta_scale = 0.95 * reward_delta_scale + 0.05 * std::max(1.0, abs_delta);
+                }
             }
         }
 

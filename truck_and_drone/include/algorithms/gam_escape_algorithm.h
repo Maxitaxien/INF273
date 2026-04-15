@@ -1,4 +1,5 @@
 #pragma once
+#include "algorithms/gam_solution_cache.h"
 #include "verification/solution.h"
 #include "operators/operator.h"
 
@@ -25,5 +26,6 @@ GAMEscapeResult gam_escape_algorithm(
     Solution incumbent, 
     const std::vector<NamedOperator> &ops, 
     const std::vector<double> &selection_weights,
-    int amnt_iter
+    int amnt_iter,
+    GAMSolutionCache *cache = nullptr
 );

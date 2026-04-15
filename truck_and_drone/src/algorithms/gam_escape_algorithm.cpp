@@ -1,9 +1,8 @@
 #include "algorithms/gam_escape_algorithm.h"
-#include "verification/solution.h"
-#include "verification/feasibility_check.h"
-#include "verification/objective_value.h"
 #include "general/roulette_wheel_selection.h"
 #include "operators/operator.h"
+#include "verification/objective_value.h"
+#include "verification/solution.h"
 
 #include <utility>
 #include <vector>
@@ -38,9 +37,21 @@ GAMEscapeResult gam_escape_algorithm(
     Solution incumbent, 
     const std::vector<NamedOperator> &ops, 
     const std::vector<double> &selection_weights,
-    int amnt_iter
+    int amnt_iter,
+    GAMSolutionCache *cache
 ) {
-    const long long initial_cost = objective_function_impl(inst, incumbent);
+    const GAMSolutionEvaluation initial_evaluation =
+        evaluate_solution_with_cache(inst, incumbent, cache);
+    const long long initial_cost =
+        initial_evaluation.objective_known
+            ? initial_evaluation.objective
+            : objective_function_impl(inst, incumbent);
+
+    if (cache != nullptr && !initial_evaluation.objective_known)
+    {
+        gam_cache_known_feasible_solution(*cache, incumbent, initial_cost);
+    }
+
     if (ops.empty() || amnt_iter <= 0)
     {
         Solution best_seen = incumbent;
@@ -62,10 +73,17 @@ GAMEscapeResult gam_escape_algorithm(
         Solution neighbour = incumbent;
 
         if (ops[selected_idx].op(inst, neighbour) &&
-            !same_solution(neighbour, incumbent) &&
-            master_check(inst, neighbour, false)) {
+            !same_solution(neighbour, incumbent)) {
+            const GAMSolutionEvaluation evaluation =
+                evaluate_solution_with_cache(inst, neighbour, cache);
+
+            if (!evaluation.feasible || !evaluation.objective_known)
+            {
+                continue;
+            }
+
             incumbent = std::move(neighbour);
-            incumbent_cost = objective_function_impl(inst, incumbent);
+            incumbent_cost = evaluation.objective;
             if (incumbent_cost < best_cost)
             {
                 best = incumbent;
