@@ -4,8 +4,17 @@
 #include "runners/run_algorithm.h"
 #include <vector>
 
+// TEST:
+#include "datahandling/datasets.h"
+#include "datahandling/reader.h"
+#include "tsp/linkernsolver.h"
+#include "algorithms/simple_initial_solution.h"
+#include <iostream>
+
 int main()
 {
+    Instance inst = read_instance(datasets::toy);
+    /*
     const std::vector<NamedOperator> ops = {
         NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random},
         // NamedOperator{"Two-Opt Greedy", two_opt_greedy},
@@ -46,4 +55,12 @@ int main()
         // 0.03 // Or-opt segment first_improvement
     };
     run_gam(ops, weights);
+    */
+
+    LinkernSolver solver(inst.truck_matrix);
+    Solution s = simple_initial_solution(inst.n);
+
+    std::vector<int> initial_truck_tour = s.truck_route;
+    double length = solver.improve(initial_truck_tour);
+    std::cout << "Improved length: " << length << "\n";
 }

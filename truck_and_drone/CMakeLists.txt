@@ -1,15 +1,23 @@
 cmake_minimum_required(VERSION 3.16)
-project(truck_and_drone LANGUAGES CXX)
+project(truck_and_drone LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
-execute_process(
-    COMMAND ${Python3_EXECUTABLE} -c "import numpy; print(numpy.get_include())"
-    OUTPUT_VARIABLE Python3_NumPy_INCLUDE_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
+
+# execute_process(
+#     COMMAND ${Python3_EXECUTABLE} -c "import numpy; print(numpy.get_include())"
+#     OUTPUT_VARIABLE Python3_NumPy_INCLUDE_DIR
+#     OUTPUT_STRIP_TRAILING_WHITESPACE
+# )
+
+# Concorde imported lib
+add_library(concorde STATIC IMPORTED GLOBAL)
+set_target_properties(concorde PROPERTIES
+    IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/third_party/concorde/concorde.a"
+    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/third_party/concorde;${CMAKE_SOURCE_DIR}/third_party/concorde/LINKERN;${CMAKE_SOURCE_DIR}/third_party/concorde/UTIL;${CMAKE_SOURCE_DIR}/third_party/concorde/INCLUDE"
 )
 
 # Core library
@@ -66,6 +74,9 @@ add_library(core
     src/verification/solution_visualization.cpp
     src/runners/run_algorithm.cpp
     src/runners/wrappers.cpp
+
+    src/tsp/concorde_linkern_c_api.c
+    src/tsp/linkernsolver.cpp
 )
 
 target_include_directories(core PUBLIC
@@ -74,7 +85,11 @@ target_include_directories(core PUBLIC
     ${Python3_NumPy_INCLUDE_DIR}
 )
 
-target_link_libraries(core PUBLIC ${Python3_LIBRARIES})
+target_link_libraries(core PUBLIC
+    ${Python3_LIBRARIES}
+    concorde
+    m
+)
 
 target_include_directories(core PUBLIC ${CMAKE_SOURCE_DIR}/external)
 
