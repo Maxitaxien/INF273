@@ -85,6 +85,40 @@ std::vector<AffectedDroneFlight> collect_two_opt_affected_drone_flights(
     int second);
 
 /**
+ * Identifies drone flights whose interval touches either swapped truck index.
+ *
+ * This is a conservative front-end for localized repair after a truck-node
+ * swap: any flight spanning the swap corridor may need new timing or anchors.
+ */
+std::vector<AffectedDroneFlight> collect_swap_affected_drone_flights(
+    const Solution &solution,
+    int first,
+    int second);
+
+/**
+ * Identifies drone flights whose launch or landing anchor is removed from the
+ * truck route.
+ */
+std::vector<AffectedDroneFlight> collect_removed_anchor_drone_flights(
+    const Solution &solution,
+    int removed_idx);
+
+/**
+ * Rebuilds the listed affected flights while keeping unaffected flights frozen.
+ *
+ * The candidate truck route is assumed to have already been mutated. Launch and
+ * land indices are remapped by node identity where possible, the affected
+ * flights are removed, and each removed delivery is locally reassigned on its
+ * original drone using a vicinity search.
+ */
+bool repair_affected_drone_flights_localized(
+    const Instance &instance,
+    const Solution &before_move,
+    const std::vector<AffectedDroneFlight> &affected,
+    Solution &candidate,
+    const std::vector<int> &allowed_missing = std::vector<int>{});
+
+/**
  * Rebuilds only the flights affected by a 2-opt reversal while keeping all
  * unaffected flights frozen.
  *

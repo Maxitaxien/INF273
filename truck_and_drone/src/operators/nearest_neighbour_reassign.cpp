@@ -3,6 +3,8 @@
 #include "operators/operator.h"
 #include "datahandling/instance.h"
 #include "operators/helpers.h"
+#include "solution_fixers/solution_fixers.h"
+#include "verification/feasibility_check.h"
 #include <algorithm>
 #include <random>
 #include <utility>
@@ -37,7 +39,24 @@ bool nearest_neighbour_reassign(const Instance &inst, Solution &sol, int i) {
                                    candidate);
     if (swap_position == candidate_solution.truck_route.end())
         return false;
+    const int swap_idx =
+        (int)(std::distance(candidate_solution.truck_route.begin(), swap_position));
     std::iter_swap(candidate_solution.truck_route.begin() + i, swap_position);
+
+    const std::vector<AffectedDroneFlight> affected =
+        collect_swap_affected_drone_flights(sol, i, swap_idx);
+    if (!repair_affected_drone_flights_localized(
+            inst,
+            sol,
+            affected,
+            candidate_solution))
+    {
+        candidate_solution = fix_overall_feasibility(inst, candidate_solution);
+        if (!master_check(inst, candidate_solution, false))
+        {
+            return false;
+        }
+    }
 
     sol = std::move(candidate_solution);
     return true;

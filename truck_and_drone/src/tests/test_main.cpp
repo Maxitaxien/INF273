@@ -24,7 +24,9 @@
 #include "operators/operator.h"
 #include "operators/or_opt_segment_relocate.h"
 #include "operators/helpers.h"
+#include "operators/nearest_neighbour_reassign.h"
 #include "operators/replace_drone_delivery.h"
+#include "operators/replace_truck_delivery.h"
 #include "solution_fixers/solution_fixers.h"
 #include "operators/two_opt.h"
 #include "operators/three_opt.h"
@@ -565,6 +567,101 @@ void test_replace_drone_delivery_picks_best_objective_insertion() {
     assert(objective_function_impl(instance, solution) == brute_best);
 
     std::cout << "test_replace_drone_delivery_picks_best_objective_insertion passed\n";
+}
+
+void test_nearest_neighbour_reassign_repairs_swapped_anchor_flights() {
+    Instance instance{};
+    instance.n = 5;
+    instance.m = 2;
+    instance.lim = 220;
+    instance.truck_matrix = {
+        {0, 100, 400, 400, 200, 500},
+        {100, 0, 100, 400, 50, 400},
+        {400, 100, 0, 400, 50, 300},
+        {400, 400, 400, 0, 400, 400},
+        {200, 50, 50, 400, 0, 100},
+        {500, 400, 300, 400, 100, 0},
+    };
+    instance.drone_matrix = {
+        {0, 100, 400, 70, 100, 400},
+        {100, 0, 400, 80, 400, 500},
+        {400, 400, 0, 80, 400, 500},
+        {70, 80, 80, 0, 70, 500},
+        {100, 400, 400, 400, 0, 100},
+        {400, 500, 500, 500, 100, 0},
+    };
+
+    Solution solution{
+        {0, 1, 2, 4, 5},
+        {
+            DroneCollection{{1}, {3}, {2}},
+            DroneCollection{},
+        }};
+
+    assert(master_check(instance, solution, true));
+
+    Solution broken_candidate = solution;
+    std::iter_swap(
+        broken_candidate.truck_route.begin() + 1,
+        broken_candidate.truck_route.begin() + 3);
+    remap_drone_anchor_indices_by_node(solution, broken_candidate);
+    assert(!master_check(instance, broken_candidate, false));
+
+    const bool success = nearest_neighbour_reassign(instance, solution, 1);
+
+    assert(success);
+    assert(solution.truck_route == std::vector<int>({0, 4, 2, 1, 5}));
+    assert(solution.drones[0].deliver_nodes == std::vector<int>({3}));
+    assert(master_check(instance, solution, true));
+
+    std::cout << "test_nearest_neighbour_reassign_repairs_swapped_anchor_flights passed\n";
+}
+
+void test_replace_truck_delivery_repairs_removed_anchor_flights() {
+    Instance instance{};
+    instance.n = 5;
+    instance.m = 2;
+    instance.lim = 220;
+    instance.truck_matrix = {
+        {0, 100, 100, 400, 100, 100},
+        {100, 0, 100, 400, 100, 400},
+        {100, 100, 0, 400, 100, 400},
+        {400, 400, 400, 0, 400, 400},
+        {100, 100, 100, 400, 0, 100},
+        {100, 400, 400, 400, 100, 0},
+    };
+    instance.drone_matrix = {
+        {0, 100, 100, 200, 100, 100},
+        {100, 0, 100, 70, 90, 400},
+        {100, 100, 0, 80, 90, 400},
+        {200, 100, 80, 0, 70, 400},
+        {100, 90, 90, 70, 0, 100},
+        {100, 400, 400, 400, 100, 0},
+    };
+
+    Solution solution{
+        {0, 1, 2, 4, 5},
+        {
+            DroneCollection{},
+            DroneCollection{{2}, {3}, {3}},
+        }};
+
+    assert(master_check(instance, solution, true));
+
+    Solution broken_candidate = solution;
+    pop_truck_delivery(broken_candidate, 2);
+    remap_drone_anchor_indices_by_node(solution, broken_candidate);
+    assert(!master_check(instance, broken_candidate, false));
+
+    const bool success = replace_truck_delivery(instance, solution, 2, 0);
+
+    assert(success);
+    assert(solution.truck_route == std::vector<int>({0, 1, 4, 5}));
+    assert(solution.drones[0].deliver_nodes == std::vector<int>({2}));
+    assert(solution.drones[1].deliver_nodes == std::vector<int>({3}));
+    assert(master_check(instance, solution, true));
+
+    std::cout << "test_replace_truck_delivery_repairs_removed_anchor_flights passed\n";
 }
 
 void test_alns_operator_applies_remove_then_insert() {
@@ -1294,6 +1391,8 @@ int main() {
         test_replace_drone_delivery_greedy_moves_customer_back_to_truck();
         test_drone_demotion_shake_moves_customer_back_to_truck();
         test_replace_drone_delivery_picks_best_objective_insertion();
+        test_nearest_neighbour_reassign_repairs_swapped_anchor_flights();
+        test_replace_truck_delivery_repairs_removed_anchor_flights();
         test_alns_operator_applies_remove_then_insert();
         test_alns_operator_rolls_back_failed_insert();
         test_alns_pair_combination_materializes_named_operators();

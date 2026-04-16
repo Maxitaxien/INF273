@@ -128,22 +128,21 @@ void consider_flight_assignment(
     const long long downstream_stops = std::max(0, route_size - land_idx - 1);
     const long long downstream_delay_impact = truck_wait * downstream_stops;
 
-    if (!best.feasible ||
-        downstream_delay_impact < best.downstream_delay_impact ||
-        (downstream_delay_impact == best.downstream_delay_impact &&
-         truck_wait < best.truck_wait) ||
-        (downstream_delay_impact == best.downstream_delay_impact &&
-         truck_wait == best.truck_wait &&
-         drone_wait < best.drone_wait) ||
-        (downstream_delay_impact == best.downstream_delay_impact &&
-         truck_wait == best.truck_wait &&
-         drone_wait == best.drone_wait &&
-         drone_arrival < best.drone_arrival) ||
-        (downstream_delay_impact == best.downstream_delay_impact &&
-         truck_wait == best.truck_wait &&
-         drone_wait == best.drone_wait &&
-         drone_arrival == best.drone_arrival &&
-         land_idx < best.land_idx))
+    const auto candidate_key = std::tie(
+        downstream_delay_impact,
+        truck_wait,
+        drone_wait,
+        drone_arrival,
+        land_idx);
+
+    const auto best_key = std::tie(
+        best.downstream_delay_impact,
+        best.truck_wait,
+        best.drone_wait,
+        best.drone_arrival,
+        best.land_idx);
+
+    if (!best.feasible || candidate_key < best_key)
     {
         best.feasible = true;
         best.launch_idx = launch_idx;

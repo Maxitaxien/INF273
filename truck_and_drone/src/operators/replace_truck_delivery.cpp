@@ -12,29 +12,6 @@
 
 extern std::mt19937 gen;
 
-namespace
-{
-void shift_drone_indices_after_truck_change(Solution &sol, int idx, int delta)
-{
-    for (DroneCollection &drone_collection : sol.drones)
-    {
-        const int flight_count = (int)(drone_collection.launch_indices.size());
-        for (int i = 0; i < flight_count; ++i)
-        {
-            if (drone_collection.launch_indices[i] >= idx)
-            {
-                drone_collection.launch_indices[i] += delta;
-            }
-
-            if (drone_collection.land_indices[i] >= idx)
-            {
-                drone_collection.land_indices[i] += delta;
-            }
-        }
-    }
-}
-}
-
 bool replace_truck_delivery(const Instance &inst, Solution &sol, int idx, int drone)
 {
     if (idx <= 0 || idx >= (int)(sol.truck_route.size()))
@@ -46,35 +23,35 @@ bool replace_truck_delivery(const Instance &inst, Solution &sol, int idx, int dr
         return false;
     }
 
-    int customer = sol.truck_route[idx];
+    const int customer = sol.truck_route[idx];
+    const std::vector<AffectedDroneFlight> affected =
+        collect_removed_anchor_drone_flights(sol, idx);
 
-    // 1: POP
-    pop_truck_delivery(sol, idx);
-    shift_drone_indices_after_truck_change(sol, idx, -1);
+    Solution candidate = sol;
+    pop_truck_delivery(candidate, idx);
 
-    // 3: INSERT - n = problem size / 10 index lookahead, pick best
-    const int look_ahead = std::max(1, inst.n / 10);
-    sort_drone_collection(sol.drones[drone]);
-
-    auto [success, ignored_solution] = assign_launch_and_land_n_lookahead_assume_valid(
-        inst,
-        sol,
-        idx - 1,
-        customer,
-        drone,
-        look_ahead);
-    (void)ignored_solution;
-    if (!success || !master_check(inst, sol, false))
+    if (!repair_affected_drone_flights_localized(
+            inst,
+            sol,
+            affected,
+            candidate,
+            std::vector<int>{customer}))
     {
-        if (success)
-        {
-            remove_drone_flight(sol, drone);
-        }
-        shift_drone_indices_after_truck_change(sol, idx, 1);
-        insert_truck_delivery(sol, customer, idx);
         return false;
     }
 
+    auto [success, ignored_solution] = greedy_assign_launch_and_land_assume_valid(
+        inst,
+        candidate,
+        customer,
+        drone);
+    (void)ignored_solution;
+    if (!success || !master_check(inst, candidate, false))
+    {
+        return false;
+    }
+
+    sol = std::move(candidate);
     return true;
 }
 
