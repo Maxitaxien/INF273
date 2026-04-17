@@ -3,10 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Try this first; if gethostname still conflicts, we can patch one line next */
 #define CC_NETREADY
 
-#include "concorde.h"
 #include "util.h"
 #include "linkern.h"
 

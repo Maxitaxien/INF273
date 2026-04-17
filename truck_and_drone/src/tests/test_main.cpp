@@ -28,6 +28,7 @@
 #include "operators/replace_drone_delivery.h"
 #include "operators/replace_truck_delivery.h"
 #include "solution_fixers/solution_fixers.h"
+#include "tsp/linkernsolver.h"
 #include "operators/two_opt.h"
 #include "operators/three_opt.h"
 #include "general/random.h"
@@ -291,6 +292,66 @@ void test_two_opt_random_swaps_combined_customer_slots() {
     assert(objective_function_impl(instance, solution) < initial_cost);
 
     std::cout << "test_two_opt_random_swaps_combined_customer_slots passed\n";
+}
+
+void test_linkern_solver_solves_current_truck_subset() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 20000;
+    instance.truck_matrix = {
+        {0, 100, 200, 300, 400},
+        {100, 0, 100, 200, 300},
+        {200, 100, 0, 100, 200},
+        {300, 200, 100, 0, 100},
+        {400, 300, 200, 100, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    LinkernSolver solver(instance.truck_matrix);
+    const std::vector<int> initial_route = {0, 1, 3, 2, 4};
+    const double initial_length = solver.tour_length(initial_route);
+    const LinkernTour optimized = solver.solve_route(initial_route, 0);
+
+    assert(optimized.tour.size() == initial_route.size());
+    assert(optimized.tour.front() == 0);
+    assert(optimized.value < initial_length);
+    assert(std::abs(optimized.value - 800.0) < 1e-9);
+
+    std::vector<int> sorted = optimized.tour;
+    std::sort(sorted.begin(), sorted.end());
+    assert(sorted == std::vector<int>({0, 1, 2, 3, 4}));
+
+    std::cout << "test_linkern_solver_solves_current_truck_subset passed\n";
+}
+
+void test_concorde_linkern_operator_improves_truck_route() {
+    Instance instance{};
+    instance.n = 4;
+    instance.m = 2;
+    instance.lim = 20000;
+    instance.truck_matrix = {
+        {0, 100, 200, 300, 400},
+        {100, 0, 100, 200, 300},
+        {200, 100, 0, 100, 200},
+        {300, 200, 100, 0, 100},
+        {400, 300, 200, 100, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 1, 3, 2, 4}, {}};
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    const bool success = concorde_linkern_improve(instance, solution);
+
+    assert(success);
+    assert(master_check(instance, solution, true));
+    assert(objective_function_impl(instance, solution) < initial_cost);
+
+    LinkernSolver solver(instance.truck_matrix);
+    assert(std::abs(solver.tour_length(solution.truck_route) - 800.0) < 1e-9);
+
+    std::cout << "test_concorde_linkern_operator_improves_truck_route passed\n";
 }
 
 void test_sample_contiguous_slot_indices_returns_block() {
@@ -1382,6 +1443,8 @@ int main() {
         test_two_opt_first_improvement_improves_truck_route();
         test_two_opt_arrival_screened_improves_truck_route();
         test_two_opt_random_swaps_combined_customer_slots();
+        test_linkern_solver_solves_current_truck_subset();
+        test_concorde_linkern_operator_improves_truck_route();
         test_sample_contiguous_slot_indices_returns_block();
         test_three_opt_random_permutates_combined_customer_slots();
         test_or_opt_segment_relocate_moves_block();

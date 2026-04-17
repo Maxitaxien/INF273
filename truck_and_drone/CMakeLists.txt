@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+find_program(CONCORDE_MAKE_EXECUTABLE NAMES make gmake REQUIRED)
 
 
 # execute_process(
@@ -13,11 +14,52 @@ find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 #     OUTPUT_STRIP_TRAILING_WHITESPACE
 # )
 
-# Concorde imported lib
-add_library(concorde STATIC IMPORTED GLOBAL)
-set_target_properties(concorde PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/third_party/concorde/concorde.a"
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/third_party/concorde;${CMAKE_SOURCE_DIR}/third_party/concorde/LINKERN;${CMAKE_SOURCE_DIR}/third_party/concorde/UTIL;${CMAKE_SOURCE_DIR}/third_party/concorde/INCLUDE"
+set(CONCORDE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/third_party/concorde")
+set(CONCORDE_BUILD_DIR "${CMAKE_BINARY_DIR}/third_party/concorde")
+set(CONCORDE_MAKEFILE "${CONCORDE_BUILD_DIR}/Makefile")
+set(CONCORDE_CONFIG_HEADER "${CONCORDE_BUILD_DIR}/INCLUDE/config.h")
+set(CONCORDE_LIBRARY "${CONCORDE_BUILD_DIR}/concorde.a")
+file(MAKE_DIRECTORY "${CONCORDE_BUILD_DIR}")
+
+file(GLOB_RECURSE CONCORDE_BUILD_DEPS CONFIGURE_DEPENDS
+    "${CONCORDE_SOURCE_DIR}/*.c"
+    "${CONCORDE_SOURCE_DIR}/*.h"
+    "${CONCORDE_SOURCE_DIR}/*.in"
+)
+list(APPEND CONCORDE_BUILD_DEPS
+    "${CONCORDE_SOURCE_DIR}/configure"
+    "${CONCORDE_SOURCE_DIR}/configure.in"
+)
+
+add_custom_command(
+    OUTPUT
+        "${CONCORDE_MAKEFILE}"
+        "${CONCORDE_CONFIG_HEADER}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CONCORDE_BUILD_DIR}"
+    COMMAND "${CONCORDE_SOURCE_DIR}/configure"
+    WORKING_DIRECTORY "${CONCORDE_BUILD_DIR}"
+    DEPENDS
+        "${CONCORDE_SOURCE_DIR}/configure"
+        "${CONCORDE_SOURCE_DIR}/configure.in"
+        "${CONCORDE_SOURCE_DIR}/Makefile.in"
+        "${CONCORDE_SOURCE_DIR}/INCLUDE/config.h.in"
+        "${CONCORDE_SOURCE_DIR}/INCLUDE/Makefile.common.in"
+    VERBATIM
+)
+
+add_custom_command(
+    OUTPUT "${CONCORDE_LIBRARY}"
+    COMMAND "${CONCORDE_MAKE_EXECUTABLE}" concorde.a
+    WORKING_DIRECTORY "${CONCORDE_BUILD_DIR}"
+    DEPENDS
+        ${CONCORDE_BUILD_DEPS}
+        "${CONCORDE_MAKEFILE}"
+        "${CONCORDE_CONFIG_HEADER}"
+    VERBATIM
+)
+
+add_custom_target(concorde_build
+    DEPENDS "${CONCORDE_LIBRARY}"
 )
 
 # Core library
@@ -50,6 +92,7 @@ add_library(core
     src/operators/interval_helpers.cpp
     src/operators/route_timing.cpp
     src/operators/operator.cpp
+    src/operators/concorde_tsp.cpp
     src/operators/alns/random_removal.cpp
     src/operators/alns/greedy_insert.cpp
     src/operators/alns/alns_composite.cpp
@@ -85,11 +128,21 @@ target_include_directories(core PUBLIC
     ${Python3_NumPy_INCLUDE_DIR}
 )
 
+target_include_directories(core PRIVATE
+    ${CONCORDE_BUILD_DIR}/INCLUDE
+    ${CONCORDE_SOURCE_DIR}/INCLUDE
+)
+
 target_link_libraries(core PUBLIC
     ${Python3_LIBRARIES}
-    concorde
     m
 )
+
+target_link_libraries(core PRIVATE
+    ${CONCORDE_LIBRARY}
+)
+
+add_dependencies(core concorde_build)
 
 target_include_directories(core PUBLIC ${CMAKE_SOURCE_DIR}/external)
 

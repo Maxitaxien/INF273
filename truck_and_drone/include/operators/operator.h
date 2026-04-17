@@ -184,6 +184,16 @@ bool three_opt_random(const Instance &inst, Solution &sol);
 bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol);
 
 /**
+ * Reorder the current truck node set with Concorde's linkern heuristic.
+ *
+ * The truck cycle is optimized on the nodes currently assigned to the truck,
+ * then the existing repair/planner path is used to rebuild any invalid drone
+ * launch/land anchors. The move is kept only if the repaired full objective
+ * improves.
+ */
+bool concorde_linkern_improve(const Instance &instance, Solution &sol);
+
+/**
  * Rebuild the current drone schedule with the planner and keep the result only
  * if it strictly improves the current objective.
  */

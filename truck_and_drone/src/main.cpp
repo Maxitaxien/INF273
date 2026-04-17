@@ -8,12 +8,14 @@
 #include "datahandling/datasets.h"
 #include "datahandling/reader.h"
 #include "tsp/linkernsolver.h"
+#include "algorithms/nearest_neighbour.h"
+#include "verification/objective_value.h"
 #include "algorithms/simple_initial_solution.h"
 #include <iostream>
 
 int main()
 {
-    Instance inst = read_instance(datasets::toy);
+    Instance inst = read_instance(datasets::f20);
     /*
     const std::vector<NamedOperator> ops = {
         NamedOperator{"NN-Reassign", nearest_neighbour_reassign_random},
@@ -59,8 +61,14 @@ int main()
 
     LinkernSolver solver(inst.truck_matrix);
     Solution s = simple_initial_solution(inst.n);
+    Solution ref = nearest_neighbour(inst);
 
     std::vector<int> initial_truck_tour = s.truck_route;
-    double length = solver.improve(initial_truck_tour);
-    std::cout << "Improved length: " << length << "\n";
+    LinkernTour res = solver.solve();
+
+    Solution created = {res.tour, {}};
+
+    std::cout << objective_function_impl(inst, ref) << "\n";
+    std::cout << objective_function_impl(inst, created) << "\n";
+    // std::cout << "Improved length: " << length << "\n";
 }

@@ -18,7 +18,7 @@
 
 #define NDEBUG
 
-#include "config.h"
+#include <config.h>
 
 #ifdef CC_POSIXTHREADS
 #ifdef CC_SIGNAL_BEFORE_PTHREAD
