@@ -93,6 +93,7 @@ add_library(core
     src/operators/route_timing.cpp
     src/operators/operator.cpp
     src/operators/concorde_tsp.cpp
+    src/operators/concorde_k_swap_rebuild.cpp
     src/operators/alns/random_removal.cpp
     src/operators/alns/greedy_insert.cpp
     src/operators/alns/alns_composite.cpp
