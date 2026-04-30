@@ -158,6 +158,56 @@ def bounds_from_series(series: list[dict[str, object]]) -> tuple[float, float, f
     return min_x, max_x, min_y, max_y
 
 
+def downsample_xy_points(points: list[tuple[float, float]], max_points: int) -> list[tuple[float, float]]:
+    if len(points) <= max_points or max_points <= 2:
+        return points
+
+    selected_indices = {0, len(points) - 1}
+    remaining = max_points - len(selected_indices)
+    if remaining <= 0:
+        return [points[0], points[-1]]
+
+    step = (len(points) - 1) / float(remaining + 1)
+    for idx in range(1, remaining + 1):
+        selected_indices.add(int(round(idx * step)))
+
+    return [points[idx] for idx in sorted(selected_indices)]
+
+
+def downsample_objective_points(
+    points: list[tuple[float, float, float]],
+    max_points: int = 900,
+) -> list[tuple[float, float, float]]:
+    if len(points) <= max_points:
+        return points
+
+    selected_indices = {0, len(points) - 1}
+    prev_best = None
+    for idx, (_, _, best) in enumerate(points):
+        if prev_best is None or best < prev_best:
+            selected_indices.add(idx)
+            prev_best = best
+
+    remaining_budget = max_points - len(selected_indices)
+    if remaining_budget > 0:
+        available = [idx for idx in range(len(points)) if idx not in selected_indices]
+        if available:
+            step = len(available) / float(remaining_budget)
+            for sample_idx in range(remaining_budget):
+                picked = available[min(len(available) - 1, int(sample_idx * step))]
+                selected_indices.add(picked)
+
+    selected = sorted(selected_indices)
+    if len(selected) > max_points:
+        trimmed = downsample_xy_points(
+            [(float(idx), float(idx)) for idx in selected],
+            max_points)
+        kept_indices = {int(x) for x, _ in trimmed}
+        selected = [idx for idx in selected if idx in kept_indices]
+
+    return [points[idx] for idx in selected]
+
+
 def write_line_or_scatter_chart(
     path: Path,
     title: str,
@@ -166,14 +216,15 @@ def write_line_or_scatter_chart(
     series: list[dict[str, object]],
     *,
     scatter_only: bool = False,
+    show_markers: bool = True,
+    width: int = 1100,
+    height: int = 620,
 ) -> None:
     bounds = bounds_from_series(series)
     if bounds is None:
         return
 
     min_x, max_x, min_y, max_y = bounds
-    width = 1100
-    height = 620
     left = 90
     right = 260
     top = 70
@@ -249,13 +300,14 @@ def write_line_or_scatter_chart(
                 f'stroke-width="2.4" />'
             )
 
-        for x_value, y_value in points:
-            cx = map_x(float(x_value))
-            cy = map_y(float(y_value))
-            lines.append(
-                f'<circle cx="{cx:.2f}" cy="{cy:.2f}" r="3.2" fill="{color}" '
-                f'fill-opacity="0.75" />'
-            )
+        if show_markers:
+            for x_value, y_value in points:
+                cx = map_x(float(x_value))
+                cy = map_y(float(y_value))
+                lines.append(
+                    f'<circle cx="{cx:.2f}" cy="{cy:.2f}" r="3.2" fill="{color}" '
+                    f'fill-opacity="0.75" />'
+                )
 
         legend_entry_y = legend_y + index * 24
         lines.append(

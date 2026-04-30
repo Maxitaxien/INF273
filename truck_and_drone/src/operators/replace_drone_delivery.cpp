@@ -1,5 +1,6 @@
 #include "operators/replace_drone_delivery.h"
 #include "operators/operator.h"
+#include "general/roulette_wheel_selection.h"
 #include "operators/helpers.h"
 #include "operators/route_timing.h"
 #include "verification/feasibility_check.h"
@@ -336,9 +337,8 @@ bool replace_drone_delivery_targeted(const Instance &instance, Solution &sol)
         (int)(ranked.size()),
         instance.n >= 50 ? 3 : 4);
 
-    bool found = false;
-    long long best_objective = std::numeric_limits<long long>::max();
-    Solution best_solution;
+    std::vector<std::pair<long long, Solution>> feasible_candidates;
+    feasible_candidates.reserve(shortlist);
 
     for (int idx = 0; idx < shortlist; ++idx)
     {
@@ -357,20 +357,23 @@ bool replace_drone_delivery_targeted(const Instance &instance, Solution &sol)
             continue;
         }
 
-        if (!found || candidate_objective < best_objective)
-        {
-            found = true;
-            best_objective = candidate_objective;
-            best_solution = std::move(candidate);
-        }
+        feasible_candidates.emplace_back(candidate_objective, std::move(candidate));
     }
 
-    if (!found)
+    if (feasible_candidates.empty())
     {
         return false;
     }
 
-    sol = std::move(best_solution);
+    std::sort(
+        feasible_candidates.begin(),
+        feasible_candidates.end(),
+        [](const auto &lhs, const auto &rhs) {
+            return lhs.first < rhs.first;
+        });
+    const int selected_idx = roulette_wheel_selection_exponential(
+        (int)feasible_candidates.size());
+    sol = std::move(feasible_candidates[(size_t)selected_idx].second);
     return true;
 }
 

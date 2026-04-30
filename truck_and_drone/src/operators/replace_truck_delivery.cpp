@@ -1,5 +1,6 @@
 #include "operators/replace_truck_delivery.h"
 #include "datahandling/instance.h"
+#include "general/roulette_wheel_selection.h"
 #include "general/sort_drone_collection.h"
 #include "operators/helpers.h"
 #include "solution_fixers/solution_fixers.h"
@@ -11,6 +12,41 @@
 #include <utility>
 
 extern std::mt19937 gen;
+
+namespace
+{
+constexpr size_t kTopGreedyCandidates = 5;
+
+struct ScoredTruckReplacementCandidate
+{
+    long long cost = std::numeric_limits<long long>::max();
+    Solution solution;
+};
+
+void insert_top_candidate(
+    std::vector<ScoredTruckReplacementCandidate> &top_candidates,
+    Solution candidate,
+    long long cost)
+{
+    auto insert_it = top_candidates.begin();
+    while (insert_it != top_candidates.end() && insert_it->cost <= cost)
+    {
+        ++insert_it;
+    }
+
+    top_candidates.insert(
+        insert_it,
+        ScoredTruckReplacementCandidate{
+            cost,
+            std::move(candidate),
+        });
+
+    if (top_candidates.size() > kTopGreedyCandidates)
+    {
+        top_candidates.pop_back();
+    }
+}
+}
 
 bool replace_truck_delivery(const Instance &inst, Solution &sol, int idx, int drone)
 {
@@ -91,9 +127,8 @@ bool replace_truck_delivery_random(const Instance &instance, Solution &sol)
 
 bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
 {
-    bool success = false;
-    long long best_cost = std::numeric_limits<long long>::max();
-    Solution best_solution;
+    std::vector<ScoredTruckReplacementCandidate> top_candidates;
+    top_candidates.reserve(kTopGreedyCandidates);
     Solution candidate = sol;
 
     for (int drone = 0; drone < (int)sol.drones.size(); ++drone)
@@ -107,19 +142,18 @@ bool replace_truck_delivery_greedy(const Instance &instance, Solution &sol)
             }
 
             const long long cost = objective_function_impl(instance, candidate);
-            if (cost < best_cost)
-            {
-                best_cost = cost;
-                best_solution = std::move(candidate);
-                success = true;
-            }
+            insert_top_candidate(top_candidates, std::move(candidate), cost);
         }
     }
 
-    if (success)
+    if (!top_candidates.empty())
     {
-        sol = std::move(best_solution);
+        const int selected_idx = roulette_wheel_selection_exponential(
+            (int)top_candidates.size());
+        sol = std::move(top_candidates[(size_t)selected_idx].solution);
+        return true;
     }
-    return success;
+
+    return false;
 }
 

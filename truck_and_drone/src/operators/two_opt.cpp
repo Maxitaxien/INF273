@@ -1,4 +1,5 @@
 #include "operators/two_opt.h"
+#include "general/roulette_wheel_selection.h"
 #include "operators/drone_planner.h"
 #include "solution_fixers/solution_fixers.h"
 #include "operators/customer_slot_helpers.h"
@@ -82,6 +83,25 @@ struct ArrivalRankedTwoOptMove
     long long arrival_score = std::numeric_limits<long long>::max();
     int affected_flights = std::numeric_limits<int>::max();
 };
+
+std::vector<int> build_roulette_trial_order(int count)
+{
+    std::vector<int> remaining(count);
+    std::iota(remaining.begin(), remaining.end(), 0);
+
+    std::vector<int> order;
+    order.reserve(count);
+
+    while (!remaining.empty())
+    {
+        const int selected_pos = roulette_wheel_selection_exponential(
+            (int)remaining.size());
+        order.push_back(remaining[(size_t)selected_pos]);
+        remaining.erase(remaining.begin() + selected_pos);
+    }
+
+    return order;
+}
 }
 
 bool two_opt(const Instance &inst, Solution &solution, int first, int second)
@@ -309,11 +329,12 @@ bool two_opt_arrival_screened(const Instance &inst, Solution &solution)
     const int max_trials = std::min(
         (int)(promising_moves.size()),
         inst.n >= 50 ? 2 : 3);
+    const std::vector<int> trial_order = build_roulette_trial_order(max_trials);
     Solution candidate = solution;
 
-    for (int trial = 0; trial < max_trials; ++trial)
+    for (const int ranked_idx : trial_order)
     {
-        const ArrivalRankedTwoOptMove &move = promising_moves[trial];
+        const ArrivalRankedTwoOptMove &move = promising_moves[(size_t)ranked_idx];
         candidate = solution;
         if (!two_opt(inst, candidate, move.first, move.second))
         {

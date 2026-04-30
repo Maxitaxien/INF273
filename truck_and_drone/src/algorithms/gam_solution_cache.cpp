@@ -63,12 +63,15 @@ GAMCachedSolution &gam_solution_cache_entry(
 
 void gam_cache_known_feasible_solution(
     GAMSolutionCache &cache,
+    const Instance &instance,
     const Solution &solution,
     long long objective)
 {
+    const Solution canonical =
+        canonicalize_terminal_depot_landings(instance, solution);
     bool unused_is_new = false;
     GAMCachedSolution &entry =
-        gam_solution_cache_entry(cache, solution, &unused_is_new);
+        gam_solution_cache_entry(cache, canonical, &unused_is_new);
     entry.feasible_known = true;
     entry.feasible = true;
     entry.objective_known = true;
@@ -94,12 +97,14 @@ GAMSolutionEvaluation evaluate_solution_with_cache(
         return evaluation;
     }
 
+    const Solution canonical =
+        canonicalize_terminal_depot_landings(instance, solution);
     GAMCachedSolution &entry =
-        gam_solution_cache_entry(*cache, solution, &evaluation.is_new_solution);
+        gam_solution_cache_entry(*cache, canonical, &evaluation.is_new_solution);
 
     if (!entry.feasible_known)
     {
-        entry.feasible = master_check(instance, solution, false);
+        entry.feasible = master_check(instance, canonical, false);
         entry.feasible_known = true;
     }
 
@@ -109,7 +114,7 @@ GAMSolutionEvaluation evaluate_solution_with_cache(
     {
         if (!entry.objective_known)
         {
-            entry.objective = objective_function_impl(instance, solution);
+            entry.objective = objective_function_impl(instance, canonical);
             entry.objective_known = true;
         }
 

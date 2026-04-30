@@ -12,6 +12,8 @@ struct GAMIterationStatistics
     double worsening_acceptance_probability = -1.0;
     double runtime_ms = 0.0;
     bool has_delta = false;
+    long long incumbent_objective = 0;
+    long long best_objective = 0;
 };
 
 struct GAMSegmentStatistics

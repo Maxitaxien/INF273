@@ -21,6 +21,7 @@
 #include "datahandling/create_markdown_tables.h"
 #include "general/roulette_wheel_selection.h"
 #include <filesystem>
+#include <unordered_map>
 
 const long long INF = 4e18;
 
@@ -37,6 +38,43 @@ namespace
 std::vector<std::string> benchmark_datasets()
 {
     return {f10, f20, f50, f100, r10, r20, r50, r100};
+}
+
+int default_gam_time_budget(const Instance &instance)
+{
+    switch (instance.n)
+    {
+    case 10:
+        return 5;
+    case 20:
+        return 40;
+    case 50:
+        return 80;
+    case 100:
+        return 470;
+    default:
+        return 0;
+    }
+}
+
+int resolve_gam_time_budget(
+    const Instance &instance,
+    const std::string &dataset,
+    const std::unordered_map<std::string, int> &time_budget_overrides)
+{
+    const auto exact_it = time_budget_overrides.find(dataset);
+    if (exact_it != time_budget_overrides.end())
+    {
+        return exact_it->second;
+    }
+
+    const auto stem_it = time_budget_overrides.find(dataset_stem(dataset));
+    if (stem_it != time_budget_overrides.end())
+    {
+        return stem_it->second;
+    }
+
+    return default_gam_time_budget(instance);
 }
 
 std::string shell_quote(const std::string &value)
@@ -242,7 +280,7 @@ void run_algorithm(
         double improvement = 100.0 * (initial_obj - best) / initial_obj;
 
         save_to_csv(run_dir, algo_op_name, dataset, avg, best, improvement, avg_runtime,
-                    convert_to_submission(best_solution));
+                    convert_to_submission(instance, best_solution));
         save_best_solution_visualization(run_dir, dataset, instance, best_solution);
     }
 }
@@ -295,8 +333,23 @@ void run_gam(const NamedOperator &op)
 
 void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &weights)
 {
-    const int amnt_iter = 10;
-    const std::vector<std::string> datasets = benchmark_datasets();
+    run_gam(
+        ops,
+        weights,
+        GAMConfig{},
+        benchmark_datasets(),
+        10,
+        {});
+}
+
+void run_gam(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights,
+    const GAMConfig &config,
+    const std::vector<std::string> &datasets,
+    int amnt_iter,
+    const std::unordered_map<std::string, int> &time_budget_overrides)
+{
     std::string base_dir = create_run_directory();
 
     std::string algo_op_name = "General Adaptive Metaheuristic";
@@ -337,7 +390,17 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
                 initial_obj = objective_function_impl(instance, initial);
             }
 
-            GAMResult gam_result = general_adaptive_metaheuristic(instance, initial, ops, weights);
+            const int time_limit_s = resolve_gam_time_budget(
+                instance,
+                dataset,
+                time_budget_overrides);
+            GAMResult gam_result = general_adaptive_metaheuristic(
+                instance,
+                initial,
+                ops,
+                time_limit_s,
+                config,
+                weights);
             auto stop = std::chrono::steady_clock::now();
 
             const long long val = objective_function_impl(instance, gam_result.solution);
@@ -366,7 +429,7 @@ void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &w
             best,
             improvement,
             avg_runtime,
-            convert_to_submission(best_solution));
+            convert_to_submission(instance, best_solution));
         save_gam_statistics(run_dir, dataset, best_run_idx, best_statistics, run_reports);
         save_best_solution_visualization(run_dir, dataset, instance, best_solution);
     }

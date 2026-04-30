@@ -1,7 +1,9 @@
 #pragma once
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
+#include "algorithms/gam.h"
 #include "datahandling/instance.h"
 #include "verification/solution.h"
 #include "runners/wrappers.h"
@@ -44,6 +46,13 @@ void run_all_algos(const std::vector<NamedOperator> &ops, const std::vector<doub
 void run_gam();
 void run_gam(const NamedOperator &op);
 void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &weights = {});
+void run_gam(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights,
+    const GAMConfig &config,
+    const std::vector<std::string> &datasets,
+    int amnt_iter,
+    const std::unordered_map<std::string, int> &time_budget_overrides = {});
 
 /**
  * Runs construction algorithms.

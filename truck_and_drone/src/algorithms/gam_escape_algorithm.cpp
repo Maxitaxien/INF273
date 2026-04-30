@@ -49,7 +49,7 @@ GAMEscapeResult gam_escape_algorithm(
 
     if (cache != nullptr && !initial_evaluation.objective_known)
     {
-        gam_cache_known_feasible_solution(*cache, incumbent, initial_cost);
+        gam_cache_known_feasible_solution(*cache, inst, incumbent, initial_cost);
     }
 
     if (ops.empty() || amnt_iter <= 0)

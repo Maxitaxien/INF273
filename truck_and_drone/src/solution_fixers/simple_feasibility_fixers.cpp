@@ -4,6 +4,7 @@
 #include "operators/helpers.h"
 #include <algorithm>
 #include <unordered_set>
+#include <utility>
 
 Solution &fix_feasibility_for_drone(const Instance &instance, Solution &sol, int drone)
 {
@@ -77,16 +78,35 @@ Solution &simple_fix_validity(Solution &solution)
 
     for (DroneCollection &drone_collection : solution.drones)
     {
+        int last_flight_idx = -1;
+        for (int idx = 0; idx < (int)(drone_collection.deliver_nodes.size()); ++idx)
+        {
+            if (last_flight_idx < 0 ||
+                std::pair{
+                    drone_collection.launch_indices[idx],
+                    drone_collection.land_indices[idx]} >
+                    std::pair{
+                        drone_collection.launch_indices[last_flight_idx],
+                        drone_collection.land_indices[last_flight_idx]})
+            {
+                last_flight_idx = idx;
+            }
+        }
+
         for (int i = 0; i < (int)(drone_collection.deliver_nodes.size());)
         {
             const int launch = drone_collection.launch_indices[i];
             const int landing = drone_collection.land_indices[i];
             const int delivery = drone_collection.deliver_nodes[i];
+            const bool terminal_depot =
+                landing == terminal_depot_land_index(solution);
             const bool invalid_index =
                 route_size < 2 ||
                 launch < 0 || landing < 0 ||
-                launch >= route_size || landing >= route_size ||
-                launch >= landing || landing >= final_index;
+                launch >= route_size || landing > route_size ||
+                launch >= landing ||
+                (!terminal_depot && landing >= final_index) ||
+                (terminal_depot && i != last_flight_idx);
             const bool duplicate_on_truck =
                 delivery <= 0 || truck_customers.find(delivery) != truck_customers.end();
             const bool duplicate_on_drone =

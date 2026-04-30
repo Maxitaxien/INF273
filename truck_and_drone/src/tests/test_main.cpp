@@ -969,6 +969,7 @@ void test_repair_after_two_opt_localized_repairs_candidate() {
         {11, 10, 9, 8, 1, 0},
     };
     instance.drone_matrix = instance.truck_matrix;
+    instance.drone_matrix[2][0] = 10;
 
     Solution before_move{
         {0, 1, 3, 4, 5},

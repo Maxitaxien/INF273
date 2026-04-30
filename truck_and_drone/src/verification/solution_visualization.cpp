@@ -660,7 +660,9 @@ Point to_screen(
 
 bool Solution::save_visualization(const Instance &instance, const std::string &output_path) const
 {
-    if (truck_route.empty())
+    const Solution canonical =
+        canonicalize_terminal_depot_landings(instance, *this);
+    if (canonical.truck_route.empty())
     {
         return false;
     }
@@ -706,13 +708,13 @@ bool Solution::save_visualization(const Instance &instance, const std::string &o
         Color{160, 70, 0}};
     Canvas canvas(width, height, white);
 
-    if (truck_route.size() >= 2)
+    if (canonical.truck_route.size() >= 2)
     {
-        for (int idx = 0; idx < (int)(truck_route.size()); ++idx)
+        for (int idx = 0; idx < (int)(canonical.truck_route.size()); ++idx)
         {
-            const int from = truck_route[idx];
-            const int to = (idx + 1 < (int)(truck_route.size()))
-                ? truck_route[idx + 1]
+            const int from = canonical.truck_route[idx];
+            const int to = (idx + 1 < (int)(canonical.truck_route.size()))
+                ? canonical.truck_route[idx + 1]
                 : 0;
 
             if (from < 0 || from > instance.n || to < 0 || to > instance.n)
@@ -730,9 +732,9 @@ bool Solution::save_visualization(const Instance &instance, const std::string &o
         }
     }
 
-    for (int drone = 0; drone < (int)(drones.size()); ++drone)
+    for (int drone = 0; drone < (int)(canonical.drones.size()); ++drone)
     {
-        const DroneCollection &collection = drones[drone];
+        const DroneCollection &collection = canonical.drones[drone];
         const int flight_count = std::min({
             (int)(collection.launch_indices.size()),
             (int)(collection.deliver_nodes.size()),
@@ -744,16 +746,21 @@ bool Solution::save_visualization(const Instance &instance, const std::string &o
             const int launch_idx = collection.launch_indices[flight];
             const int land_idx = collection.land_indices[flight];
             const int deliver = collection.deliver_nodes[flight];
+            const bool terminal_depot =
+                is_terminal_depot_landing(canonical, land_idx);
 
             if (launch_idx < 0 || land_idx < 0 ||
-                launch_idx >= (int)(truck_route.size()) || land_idx >= (int)(truck_route.size()) ||
+                launch_idx >= (int)(canonical.truck_route.size()) ||
+                land_idx > (int)(canonical.truck_route.size()) ||
                 deliver < 0 || deliver > instance.n)
             {
                 continue;
             }
 
-            const int launch_node = truck_route[launch_idx];
-            const int land_node = truck_route[land_idx];
+            const int launch_node = canonical.truck_route[launch_idx];
+            const int land_node = terminal_depot
+                ? 0
+                : canonical.truck_route[land_idx];
             canvas.draw_dotted_arrow(
                 screen_positions[launch_node],
                 screen_positions[deliver],

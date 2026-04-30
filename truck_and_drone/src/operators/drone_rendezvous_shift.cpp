@@ -1,5 +1,6 @@
 #include "operators/drone_rendezvous_shift.h"
 #include "general/random.h"
+#include "general/roulette_wheel_selection.h"
 #include "general/sort_drone_collection.h"
 #include "operators/interval_helpers.h"
 #include "verification/feasibility_check.h"
@@ -12,6 +13,8 @@
 
 namespace
 {
+constexpr size_t kTopShiftCandidates = 5;
+
 bool valid_drone_and_flight(const Solution &sol, int drone, int flight_idx)
 {
     if (drone < 0 || drone >= (int)(sol.drones.size()))
@@ -207,9 +210,8 @@ bool drone_rendezvous_shift_best_improvement(
 {
     const int window = 3;
 
-    bool found_feasible = false;
-    long long best_cost = std::numeric_limits<long long>::max();
-    Solution best_solution;
+    std::vector<std::pair<long long, Solution>> top_candidates;
+    top_candidates.reserve(kTopShiftCandidates);
 
     for (int drone = 0; drone < (int)(sol.drones.size()); ++drone)
     {
@@ -236,20 +238,31 @@ bool drone_rendezvous_shift_best_improvement(
                 continue;
             }
 
-            if (!found_feasible || candidate_cost < best_cost)
+            auto insert_it = top_candidates.begin();
+            while (insert_it != top_candidates.end() &&
+                   insert_it->first <= candidate_cost)
             {
-                found_feasible = true;
-                best_cost = candidate_cost;
-                best_solution = std::move(candidate);
+                ++insert_it;
+            }
+
+            top_candidates.insert(
+                insert_it,
+                std::make_pair(candidate_cost, std::move(candidate)));
+
+            if (top_candidates.size() > kTopShiftCandidates)
+            {
+                top_candidates.pop_back();
             }
         }
     }
 
-    if (!found_feasible)
+    if (top_candidates.empty())
     {
         return false;
     }
 
-    sol = std::move(best_solution);
+    const int selected_idx = roulette_wheel_selection_exponential(
+        (int)top_candidates.size());
+    sol = std::move(top_candidates[(size_t)selected_idx].second);
     return true;
 }

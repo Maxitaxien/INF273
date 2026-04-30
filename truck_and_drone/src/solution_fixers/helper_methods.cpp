@@ -52,14 +52,17 @@ bool flight_under_limit_with_wait(
     const int deliver = collection.deliver_nodes[flight_idx];
 
     if (launch_idx < 0 || land_idx < 0 || deliver <= 0 ||
-        launch_idx >= route_size || land_idx >= route_size - 1 ||
+        launch_idx >= route_size || land_idx > route_size ||
         launch_idx >= land_idx)
     {
         return false;
     }
 
     const int launch_node = solution.truck_route[launch_idx];
-    const int land_node = solution.truck_route[land_idx];
+    const int land_node =
+        is_terminal_depot_landing(solution, land_idx)
+            ? 0
+            : solution.truck_route[land_idx];
     if (!pure_drone_flight_within_limit(instance, launch_node, deliver, land_node))
     {
         return false;
@@ -71,7 +74,8 @@ bool flight_under_limit_with_wait(
     const long long out_time = instance.drone_matrix[launch_node][deliver];
     const long long back_time = instance.drone_matrix[deliver][land_node];
     const long long drone_return = launch_time + out_time + back_time;
-    const long long drone_wait = land_node == 0
+    const long long drone_wait =
+        is_terminal_depot_landing(solution, land_idx) || land_node == 0
         ? 0
         : std::max(timing.truck_arrival[land_idx] - drone_return, 0LL);
 
@@ -92,7 +96,7 @@ void consider_flight_assignment(
     const int route_size = (int)(solution.truck_route.size());
     if (route_size < 3 ||
         launch_idx < 0 || land_idx < 0 ||
-        launch_idx >= route_size || land_idx >= route_size - 1 ||
+        launch_idx >= route_size || land_idx >= route_size ||
         launch_idx >= land_idx ||
         overlaps(drone_intervals, launch_idx, land_idx))
     {

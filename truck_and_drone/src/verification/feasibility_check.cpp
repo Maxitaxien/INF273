@@ -2,6 +2,7 @@
 #include "operators/route_timing.h"
 #include <algorithm>
 #include <iostream>
+#include <utility>
 
 static bool truck_route_feasible(const Instance& instance, const Solution& solution, bool debug) {
     if (solution.truck_route.empty()) {
@@ -100,8 +101,10 @@ bool includes_all_nodes(int n, const Solution& solution, bool debug) {
 }
 
 bool all_drone_flights_under_lim_with_wait(const Instance& instance,
-                                           const Solution& solution,
+                                           const Solution& raw_solution,
                                            bool debug = false) {
+    const Solution solution =
+        canonicalize_terminal_depot_landings(instance, raw_solution);
     const int route_size = (int)solution.truck_route.size();
     if (route_size == 0) {
         return false;
@@ -129,7 +132,7 @@ bool all_drone_flights_under_lim_with_wait(const Instance& instance,
             const int deliver = c.deliver_nodes[t];
 
             if (launch_idx < 0 || land_idx < 0 ||
-                launch_idx >= route_size || land_idx >= route_size ||
+                launch_idx >= route_size || land_idx > route_size ||
                 deliver <= 0 || deliver > instance.n) {
                 all_ok = false;
                 if (debug) {
@@ -140,14 +143,18 @@ bool all_drone_flights_under_lim_with_wait(const Instance& instance,
             }
 
             const int launch_node = solution.truck_route[launch_idx];
-            const int land_node = solution.truck_route[land_idx];
+            const int land_node =
+                is_terminal_depot_landing(solution, land_idx)
+                    ? 0
+                    : solution.truck_route[land_idx];
             const long long launch_time = std::max(
                 timing.truck_arrival[launch_idx],
                 timing.drone_ready_at_stop[d][launch_idx]);
             const long long out_time = instance.drone_matrix[launch_node][deliver];
             const long long back_time = instance.drone_matrix[deliver][land_node];
             const long long drone_return = launch_time + out_time + back_time;
-            const long long drone_wait = land_node == 0
+            const long long drone_wait =
+                is_terminal_depot_landing(solution, land_idx) || land_node == 0
                 ? 0
                 : std::max(timing.truck_arrival[land_idx] - drone_return, 0LL);
             const long long total_with_wait = out_time + back_time + drone_wait;
@@ -180,13 +187,29 @@ bool drone_flights_consistent(const Solution& solution, bool debug = false) {
 
         std::vector<std::pair<int, int>> flights;
         flights.reserve(c.launch_indices.size());
+        int last_flight_idx = -1;
+        for (int idx = 0; idx < (int)(c.launch_indices.size()); ++idx)
+        {
+            if (last_flight_idx < 0 ||
+                std::pair{
+                    c.launch_indices[idx],
+                    c.land_indices[idx]} >
+                    std::pair{
+                        c.launch_indices[last_flight_idx],
+                        c.land_indices[last_flight_idx]})
+            {
+                last_flight_idx = idx;
+            }
+        }
 
         for (int i = 0; i < (int)(c.launch_indices.size()); i++) {
             int launch_idx = c.launch_indices[i];
             int land_idx = c.land_indices[i];
+            const bool terminal_depot =
+                is_terminal_depot_landing(solution, land_idx);
 
             if (launch_idx < 0 || land_idx < 0 ||
-                launch_idx >= route_size || land_idx >= route_size) {
+                launch_idx >= route_size || land_idx > route_size) {
                 if (debug) {
                     std::cout << "Drone trip out of range: launch_index = "
                               << launch_idx << ", land_index = "
@@ -200,6 +223,15 @@ bool drone_flights_consistent(const Solution& solution, bool debug = false) {
                     std::cout << "Drone trip inconsistent: launch_index = " 
                               << launch_idx << ", land_index = "
                               << land_idx << "\n";
+                }
+                return false;
+            }
+
+            if (terminal_depot && i != last_flight_idx)
+            {
+                if (debug)
+                {
+                    std::cout << "Terminal depot landing is only allowed on the last flight.\n";
                 }
                 return false;
             }
@@ -231,9 +263,11 @@ bool all_drone_flights_feasible(const Instance& problem_instance, const Solution
 }
 
 bool master_check(const Instance& problem_instance, const Solution& solution, bool debug) {
-    return (truck_route_feasible(problem_instance, solution, debug) &&
-            includes_all_nodes(problem_instance.n, solution, debug) &&
-            all_drone_flights_feasible(problem_instance, solution, debug));
+    const Solution canonical =
+        canonicalize_terminal_depot_landings(problem_instance, solution);
+    return (truck_route_feasible(problem_instance, canonical, debug) &&
+            includes_all_nodes(problem_instance.n, canonical, debug) &&
+            all_drone_flights_feasible(problem_instance, canonical, debug));
 }
 
 

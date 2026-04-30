@@ -33,6 +33,7 @@ GAMCachedSolution &gam_solution_cache_entry(
 
 void gam_cache_known_feasible_solution(
     GAMSolutionCache &cache,
+    const Instance &instance,
     const Solution &solution,
     long long objective);
 

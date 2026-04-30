@@ -165,7 +165,7 @@ std::pair<bool, Solution> greedy_assign_launch_and_land_impl(
         std::unordered_set<int> seen_launch_indices;
         const int look_ahead = std::min(
             route_size - 1,
-            std::max(3, instance.n / 10));
+            std::max(4, instance.n / 10));
         const int max_launch_candidates = std::min(4, route_size - 1);
         bool found_fallback = false;
         long long best_score = std::numeric_limits<long long>::max();

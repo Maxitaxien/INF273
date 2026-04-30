@@ -7,17 +7,19 @@
 
 long long objective_function_impl(const Instance &instance, const Solution &solution)
 {
+    const Solution canonical =
+        canonicalize_terminal_depot_landings(instance, solution);
     std::vector<long long> drone_available;
     long long total_drone_arrival = 0;
 
     // Compute truck arrival times and accumulate drone arrival times
     std::vector<long long> t_arrival = get_truck_arrival_times(
-        instance, solution, drone_available, total_drone_arrival);
+        instance, canonical, drone_available, total_drone_arrival);
 
     long long total_time = total_drone_arrival;
 
     // Add truck arrival times (excluding depot)
-    for (int i = 1; i < (int)(solution.truck_route.size()); ++i)
+    for (int i = 1; i < (int)(canonical.truck_route.size()); ++i)
     {
         total_time += t_arrival[i];
     }

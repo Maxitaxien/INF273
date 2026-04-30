@@ -25,3 +25,11 @@ struct Solution {
      */
     bool save_visualization(const Instance &instance, const std::string &output_path) const;
 };
+
+int terminal_depot_land_index(const Solution &solution);
+
+bool is_terminal_depot_landing(const Solution &solution, int land_idx);
+
+Solution canonicalize_terminal_depot_landings(
+    const Instance &instance,
+    Solution solution);

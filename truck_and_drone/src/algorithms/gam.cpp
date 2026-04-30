@@ -10,8 +10,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <numeric>
 #include <random>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -74,7 +76,7 @@ double average_positive_delta_sample(
 
     for (int attempt = 0; attempt < max_attempts && (int)(deltas.size()) < target_samples; ++attempt)
     {
-        const NamedOperator &op = ops[attempt % ops.size()];
+        const NamedOperator &op = ops[(size_t)(attempt % ops.size())];
         Solution neighbour = reference_solution;
         if (!op.op(instance, neighbour) ||
             same_solution(neighbour, reference_solution))
@@ -135,9 +137,9 @@ std::vector<double> initialize_weights(
 
     for (int i = 0; i < (int)(ops.size()); ++i)
     {
-        if (initial_weights[i] > 0.0)
+        if (initial_weights[(size_t)i] > 0.0)
         {
-            weights[i] = initial_weights[i];
+            weights[(size_t)i] = initial_weights[(size_t)i];
         }
     }
 
@@ -155,9 +157,9 @@ std::vector<GAMOperatorState> build_operator_state(
     {
         const std::string fallback_name = "Operator " + std::to_string(i);
         result.push_back(GAMOperatorState{
-            ops[i].name.empty() ? fallback_name : ops[i].name,
-            weights[i],
-            weights[i]});
+            ops[(size_t)i].name.empty() ? fallback_name : ops[(size_t)i].name,
+            weights[(size_t)i],
+            weights[(size_t)i]});
     }
 
     return result;
@@ -239,7 +241,7 @@ void update_operator_weights(
 
     for (int idx = 0; idx < (int)(operator_state.size()); ++idx)
     {
-        const GAMOperatorState &state = operator_state[idx];
+        const GAMOperatorState &state = operator_state[(size_t)idx];
         if (state.segment_uses <= 0)
         {
             continue;
@@ -253,7 +255,7 @@ void update_operator_weights(
         const double improvement_rate = (double)state.segment_improvements / uses;
         const double best_rate = (double)state.segment_new_bests / uses;
 
-        performance[idx] =
+        performance[(size_t)idx] =
             score_per_use +
             0.35 * improvement_per_use +
             accepted_bonus * accepted_rate +
@@ -261,7 +263,7 @@ void update_operator_weights(
             improvement_bonus * improvement_rate +
             best_bonus * best_rate;
 
-        performance_sum += performance[idx];
+        performance_sum += performance[(size_t)idx];
         active_count++;
     }
 
@@ -272,11 +274,11 @@ void update_operator_weights(
 
     for (int idx = 0; idx < (int)(operator_state.size()); ++idx)
     {
-        GAMOperatorState &state = operator_state[idx];
+        GAMOperatorState &state = operator_state[(size_t)idx];
 
         if (state.segment_uses > 0)
         {
-            const double centered_signal = performance[idx] - mean_performance;
+            const double centered_signal = performance[(size_t)idx] - mean_performance;
             const double multiplicative_update = std::exp(reaction_factor * centered_signal);
 
             state.weight *= multiplicative_update;
@@ -312,9 +314,9 @@ void update_operator_weights(
 
     for (int idx = 0; idx < (int)(operator_state.size()); ++idx)
     {
-        GAMOperatorState &state = operator_state[idx];
+        GAMOperatorState &state = operator_state[(size_t)idx];
         state.weight *= rescale_factor;
-        selection_weights[idx] = state.weight;
+        selection_weights[(size_t)idx] = state.weight;
 
         statistics.segment_stats.push_back(GAMSegmentStatistics{
             segment_index,
@@ -324,38 +326,133 @@ void update_operator_weights(
         });
     }
 }
+
+std::vector<int> all_operator_indices(int count)
+{
+    std::vector<int> indices(std::max(0, count));
+    std::iota(indices.begin(), indices.end(), 0);
+    return indices;
+}
+
+std::vector<int> resolve_operator_pool(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<std::string> &requested_names)
+{
+    if (ops.empty())
+    {
+        return {};
+    }
+
+    std::vector<int> resolved;
+    std::unordered_set<int> seen_indices;
+    for (const std::string &name : requested_names)
+    {
+        for (int idx = 0; idx < (int)(ops.size()); ++idx)
+        {
+            if (ops[(size_t)idx].name == name && seen_indices.insert(idx).second)
+            {
+                resolved.push_back(idx);
+                break;
+            }
+        }
+    }
+
+    if (resolved.empty())
+    {
+        return all_operator_indices((int)ops.size());
+    }
+
+    return resolved;
+}
+
+std::vector<double> build_active_selection_weights(
+    const std::vector<double> &selection_weights,
+    const std::vector<int> &active_indices)
+{
+    std::vector<double> active_weights;
+    active_weights.reserve(active_indices.size());
+    for (int idx : active_indices)
+    {
+        active_weights.push_back(selection_weights[(size_t)idx]);
+    }
+
+    return active_weights;
+}
+
+std::vector<NamedOperator> build_active_ops(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<int> &active_indices)
+{
+    std::vector<NamedOperator> active_ops;
+    active_ops.reserve(active_indices.size());
+    for (int idx : active_indices)
+    {
+        active_ops.push_back(ops[(size_t)idx]);
+    }
+
+    return active_ops;
+}
+
+bool segment_has_activity(const std::vector<GAMOperatorState> &operator_state)
+{
+    for (const GAMOperatorState &state : operator_state)
+    {
+        if (state.segment_uses > 0)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 } // namespace
 
 GAMResult general_adaptive_metaheuristic(
     const Instance &instance,
     Solution initial,
     const std::vector<NamedOperator> &ops,
+    int time_limit_s,
+    const GAMConfig &config,
     const std::vector<double> &initial_weights)
 {
     // TEST: With NN initial solution (easier to start with than greedy drone cover solution)
     initial = nearest_neighbour(instance);
     // initial = greedy_drone_cover(instance, initial);
 
+    const bool timed_mode = time_limit_s > 0;
     constexpr int max_iterations = 10000;
     const int segment_length = 100;
-    int stopping_condition = std::max(
+    const int stopping_condition = std::max(
         segment_length / 2,
         instance.n >= 50 ? instance.n * 3 : instance.n * 2);
+    const double phase_one_fraction =
+        std::clamp(config.phase_one_fraction, 0.0, 1.0);
+    const double phase_one_until_s = std::max(0.0, time_limit_s * phase_one_fraction);
 
     GAMResult result;
-    result.statistics.max_iterations = max_iterations;
-    result.statistics.segment_length = segment_length;
+    result.statistics.max_iterations = timed_mode ? 0 : max_iterations;
+    result.statistics.segment_length = timed_mode ? 0 : segment_length;
     result.statistics.stopping_condition = stopping_condition;
     result.statistics.best_found_iteration = 0;
-    result.statistics.iteration_stats.reserve(max_iterations);
-    result.statistics.segment_stats.reserve(
-        ((max_iterations + segment_length - 1) / segment_length) * ops.size());
+    if (!timed_mode)
+    {
+        result.statistics.iteration_stats.reserve(max_iterations);
+        result.statistics.segment_stats.reserve(
+            ((max_iterations + segment_length - 1) / segment_length) * ops.size());
+    }
 
     if (ops.empty())
     {
         result.solution = std::move(initial);
         return result;
     }
+
+    const std::vector<int> phase_one_indices =
+        resolve_operator_pool(ops, config.phase_one_operator_names);
+    const std::vector<int> phase_two_indices =
+        resolve_operator_pool(ops, config.phase_two_operator_names);
+    const std::vector<NamedOperator> phase_one_ops =
+        build_active_ops(ops, phase_one_indices);
 
     const std::vector<double> initial_selection_weights = initialize_weights(ops, initial_weights);
     std::vector<GAMOperatorState> operator_state =
@@ -364,12 +461,12 @@ GAMResult general_adaptive_metaheuristic(
 
     GAMSolutionCache solution_cache;
     const long long initial_cost = objective_function_impl(instance, initial);
-    gam_cache_known_feasible_solution(solution_cache, initial, initial_cost);
+    gam_cache_known_feasible_solution(solution_cache, instance, initial, initial_cost);
     const double sampled_positive_delta = average_positive_delta_sample(
         instance,
         initial,
         initial_cost,
-        ops,
+        phase_one_ops.empty() ? ops : phase_one_ops,
         &solution_cache);
 
     const double target_initial_worsening_acceptance =
@@ -381,6 +478,8 @@ GAMResult general_adaptive_metaheuristic(
     const double cooling_rate = std::pow(
         final_temperature / initial_temperature,
         1.0 / std::max(1, max_iterations - 1));
+    const double timed_cooling_ratio =
+        final_temperature / initial_temperature;
 
     double temperature = initial_temperature;
     double reward_delta_scale = std::max(1.0, sampled_positive_delta);
@@ -401,21 +500,53 @@ GAMResult general_adaptive_metaheuristic(
     Solution best = incumbent;
     long long best_cost = incumbent_cost;
     int non_improving_iterations = 0;
+    int iteration = 0;
 
-    for (int i = 0; i < max_iterations; ++i)
+    const auto run_start = std::chrono::steady_clock::now();
+    double last_cooling_elapsed_s = 0.0;
+    const double segment_duration_s =
+        timed_mode ? std::max(0.001, (double)time_limit_s / 50.0) : 0.0;
+    int completed_time_segments = 0;
+
+    while (true)
     {
+        const double elapsed_before_iteration = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - run_start)
+                                                   .count();
+        if (timed_mode)
+        {
+            if (iteration > 0 && elapsed_before_iteration >= (double)time_limit_s)
+            {
+                break;
+            }
+        }
+        else if (iteration >= max_iterations)
+        {
+            break;
+        }
+
+        ++iteration;
+        const bool phase_one =
+            !timed_mode || elapsed_before_iteration < phase_one_until_s;
+        const std::vector<int> &active_indices =
+            phase_one ? phase_one_indices : phase_two_indices;
+
         if (non_improving_iterations >= stopping_condition)
         {
+            const int remaining_iterations = std::max(0, max_iterations - iteration + 1);
             const int escape_budget =
-                i >= (max_iterations * 3) / 4
-                    ? std::min(20, max_iterations - i)
-                    : std::min(10, max_iterations - i);
-
+                !timed_mode && iteration >= (max_iterations * 3) / 4
+                    ? std::min(20, remaining_iterations)
+                    : std::min(10, timed_mode ? 20 : remaining_iterations);
+            const std::vector<NamedOperator> active_ops =
+                build_active_ops(ops, active_indices);
+            const std::vector<double> active_weights =
+                build_active_selection_weights(selection_weights, active_indices);
             const GAMEscapeResult escape_result = gam_escape_algorithm(
                 instance,
                 incumbent,
-                ops,
-                selection_weights,
+                active_ops.empty() ? ops : active_ops,
+                active_weights.empty() ? selection_weights : active_weights,
                 escape_budget,
                 &solution_cache);
             incumbent = escape_result.incumbent;
@@ -428,7 +559,7 @@ GAMResult general_adaptive_metaheuristic(
                     best = escape_result.best_seen;
                     best_cost = escape_result.best_seen_cost;
                     result.statistics.best_updates++;
-                    result.statistics.best_found_iteration = i + 1;
+                    result.statistics.best_found_iteration = iteration;
                 }
             }
             else if (incumbent_cost < best_cost)
@@ -436,28 +567,37 @@ GAMResult general_adaptive_metaheuristic(
                 best = incumbent;
                 best_cost = incumbent_cost;
                 result.statistics.best_updates++;
-                result.statistics.best_found_iteration = i + 1;
+                result.statistics.best_found_iteration = iteration;
             }
 
             temperature = std::max(temperature, initial_temperature * 0.25);
             non_improving_iterations = 0;
         }
 
-        const int selected_idx = roulette_wheel_selection(selection_weights);
-        GAMOperatorState &selected = operator_state[selected_idx];
+        const std::vector<double> active_selection_weights =
+            build_active_selection_weights(selection_weights, active_indices);
+        const int active_selected_idx = roulette_wheel_selection(
+            active_selection_weights.empty()
+                ? selection_weights
+                : active_selection_weights);
+        const int selected_idx =
+            active_selection_weights.empty()
+                ? active_selected_idx
+                : active_indices[(size_t)active_selected_idx];
+        GAMOperatorState &selected = operator_state[(size_t)selected_idx];
         selected.segment_uses++;
 
         GAMIterationStatistics iteration_stat;
-        iteration_stat.iteration = i + 1;
+        iteration_stat.iteration = iteration;
         iteration_stat.operator_idx = selected_idx;
         iteration_stat.temperature = temperature;
         GAMOperatorStatistics &operator_statistics =
-            result.statistics.operator_stats[selected_idx];
+            result.statistics.operator_stats[(size_t)selected_idx];
         operator_statistics.uses++;
 
         const auto evaluation_start = std::chrono::steady_clock::now();
         Solution neighbour = incumbent;
-        if (!ops[selected_idx].op(instance, neighbour))
+        if (!ops[(size_t)selected_idx].op(instance, neighbour))
         {
             result.statistics.operator_failures++;
             operator_statistics.failures++;
@@ -541,7 +681,7 @@ GAMResult general_adaptive_metaheuristic(
                     best = neighbour;
                     best_cost = cost;
                     result.statistics.best_updates++;
-                    result.statistics.best_found_iteration = i + 1;
+                    result.statistics.best_found_iteration = iteration;
                     non_improving_iterations = 0;
                 }
                 else if (incumbent_improved)
@@ -575,24 +715,75 @@ GAMResult general_adaptive_metaheuristic(
             std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - evaluation_start)
                 .count());
+        iteration_stat.incumbent_objective = incumbent_cost;
+        iteration_stat.best_objective = best_cost;
         operator_statistics.total_runtime_ms += iteration_stat.runtime_ms;
-
         result.statistics.iteration_stats.push_back(iteration_stat);
 
-        if ((i + 1) % segment_length == 0)
+        if (timed_mode)
+        {
+            const double elapsed_after_iteration = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - run_start)
+                                                        .count();
+            const double elapsed_delta_s = std::max(
+                0.0,
+                elapsed_after_iteration - last_cooling_elapsed_s);
+            const double progress_delta = elapsed_delta_s / std::max(1.0, (double)time_limit_s);
+            if (progress_delta > 0.0)
+            {
+                temperature = std::max(
+                    final_temperature,
+                    temperature * std::pow(timed_cooling_ratio, progress_delta));
+            }
+            last_cooling_elapsed_s = elapsed_after_iteration;
+
+            if (segment_duration_s > 0.0)
+            {
+                const int target_completed_segments = std::min(
+                    50,
+                    (int)std::floor(elapsed_after_iteration / segment_duration_s));
+                if (target_completed_segments > completed_time_segments &&
+                    segment_has_activity(operator_state))
+                {
+                    update_operator_weights(
+                        operator_state,
+                        selection_weights,
+                        target_completed_segments,
+                        iteration,
+                        result.statistics);
+                    completed_time_segments = target_completed_segments;
+                }
+            }
+        }
+        else
+        {
+            if (iteration % segment_length == 0)
+            {
+                update_operator_weights(
+                    operator_state,
+                    selection_weights,
+                    iteration / segment_length,
+                    iteration,
+                    result.statistics);
+            }
+
+            temperature = std::max(final_temperature, temperature * cooling_rate);
+        }
+    }
+
+    if (timed_mode)
+    {
+        if (segment_has_activity(operator_state))
         {
             update_operator_weights(
                 operator_state,
                 selection_weights,
-                (i + 1) / segment_length,
-                i + 1,
+                completed_time_segments + 1,
+                iteration,
                 result.statistics);
         }
-
-        temperature = std::max(final_temperature, temperature * cooling_rate);
     }
-
-    if (max_iterations % segment_length != 0)
+    else if (max_iterations % segment_length != 0)
     {
         update_operator_weights(
             operator_state,
@@ -604,4 +795,19 @@ GAMResult general_adaptive_metaheuristic(
 
     result.solution = std::move(best);
     return result;
+}
+
+GAMResult general_adaptive_metaheuristic(
+    const Instance &instance,
+    Solution initial,
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &initial_weights)
+{
+    return general_adaptive_metaheuristic(
+        instance,
+        std::move(initial),
+        ops,
+        0,
+        GAMConfig{},
+        initial_weights);
 }
