@@ -125,6 +125,125 @@ double compute_acceptance_probability(
     return std::exp(-(double)(worsening_delta) / temperature);
 }
 
+double compute_allowed_deviation(
+    long long best_cost,
+    double schedule_elapsed,
+    double schedule_duration,
+    double allowed_deviation_fraction)
+{
+    const double safe_duration = std::max(1e-9, schedule_duration);
+    const double progress = std::clamp(
+        schedule_elapsed / safe_duration,
+        0.0,
+        1.0);
+    return std::max(0.0, allowed_deviation_fraction) *
+        (1.0 - progress) *
+        static_cast<double>(best_cost);
+}
+
+double build_phase_initial_temperature(
+    const Instance &instance,
+    const Solution &reference_solution,
+    long long reference_cost,
+    const std::vector<NamedOperator> &phase_ops,
+    GAMSolutionCache *cache)
+{
+    const double sampled_positive_delta = average_positive_delta_sample(
+        instance,
+        reference_solution,
+        reference_cost,
+        phase_ops,
+        cache);
+    const double target_initial_worsening_acceptance =
+        instance.n >= 50 ? 0.12 : 0.18;
+    return -sampled_positive_delta / std::log(target_initial_worsening_acceptance);
+}
+
+GAMEscapeResult run_exchange_k_large_escape(
+    const Instance &instance,
+    Solution incumbent,
+    int amnt_iter,
+    GAMSolutionCache *cache)
+{
+    const GAMSolutionEvaluation initial_evaluation =
+        evaluate_solution_with_cache(instance, incumbent, cache);
+    const long long initial_cost =
+        initial_evaluation.objective_known
+            ? initial_evaluation.objective
+            : objective_function_impl(instance, incumbent);
+
+    if (cache != nullptr && !initial_evaluation.objective_known)
+    {
+        gam_cache_known_feasible_solution(*cache, instance, incumbent, initial_cost);
+    }
+
+    Solution best = incumbent;
+    long long incumbent_cost = initial_cost;
+    long long best_cost = initial_cost;
+    bool found_new_best = false;
+
+    for (int attempt = 0; attempt < amnt_iter; ++attempt)
+    {
+        Solution neighbour = incumbent;
+        if (!exchange_k_large(instance, neighbour) || same_solution(neighbour, incumbent))
+        {
+            continue;
+        }
+
+        const GAMSolutionEvaluation evaluation =
+            evaluate_solution_with_cache(instance, neighbour, cache);
+        if (!evaluation.feasible || !evaluation.objective_known)
+        {
+            continue;
+        }
+
+        incumbent = std::move(neighbour);
+        incumbent_cost = evaluation.objective;
+        if (incumbent_cost < best_cost)
+        {
+            best = incumbent;
+            best_cost = incumbent_cost;
+            found_new_best = true;
+        }
+    }
+
+    return GAMEscapeResult{
+        std::move(incumbent),
+        incumbent_cost,
+        std::move(best),
+        best_cost,
+        found_new_best};
+}
+
+GAMEscapeResult run_configured_escape(
+    const Instance &instance,
+    Solution incumbent,
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &selection_weights,
+    int amnt_iter,
+    GAMEscapeMode escape_mode,
+    GAMSolutionCache *cache)
+{
+    switch (escape_mode)
+    {
+    case GAMEscapeMode::ExchangeKLarge:
+        return run_exchange_k_large_escape(
+            instance,
+            std::move(incumbent),
+            amnt_iter,
+            cache);
+    case GAMEscapeMode::LegacyGAM:
+    default:
+        return gam_escape_algorithm(
+            instance,
+            std::move(incumbent),
+            ops,
+            selection_weights,
+            amnt_iter,
+            cache);
+    }
+}
+
 std::vector<double> initialize_weights(
     const std::vector<NamedOperator> &ops,
     const std::vector<double> &initial_weights)
@@ -453,6 +572,8 @@ GAMResult general_adaptive_metaheuristic(
         resolve_operator_pool(ops, config.phase_two_operator_names);
     const std::vector<NamedOperator> phase_one_ops =
         build_active_ops(ops, phase_one_indices);
+    const std::vector<NamedOperator> phase_two_ops =
+        build_active_ops(ops, phase_two_indices);
 
     const std::vector<double> initial_selection_weights = initialize_weights(ops, initial_weights);
     std::vector<GAMOperatorState> operator_state =
@@ -473,15 +594,15 @@ GAMResult general_adaptive_metaheuristic(
         instance.n >= 50 ? 0.12 : 0.18;
     const double initial_temperature =
         -sampled_positive_delta / std::log(target_initial_worsening_acceptance);
-
-    const double final_temperature = std::max(1.0, initial_temperature * 0.05);
-    const double cooling_rate = std::pow(
-        final_temperature / initial_temperature,
+    double phase_initial_temperature = initial_temperature;
+    double phase_final_temperature = std::max(1.0, phase_initial_temperature * 0.05);
+    double timed_cooling_ratio =
+        phase_final_temperature / phase_initial_temperature;
+    double cooling_rate = std::pow(
+        phase_final_temperature / phase_initial_temperature,
         1.0 / std::max(1, max_iterations - 1));
-    const double timed_cooling_ratio =
-        final_temperature / initial_temperature;
 
-    double temperature = initial_temperature;
+    double temperature = phase_initial_temperature;
     double reward_delta_scale = std::max(1.0, sampled_positive_delta);
     std::uniform_real_distribution<double> unit_dist(0.0, 1.0);
 
@@ -503,10 +624,14 @@ GAMResult general_adaptive_metaheuristic(
     int iteration = 0;
 
     const auto run_start = std::chrono::steady_clock::now();
-    double last_cooling_elapsed_s = 0.0;
+    double phase_schedule_start_elapsed_s = 0.0;
+    double last_phase_schedule_elapsed_s = 0.0;
+    double phase_schedule_duration_s =
+        timed_mode ? std::max(0.001, phase_one_until_s) : 0.0;
     const double segment_duration_s =
         timed_mode ? std::max(0.001, (double)time_limit_s / 50.0) : 0.0;
     int completed_time_segments = 0;
+    bool previous_phase_one = true;
 
     while (true)
     {
@@ -530,6 +655,34 @@ GAMResult general_adaptive_metaheuristic(
             !timed_mode || elapsed_before_iteration < phase_one_until_s;
         const std::vector<int> &active_indices =
             phase_one ? phase_one_indices : phase_two_indices;
+        const std::vector<NamedOperator> &active_ops =
+            phase_one ? phase_one_ops : phase_two_ops;
+
+        if (timed_mode &&
+            config.reset_acceptance_each_phase &&
+            previous_phase_one &&
+            !phase_one)
+        {
+            phase_schedule_start_elapsed_s = elapsed_before_iteration;
+            last_phase_schedule_elapsed_s = 0.0;
+            phase_schedule_duration_s = std::max(
+                0.001,
+                (double)time_limit_s - phase_schedule_start_elapsed_s);
+            if (config.acceptance_mode == GAMAcceptanceMode::SimulatedAnnealing)
+            {
+                phase_initial_temperature = build_phase_initial_temperature(
+                    instance,
+                    incumbent,
+                    incumbent_cost,
+                    active_ops.empty() ? ops : active_ops,
+                    &solution_cache);
+                phase_final_temperature = std::max(1.0, phase_initial_temperature * 0.05);
+                timed_cooling_ratio = phase_final_temperature / phase_initial_temperature;
+                temperature = phase_initial_temperature;
+            }
+            non_improving_iterations = 0;
+        }
+        previous_phase_one = phase_one;
 
         if (non_improving_iterations >= stopping_condition)
         {
@@ -538,16 +691,15 @@ GAMResult general_adaptive_metaheuristic(
                 !timed_mode && iteration >= (max_iterations * 3) / 4
                     ? std::min(20, remaining_iterations)
                     : std::min(10, timed_mode ? 20 : remaining_iterations);
-            const std::vector<NamedOperator> active_ops =
-                build_active_ops(ops, active_indices);
             const std::vector<double> active_weights =
                 build_active_selection_weights(selection_weights, active_indices);
-            const GAMEscapeResult escape_result = gam_escape_algorithm(
+            const GAMEscapeResult escape_result = run_configured_escape(
                 instance,
                 incumbent,
                 active_ops.empty() ? ops : active_ops,
                 active_weights.empty() ? selection_weights : active_weights,
                 escape_budget,
+                config.escape_mode,
                 &solution_cache);
             incumbent = escape_result.incumbent;
             incumbent_cost = escape_result.incumbent_cost;
@@ -570,7 +722,10 @@ GAMResult general_adaptive_metaheuristic(
                 result.statistics.best_found_iteration = iteration;
             }
 
-            temperature = std::max(temperature, initial_temperature * 0.25);
+            if (config.acceptance_mode == GAMAcceptanceMode::SimulatedAnnealing)
+            {
+                temperature = std::max(temperature, phase_initial_temperature * 0.25);
+            }
             non_improving_iterations = 0;
         }
 
@@ -587,10 +742,36 @@ GAMResult general_adaptive_metaheuristic(
         GAMOperatorState &selected = operator_state[(size_t)selected_idx];
         selected.segment_uses++;
 
+        const double schedule_elapsed =
+            timed_mode
+                ? std::max(0.0, elapsed_before_iteration - phase_schedule_start_elapsed_s)
+                : (double)std::max(0, iteration - 1);
+        const double schedule_duration =
+            timed_mode
+                ? std::max(0.001, phase_schedule_duration_s)
+                : (double)std::max(1, max_iterations - 1);
+        const double schedule_progress = std::clamp(
+            schedule_elapsed / schedule_duration,
+            0.0,
+            1.0);
+        const double allowed_deviation =
+            config.acceptance_mode == GAMAcceptanceMode::BestRelativeRRT
+                ? compute_allowed_deviation(
+                      best_cost,
+                      schedule_elapsed,
+                      schedule_duration,
+                      config.allowed_deviation_fraction)
+                : 0.0;
+
         GAMIterationStatistics iteration_stat;
         iteration_stat.iteration = iteration;
         iteration_stat.operator_idx = selected_idx;
-        iteration_stat.temperature = temperature;
+        iteration_stat.temperature =
+            config.acceptance_mode == GAMAcceptanceMode::BestRelativeRRT
+                ? allowed_deviation
+                : temperature;
+        iteration_stat.allowed_deviation = allowed_deviation;
+        iteration_stat.virtual_schedule_fraction = schedule_progress;
         GAMOperatorStatistics &operator_statistics =
             result.statistics.operator_stats[(size_t)selected_idx];
         operator_statistics.uses++;
@@ -640,9 +821,19 @@ GAMResult general_adaptive_metaheuristic(
 
                 if (delta_e > 0)
                 {
-                    acceptance_probability = compute_acceptance_probability(delta_e, temperature);
-                    accept = unit_dist(gen) < acceptance_probability;
-                    iteration_stat.worsening_acceptance_probability = acceptance_probability;
+                    if (config.acceptance_mode == GAMAcceptanceMode::BestRelativeRRT)
+                    {
+                        accept =
+                            static_cast<double>(cost) <=
+                            static_cast<double>(best_cost) + allowed_deviation;
+                    }
+                    else
+                    {
+                        acceptance_probability =
+                            compute_acceptance_probability(delta_e, temperature);
+                        accept = unit_dist(gen) < acceptance_probability;
+                        iteration_stat.worsening_acceptance_probability = acceptance_probability;
+                    }
                 }
 
                 if (accept)
@@ -725,17 +916,22 @@ GAMResult general_adaptive_metaheuristic(
             const double elapsed_after_iteration = std::chrono::duration<double>(
                 std::chrono::steady_clock::now() - run_start)
                                                         .count();
+            const double phase_elapsed_after_iteration = std::max(
+                0.0,
+                elapsed_after_iteration - phase_schedule_start_elapsed_s);
             const double elapsed_delta_s = std::max(
                 0.0,
-                elapsed_after_iteration - last_cooling_elapsed_s);
-            const double progress_delta = elapsed_delta_s / std::max(1.0, (double)time_limit_s);
-            if (progress_delta > 0.0)
+                phase_elapsed_after_iteration - last_phase_schedule_elapsed_s);
+            const double progress_delta =
+                elapsed_delta_s / std::max(0.001, phase_schedule_duration_s);
+            if (config.acceptance_mode == GAMAcceptanceMode::SimulatedAnnealing &&
+                progress_delta > 0.0)
             {
                 temperature = std::max(
-                    final_temperature,
+                    phase_final_temperature,
                     temperature * std::pow(timed_cooling_ratio, progress_delta));
             }
-            last_cooling_elapsed_s = elapsed_after_iteration;
+            last_phase_schedule_elapsed_s = phase_elapsed_after_iteration;
 
             if (segment_duration_s > 0.0)
             {
@@ -767,7 +963,10 @@ GAMResult general_adaptive_metaheuristic(
                     result.statistics);
             }
 
-            temperature = std::max(final_temperature, temperature * cooling_rate);
+            if (config.acceptance_mode == GAMAcceptanceMode::SimulatedAnnealing)
+            {
+                temperature = std::max(phase_final_temperature, temperature * cooling_rate);
+            }
         }
     }
 

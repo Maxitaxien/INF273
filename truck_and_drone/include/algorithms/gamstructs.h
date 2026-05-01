@@ -9,6 +9,8 @@ struct GAMIterationStatistics
     int operator_idx = -1;
     long long delta = 0;
     double temperature = 0.0;
+    double allowed_deviation = 0.0;
+    double virtual_schedule_fraction = 0.0;
     double worsening_acceptance_probability = -1.0;
     double runtime_ms = 0.0;
     bool has_delta = false;

@@ -46,10 +46,24 @@ void run_all_algos(const std::vector<NamedOperator> &ops, const std::vector<doub
 void run_gam();
 void run_gam(const NamedOperator &op);
 void run_gam(const std::vector<NamedOperator> &ops, const std::vector<double> &weights = {});
+
+struct GAMExperiment
+{
+    std::string label;
+    std::vector<NamedOperator> ops;
+    std::vector<double> weights;
+    GAMConfig config;
+};
+
 void run_gam(
     const std::vector<NamedOperator> &ops,
     const std::vector<double> &weights,
     const GAMConfig &config,
+    const std::vector<std::string> &datasets,
+    int amnt_iter,
+    const std::unordered_map<std::string, int> &time_budget_overrides = {});
+void run_gam_experiments(
+    const std::vector<GAMExperiment> &experiments,
     const std::vector<std::string> &datasets,
     int amnt_iter,
     const std::unordered_map<std::string, int> &time_budget_overrides = {});

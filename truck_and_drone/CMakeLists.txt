@@ -92,6 +92,7 @@ add_library(core
     src/operators/interval_helpers.cpp
     src/operators/route_timing.cpp
     src/operators/operator.cpp
+    src/operators/exchange_k_v2.cpp
     src/operators/concorde_tsp.cpp
     src/operators/concorde_k_swap_rebuild.cpp
     src/operators/alns/random_removal.cpp

@@ -6,9 +6,25 @@
 #include <vector>
 #include "algorithms/gamstructs.h"
 
+enum class GAMAcceptanceMode
+{
+    SimulatedAnnealing,
+    BestRelativeRRT,
+};
+
+enum class GAMEscapeMode
+{
+    LegacyGAM,
+    ExchangeKLarge,
+};
+
 struct GAMConfig
 {
     double phase_one_fraction = 1.0;
+    double allowed_deviation_fraction = 0.20;
+    bool reset_acceptance_each_phase = true;
+    GAMAcceptanceMode acceptance_mode = GAMAcceptanceMode::SimulatedAnnealing;
+    GAMEscapeMode escape_mode = GAMEscapeMode::LegacyGAM;
     std::vector<std::string> phase_one_operator_names;
     std::vector<std::string> phase_two_operator_names;
 };

@@ -114,6 +114,19 @@ std::filesystem::path locate_plot_script()
     return {};
 }
 
+std::string sanitize_path_component(const std::string &value)
+{
+    std::string sanitized = value;
+    for (char &ch : sanitized)
+    {
+        if (ch == '/' || ch == '\\')
+        {
+            ch = '-';
+        }
+    }
+    return sanitized;
+}
+
 void generate_run_plots(const std::string &run_dir)
 {
     const std::filesystem::path script_path = locate_plot_script();
@@ -191,6 +204,90 @@ void save_best_solution_visualization(
     {
         std::cerr << "Failed to save solution visualization at: "
                   << output_path.string() << "\n";
+    }
+}
+
+void run_single_gam_experiment(
+    const std::string &base_dir,
+    const std::string &algo_op_name,
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights,
+    const GAMConfig &config,
+    const std::vector<std::string> &datasets,
+    int amnt_iter,
+    const std::unordered_map<std::string, int> &time_budget_overrides)
+{
+    std::string run_dir = create_algo_directory(
+        base_dir,
+        sanitize_path_component(algo_op_name));
+
+    for (const auto &dataset : datasets)
+    {
+        long long best = INF;
+        long double avg = 0;
+        double avg_runtime = 0;
+        long long initial_obj = 0;
+        int best_run_idx = 1;
+        Instance instance = read_instance(dataset);
+        Solution initial;
+        Solution best_solution;
+        GAMRunStatistics best_statistics;
+        std::vector<GAMRunReport> run_reports;
+        run_reports.reserve(amnt_iter);
+
+        for (int i = 0; i < amnt_iter; ++i)
+        {
+            auto start = std::chrono::steady_clock::now();
+
+            initial = simple_initial_solution(instance.n);
+
+            if (i == 0)
+            {
+                initial_obj = objective_function_impl(instance, initial);
+            }
+
+            const int time_limit_s = resolve_gam_time_budget(
+                instance,
+                dataset,
+                time_budget_overrides);
+            GAMResult gam_result = general_adaptive_metaheuristic(
+                instance,
+                initial,
+                ops,
+                time_limit_s,
+                config,
+                weights);
+            auto stop = std::chrono::steady_clock::now();
+
+            const long long val = objective_function_impl(instance, gam_result.solution);
+            avg += val;
+            avg_runtime += std::chrono::duration<double>(stop - start).count();
+            run_reports.push_back(GAMRunReport{i + 1, val, gam_result.statistics.best_found_iteration});
+
+            if (val < best)
+            {
+                best = val;
+                best_solution = std::move(gam_result.solution);
+                best_statistics = std::move(gam_result.statistics);
+                best_run_idx = i + 1;
+            }
+        }
+
+        avg /= amnt_iter;
+        avg_runtime /= amnt_iter;
+
+        const double improvement = 100.0 * (initial_obj - best) / initial_obj;
+        save_to_csv(
+            run_dir,
+            algo_op_name,
+            dataset,
+            avg,
+            best,
+            improvement,
+            avg_runtime,
+            convert_to_submission(instance, best_solution));
+        save_gam_statistics(run_dir, dataset, best_run_idx, best_statistics, run_reports);
+        save_best_solution_visualization(run_dir, dataset, instance, best_solution);
     }
 }
 }
@@ -351,7 +448,6 @@ void run_gam(
     const std::unordered_map<std::string, int> &time_budget_overrides)
 {
     std::string base_dir = create_run_directory();
-
     std::string algo_op_name = "General Adaptive Metaheuristic";
     const std::string mix_name = build_operator_mix_name(
         ops,
@@ -362,76 +458,49 @@ void run_gam(
     {
         algo_op_name += " " + mix_name;
     }
+    run_single_gam_experiment(
+        base_dir,
+        algo_op_name,
+        ops,
+        weights,
+        config,
+        datasets,
+        amnt_iter,
+        time_budget_overrides);
 
-    std::string run_dir = create_algo_directory(base_dir, algo_op_name);
+    create_markdown_tables(base_dir);
+    generate_run_plots(base_dir);
+}
 
-    for (const auto &dataset : datasets)
+void run_gam_experiments(
+    const std::vector<GAMExperiment> &experiments,
+    const std::vector<std::string> &datasets,
+    int amnt_iter,
+    const std::unordered_map<std::string, int> &time_budget_overrides)
+{
+    if (experiments.empty())
     {
-        long long best = INF;
-        long double avg = 0;
-        double avg_runtime = 0;
-        long long initial_obj = 0;
-        int best_run_idx = 1;
-        Instance instance = read_instance(dataset);
-        Solution initial;
-        Solution best_solution;
-        GAMRunStatistics best_statistics;
-        std::vector<GAMRunReport> run_reports;
-        run_reports.reserve(amnt_iter);
+        return;
+    }
 
-        for (int i = 0; i < amnt_iter; ++i)
+    std::string base_dir = create_run_directory();
+    for (const GAMExperiment &experiment : experiments)
+    {
+        std::string algo_op_name = "General Adaptive Metaheuristic";
+        if (!experiment.label.empty())
         {
-            auto start = std::chrono::steady_clock::now();
-
-            initial = simple_initial_solution(instance.n);
-
-            if (i == 0)
-            {
-                initial_obj = objective_function_impl(instance, initial);
-            }
-
-            const int time_limit_s = resolve_gam_time_budget(
-                instance,
-                dataset,
-                time_budget_overrides);
-            GAMResult gam_result = general_adaptive_metaheuristic(
-                instance,
-                initial,
-                ops,
-                time_limit_s,
-                config,
-                weights);
-            auto stop = std::chrono::steady_clock::now();
-
-            const long long val = objective_function_impl(instance, gam_result.solution);
-            avg += val;
-            avg_runtime += std::chrono::duration<double>(stop - start).count();
-            run_reports.push_back(GAMRunReport{i + 1, val, gam_result.statistics.best_found_iteration});
-
-            if (val < best)
-            {
-                best = val;
-                best_solution = std::move(gam_result.solution);
-                best_statistics = std::move(gam_result.statistics);
-                best_run_idx = i + 1;
-            }
+            algo_op_name += " " + experiment.label;
         }
 
-        avg /= amnt_iter;
-        avg_runtime /= amnt_iter;
-
-        const double improvement = 100.0 * (initial_obj - best) / initial_obj;
-        save_to_csv(
-            run_dir,
+        run_single_gam_experiment(
+            base_dir,
             algo_op_name,
-            dataset,
-            avg,
-            best,
-            improvement,
-            avg_runtime,
-            convert_to_submission(instance, best_solution));
-        save_gam_statistics(run_dir, dataset, best_run_idx, best_statistics, run_reports);
-        save_best_solution_visualization(run_dir, dataset, instance, best_solution);
+            experiment.ops,
+            experiment.weights,
+            experiment.config,
+            datasets,
+            amnt_iter,
+            time_budget_overrides);
     }
 
     create_markdown_tables(base_dir);

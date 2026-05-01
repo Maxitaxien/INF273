@@ -600,6 +600,44 @@ def generate_dataset_plots(statistics_dir: Path) -> None:
             scatter_only=True,
         )
 
+        objective_points: list[tuple[float, float, float]] = []
+        cumulative_runtime_ms = 0.0
+        for row in trace_rows:
+            incumbent_objective = parse_float(row.get("incumbent_objective", ""))
+            best_objective = parse_float(row.get("best_objective", ""))
+            runtime_ms = parse_float(row.get("runtime_ms", "")) or 0.0
+            if incumbent_objective is None or best_objective is None:
+                continue
+
+            cumulative_runtime_ms += max(0.0, runtime_ms)
+            objective_points.append(
+                (cumulative_runtime_ms / 1000.0, incumbent_objective, best_objective)
+            )
+
+        if objective_points:
+            objective_points = downsample_objective_points(objective_points)
+            write_line_or_scatter_chart(
+                statistics_dir / "objective_over_time.svg",
+                f"{statistics_dir.stem} Solution Value Over Time",
+                "Runtime (s)",
+                "Objective",
+                [
+                    {
+                        "label": "Current solution",
+                        "color": PALETTE[0],
+                        "points": [(time_s, incumbent) for time_s, incumbent, _ in objective_points],
+                    },
+                    {
+                        "label": "Best solution",
+                        "color": PALETTE[2],
+                        "points": [(time_s, best) for time_s, _, best in objective_points],
+                    },
+                ],
+                show_markers=False,
+                width=1200,
+                height=700,
+            )
+
         operator_delta_series: list[dict[str, object]] = []
         grouped_deltas: dict[str, list[tuple[int, float]]] = defaultdict(list)
         for row in trace_rows:

@@ -1,6 +1,7 @@
 #pragma once
 #include "datahandling/instance.h"
 #include "operators/alns/signatures.h"
+#include "operators/exchange_k.h"
 #include "verification/solution.h"
 #include <functional>
 #include <string>

@@ -106,7 +106,7 @@ bool save_gam_statistics(
 
     iteration_file
         << "iteration,operator_idx,operator_name,delta,has_delta,incumbent_objective,"
-        << "best_objective,temperature,"
+        << "best_objective,temperature,allowed_deviation,virtual_schedule_fraction,"
         << "worsening_acceptance_probability,runtime_ms\n";
     for (const GAMIterationStatistics& row : statistics.iteration_stats)
     {
@@ -119,6 +119,8 @@ bool save_gam_statistics(
             << row.incumbent_objective << ","
             << row.best_objective << ","
             << row.temperature << ","
+            << row.allowed_deviation << ","
+            << row.virtual_schedule_fraction << ","
             << row.worsening_acceptance_probability << ","
             << row.runtime_ms << "\n";
     }
