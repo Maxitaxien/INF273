@@ -90,8 +90,10 @@ def parse_summary_result(path: Path, algorithm: str) -> dict[str, object] | None
 
     headers = rows[1]
     values = rows[2]
-    if headers and "Average" not in headers[0]:
+    if headers and "Average" not in headers[0] and len(values) == len(headers):
         headers = headers[1:]
+        values = values[1:]
+    elif len(values) == len(headers) + 1:
         values = values[1:]
     mapping = {header.strip(): value.strip() for header, value in zip(headers, values)}
     dataset = path.stem
@@ -442,11 +444,12 @@ def normalize_operator_rows(operator_rows: list[dict[str, object]]) -> list[dict
         name = row.get("operator_name", "")
         if not name:
             continue
+        changed_candidates = row.get("changed_candidates", row.get("successful_calls", 0))
         normalized.append(
             {
                 "operator_name": str(name),
                 "uses": int(parse_float(str(row.get("uses", 0))) or 0),
-                "successful_calls": int(parse_float(str(row.get("successful_calls", 0))) or 0),
+                "changed_candidates": int(parse_float(str(changed_candidates)) or 0),
                 "failures": int(parse_float(str(row.get("failures", 0))) or 0),
                 "infeasible_candidates": int(parse_float(str(row.get("infeasible_candidates", 0))) or 0),
                 "feasible_candidates": int(parse_float(str(row.get("feasible_candidates", 0))) or 0),

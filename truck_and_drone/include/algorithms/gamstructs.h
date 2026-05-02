@@ -31,7 +31,7 @@ struct GAMOperatorStatistics
     int operator_idx = -1;
     std::string operator_name;
     int uses = 0;
-    int successful_calls = 0;
+    int changed_candidates = 0;
     int failures = 0;
     int infeasible_candidates = 0;
     int feasible_candidates = 0;

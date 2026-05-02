@@ -118,10 +118,17 @@ CsvResult parseCSV(const fs::path &file)
     std::getline(in, line);
     res.values = splitCSV(line);
 
-    // Remove empty first column if present
-    if (!res.headers.empty() && res.headers[0].find("Average") == std::string::npos)
+    // Backward compatibility: older summary CSVs had a leading blank header
+    // and algorithm-name value column. New summary CSVs are metric-only.
+    if (!res.headers.empty() &&
+        res.headers[0].find("Average") == std::string::npos &&
+        res.values.size() == res.headers.size())
     {
         res.headers.erase(res.headers.begin());
+        res.values.erase(res.values.begin());
+    }
+    else if (!res.headers.empty() && res.values.size() == res.headers.size() + 1)
+    {
         res.values.erase(res.values.begin());
     }
 

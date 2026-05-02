@@ -798,14 +798,14 @@ GAMResult general_adaptive_metaheuristic(
             if (!evaluation.feasible || !evaluation.objective_known)
             {
                 result.statistics.infeasible_candidates++;
-                operator_statistics.successful_calls++;
+                operator_statistics.changed_candidates++;
                 operator_statistics.infeasible_candidates++;
                 non_improving_iterations++;
             }
             else
             {
                 selected.segment_successes++;
-                operator_statistics.successful_calls++;
+                operator_statistics.changed_candidates++;
                 operator_statistics.feasible_candidates++;
 
                 const long long cost = evaluation.objective;

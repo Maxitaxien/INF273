@@ -48,9 +48,11 @@ bool save_to_csv(
         return false;
     }
 
-    csvfile << dataset_stem(dataset) << ",,,,\n";
-    csvfile << " ,Average objective,Best Objective,Improvement (%),Average running time (in seconds)\n";
-    csvfile << algo_name << "," << avg << "," << best << "," << improvement_percent << "," << avg_runtime << "\n";
+    (void)(algo_name);
+
+    csvfile << dataset_stem(dataset) << ",,,\n";
+    csvfile << "Average objective,Best Objective,Improvement (%),Average running time (in seconds)\n";
+    csvfile << avg << "," << best << "," << improvement_percent << "," << avg_runtime << "\n";
 
     if (!solutionfile.is_open())
     {
@@ -167,7 +169,7 @@ bool save_gam_statistics(
     }
 
     operator_file
-        << "operator_idx,operator_name,uses,successful_calls,failures,"
+        << "operator_idx,operator_name,uses,changed_candidates,failures,"
         << "infeasible_candidates,feasible_candidates,accepted_moves,"
         << "improving_accepts,new_bests,delta_samples,delta_sum,"
         << "avg_delta,total_runtime_ms,avg_runtime_ms\n";
@@ -186,7 +188,7 @@ bool save_gam_statistics(
             << row.operator_idx << ","
             << row.operator_name << ","
             << row.uses << ","
-            << row.successful_calls << ","
+            << row.changed_candidates << ","
             << row.failures << ","
             << row.infeasible_candidates << ","
             << row.feasible_candidates << ","
