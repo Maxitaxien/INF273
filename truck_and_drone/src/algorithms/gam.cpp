@@ -726,6 +726,7 @@ GAMResult general_adaptive_metaheuristic(
             {
                 temperature = std::max(temperature, phase_initial_temperature * 0.25);
             }
+            solution_cache.clear();
             non_improving_iterations = 0;
         }
 

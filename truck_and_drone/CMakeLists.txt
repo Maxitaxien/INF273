@@ -95,6 +95,7 @@ add_library(core
     src/operators/exchange_k_v2.cpp
     src/operators/concorde_tsp.cpp
     src/operators/concorde_k_swap_rebuild.cpp
+    src/operators/exact_segment_reopt.cpp
     src/operators/alns/random_removal.cpp
     src/operators/alns/greedy_insert.cpp
     src/operators/alns/alns_composite.cpp

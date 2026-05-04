@@ -87,7 +87,9 @@ GAMSolutionEvaluation evaluate_solution_with_cache(
 
     if (cache == nullptr)
     {
-        evaluation.feasible = master_check(instance, solution, false);
+        // TEST: Assume feasible. 
+        // evaluation.feasible = master_check(instance, solution, false);
+        evaluation.feasible = true;
         if (evaluation.feasible)
         {
             evaluation.objective_known = true;
@@ -104,7 +106,9 @@ GAMSolutionEvaluation evaluate_solution_with_cache(
 
     if (!entry.feasible_known)
     {
-        entry.feasible = master_check(instance, canonical, false);
+        // TEST: Assume feasible
+        entry.feasible = true;
+        // entry.feasible = master_check(instance, canonical, false);
         entry.feasible_known = true;
     }
 

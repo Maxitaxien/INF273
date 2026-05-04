@@ -271,3 +271,20 @@ bool or_opt_segment_relocate_random(const Instance &inst, Solution &sol);
  * customer vector.
  */
 bool or_opt_segment_relocate_first_improvement(const Instance &inst, Solution &sol);
+
+/**
+ * Solves a small subset of the solution optimally with k = 2
+ */
+bool exact_segment_reopt_random_small(const Instance &inst, Solution &sol);
+
+
+/**
+ * Solves a medium subset of the solution optimally with k = 3
+ */
+bool exact_segment_reopt_random_medium(const Instance &inst, Solution &sol);
+
+
+/**
+ * Solves a large subset of the solution optimally with k = 4
+ */
+bool exact_segment_reopt_random_large(const Instance &inst, Solution &sol);

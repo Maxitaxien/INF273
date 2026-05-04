@@ -1,14 +1,15 @@
 #include "operators/route_timing.h"
+#include "verification/solution.h"
 #include <algorithm>
 #include <utility>
 #include <vector>
 
-RouteTiming compute_route_timing(const Instance &instance, const Solution &solution)
+RouteTiming compute_route_timing_from_canonical_solution(
+    const Instance &instance,
+    const Solution &canonical)
 {
-    const Solution canonical =
-        canonicalize_terminal_depot_landings(instance, solution);
     const int route_size = (int)(canonical.truck_route.size());
-    const int drone_count = (int)(solution.drones.size());
+    const int drone_count = (int)(canonical.drones.size());
 
     RouteTiming timing;
     timing.truck_arrival.assign(route_size, 0);
@@ -139,4 +140,11 @@ RouteTiming compute_route_timing(const Instance &instance, const Solution &solut
 
     timing.drone_ready_at_end = std::move(drone_ready);
     return timing;
+}
+
+RouteTiming compute_route_timing(const Instance &instance, const Solution &solution)
+{
+    const Solution canonical =
+        canonicalize_terminal_depot_landings(instance, solution);
+    return compute_route_timing_from_canonical_solution(instance, canonical);
 }

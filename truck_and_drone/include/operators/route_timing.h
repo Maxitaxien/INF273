@@ -12,4 +12,8 @@ struct RouteTiming
     long long total_drone_arrival = 0;
 };
 
+RouteTiming compute_route_timing_from_canonical_solution(
+    const Instance &instance,
+    const Solution &canonical_solution);
+
 RouteTiming compute_route_timing(const Instance &instance, const Solution &solution);

@@ -1,4 +1,0 @@
-- Missing plot
-- New escape mechanism?
-- Try RRT accept
-- Make sure no operator changes

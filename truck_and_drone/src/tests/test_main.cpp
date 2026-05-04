@@ -20,6 +20,7 @@
 #include "operators/alns/alns_composite.h"
 #include "operators/customer_slot_helpers.h"
 #include "operators/drone_rendezvous_shift.h"
+#include "operators/exact_segment_reopt.h"
 #include "operators/one_reinsert.h"
 #include "operators/operator.h"
 #include "operators/or_opt_segment_relocate.h"
@@ -1361,6 +1362,94 @@ void test_replace_drone_delivery_targeted_moves_customer_to_truck() {
     std::cout << "test_replace_drone_delivery_targeted_moves_customer_to_truck passed\n";
 }
 
+void test_exact_segment_reopt_uses_precomputed_pure_drone_cache() {
+    Instance instance{};
+    instance.n = 2;
+    instance.m = 1;
+    instance.lim = 100;
+    instance.truck_matrix = {
+        {0, 100, 400},
+        {100, 0, 100},
+        {400, 100, 0},
+    };
+    instance.drone_matrix = {
+        {0, 200, 50},
+        {100, 0, 200},
+        {500, 50, 0},
+    };
+    precompute_pure_drone_feasibility(instance);
+
+    Solution solution{{0, 2, 1}, {}};
+    assert(master_check(instance, solution, true));
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    const bool success = exact_segment_reopt(instance, solution, 1, 1);
+
+    assert(success);
+    assert(master_check(instance, solution, true));
+    assert(solution.truck_route == std::vector<int>({0, 1}));
+    assert(!solution.drones.empty());
+    assert(solution.drones[0].deliver_nodes == std::vector<int>({2}));
+    assert(objective_function_impl(instance, solution) < initial_cost);
+
+    std::cout << "test_exact_segment_reopt_uses_precomputed_pure_drone_cache passed\n";
+}
+
+void test_exact_segment_reopt_handles_suffix_window() {
+    Instance instance{};
+    instance.n = 3;
+    instance.m = 0;
+    instance.lim = 1000;
+    instance.truck_matrix.assign(4, std::vector<long long>(4, 0));
+    for (int i = 0; i <= instance.n; ++i) {
+        for (int j = 0; j <= instance.n; ++j) {
+            instance.truck_matrix[i][j] = 100LL * std::abs(i - j);
+        }
+    }
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 1, 3, 2}, {}};
+    assert(master_check(instance, solution, true));
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    const bool success = exact_segment_reopt(instance, solution, 2, 2);
+
+    assert(success);
+    assert(master_check(instance, solution, true));
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3}));
+    assert(objective_function_impl(instance, solution) < initial_cost);
+
+    std::cout << "test_exact_segment_reopt_handles_suffix_window passed\n";
+}
+
+void test_exact_segment_reopt_random_small_retries_other_windows() {
+    Instance instance{};
+    instance.n = 5;
+    instance.m = 0;
+    instance.lim = 1000;
+    instance.truck_matrix.assign(6, std::vector<long long>(6, 0));
+    for (int i = 0; i <= instance.n; ++i) {
+        for (int j = 0; j <= instance.n; ++j) {
+            instance.truck_matrix[i][j] = 100LL * std::abs(i - j);
+        }
+    }
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution solution{{0, 2, 1, 3, 4, 5}, {}};
+    assert(master_check(instance, solution, true));
+    const long long initial_cost = objective_function_impl(instance, solution);
+
+    gen.seed(42);
+    const bool success = exact_segment_reopt_random_small(instance, solution);
+
+    assert(success);
+    assert(master_check(instance, solution, true));
+    assert(solution.truck_route == std::vector<int>({0, 1, 2, 3, 4, 5}));
+    assert(objective_function_impl(instance, solution) < initial_cost);
+
+    std::cout << "test_exact_segment_reopt_random_small_retries_other_windows passed\n";
+}
+
 void test_save_gam_statistics_writes_operator_runtime_outputs() {
     const std::filesystem::path run_dir =
         std::filesystem::temp_directory_path() / "truck_and_drone_gam_statistics_test";
@@ -1474,6 +1563,9 @@ int main() {
         test_single_drone_planner_shake_returns_false_without_drone_customers();
         test_single_drone_planner_shake_changes_one_drone_schedule();
         test_replace_drone_delivery_targeted_moves_customer_to_truck();
+        test_exact_segment_reopt_uses_precomputed_pure_drone_cache();
+        test_exact_segment_reopt_handles_suffix_window();
+        test_exact_segment_reopt_random_small_retries_other_windows();
         test_save_gam_statistics_writes_operator_runtime_outputs();
         std::cout << "\nAll tests passed\n";
     } catch (const std::exception& e) {
