@@ -93,6 +93,8 @@ add_library(core
     src/operators/route_timing.cpp
     src/operators/operator.cpp
     src/operators/exchange_k_v2.cpp
+    src/operators/truck_relocate_1.cpp
+    src/operators/shaw_removal_greedy_repair.cpp
     src/operators/concorde_tsp.cpp
     src/operators/concorde_k_swap_rebuild.cpp
     src/operators/exact_segment_reopt.cpp

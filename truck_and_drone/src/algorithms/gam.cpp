@@ -541,9 +541,7 @@ GAMResult general_adaptive_metaheuristic(
     const bool timed_mode = time_limit_s > 0;
     constexpr int max_iterations = 10000;
     const int segment_length = 100;
-    const int stopping_condition = std::max(
-        segment_length / 2,
-        instance.n >= 50 ? instance.n * 3 : instance.n * 2);
+    const int stopping_condition = 400;
     const double phase_one_fraction =
         std::clamp(config.phase_one_fraction, 0.0, 1.0);
     const double phase_one_until_s = std::max(0.0, time_limit_s * phase_one_fraction);
@@ -687,10 +685,7 @@ GAMResult general_adaptive_metaheuristic(
         if (non_improving_iterations >= stopping_condition)
         {
             const int remaining_iterations = std::max(0, max_iterations - iteration + 1);
-            const int escape_budget =
-                !timed_mode && iteration >= (max_iterations * 3) / 4
-                    ? std::min(20, remaining_iterations)
-                    : std::min(10, timed_mode ? 20 : remaining_iterations);
+            const int escape_budget = 20;
             const std::vector<double> active_weights =
                 build_active_selection_weights(selection_weights, active_indices);
             const GAMEscapeResult escape_result = run_configured_escape(
@@ -726,7 +721,7 @@ GAMResult general_adaptive_metaheuristic(
             {
                 temperature = std::max(temperature, phase_initial_temperature * 0.25);
             }
-            solution_cache.clear();
+            // solution_cache.clear();
             non_improving_iterations = 0;
         }
 

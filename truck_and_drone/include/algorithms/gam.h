@@ -24,7 +24,7 @@ struct GAMConfig
     double allowed_deviation_fraction = 0.20;
     bool reset_acceptance_each_phase = true;
     GAMAcceptanceMode acceptance_mode = GAMAcceptanceMode::SimulatedAnnealing;
-    GAMEscapeMode escape_mode = GAMEscapeMode::LegacyGAM;
+    GAMEscapeMode escape_mode = GAMEscapeMode::ExchangeKLarge;
     std::vector<std::string> phase_one_operator_names;
     std::vector<std::string> phase_two_operator_names;
 };

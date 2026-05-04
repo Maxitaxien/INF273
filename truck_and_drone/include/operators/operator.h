@@ -288,3 +288,12 @@ bool exact_segment_reopt_random_medium(const Instance &inst, Solution &sol);
  * Solves a large subset of the solution optimally with k = 4
  */
 bool exact_segment_reopt_random_large(const Instance &inst, Solution &sol);
+
+/**
+ * Destroy a neighbourhood and rebuild it greedily
+ */
+bool shaw_removal_greedy_repair_random_small(const Instance &inst, Solution &sol);
+bool shaw_removal_greedy_repair_random_medium(const Instance &inst, Solution &sol);
+bool shaw_removal_greedy_repair_random_large(const Instance &inst, Solution &sol);
+
+bool truck_relocate_1_random(const Instance &inst, Solution &sol);

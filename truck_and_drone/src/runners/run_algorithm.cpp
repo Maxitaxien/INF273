@@ -47,11 +47,11 @@ int default_gam_time_budget(const Instance &instance)
     case 10:
         return 5;
     case 20:
-        return 40;
+        return 20;
     case 50:
-        return 80;
+        return 60;
     case 100:
-        return 470;
+        return 510;
     default:
         return 0;
     }
