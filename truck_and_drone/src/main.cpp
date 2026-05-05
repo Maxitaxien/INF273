@@ -33,6 +33,22 @@ std::vector<double> build_weights()
     return weights;
 }
 
+GAMExperiment build_current_mix_experiment(
+    const std::string &label,
+    bool clear_solution_cache_after_escape)
+{
+    GAMConfig config;
+    config.clear_solution_cache_after_escape = clear_solution_cache_after_escape;
+    config.feasibility_mode = GAMFeasibilityMode::AssumeFeasible;
+
+    return GAMExperiment{
+        label,
+        build_ops(shaw_removal_greedy_repair_random_medium),
+        build_weights(),
+        config,
+    };
+}
+
 }
 
 int main()
@@ -49,12 +65,13 @@ int main()
     };
 
     const std::vector<GAMExperiment> experiments = {
-        {
-            "Only Shaw medium",
-            build_ops(shaw_removal_greedy_repair_random_medium),
-            build_weights(),
-        },
+        build_current_mix_experiment(
+            "Current mix - keep cache after escape",
+            false),
+        build_current_mix_experiment(
+            "Current mix - clear cache after escape",
+            true),
     };
 
-    run_gam_experiments(experiments, datasets, 10);
+    run_gam_experiments(experiments, datasets, 5);
 }

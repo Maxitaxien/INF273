@@ -6,6 +6,12 @@
 struct Instance;
 struct Solution;
 
+enum class GAMFeasibilityMode
+{
+    AssumeFeasible,
+    VerifyWithMasterCheck,
+};
+
 struct GAMCachedSolution
 {
     bool feasible_known = false;
@@ -40,4 +46,5 @@ void gam_cache_known_feasible_solution(
 GAMSolutionEvaluation evaluate_solution_with_cache(
     const Instance &instance,
     const Solution &solution,
-    GAMSolutionCache *cache);
+    GAMSolutionCache *cache,
+    GAMFeasibilityMode feasibility_mode = GAMFeasibilityMode::AssumeFeasible);

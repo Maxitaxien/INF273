@@ -1,10 +1,11 @@
 #pragma once
+#include "algorithms/gam_solution_cache.h"
+#include "algorithms/gamstructs.h"
 #include "datahandling/instance.h"
 #include "operators/operator.h"
 #include "verification/solution.h"
 #include <string>
 #include <vector>
-#include "algorithms/gamstructs.h"
 
 enum class GAMAcceptanceMode
 {
@@ -23,8 +24,10 @@ struct GAMConfig
     double phase_one_fraction = 1.0;
     double allowed_deviation_fraction = 0.20;
     bool reset_acceptance_each_phase = true;
+    bool clear_solution_cache_after_escape = false;
     GAMAcceptanceMode acceptance_mode = GAMAcceptanceMode::SimulatedAnnealing;
     GAMEscapeMode escape_mode = GAMEscapeMode::ExchangeKLarge;
+    GAMFeasibilityMode feasibility_mode = GAMFeasibilityMode::AssumeFeasible;
     std::vector<std::string> phase_one_operator_names;
     std::vector<std::string> phase_two_operator_names;
 };

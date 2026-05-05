@@ -884,9 +884,17 @@ void test_gam_solution_cache_marks_first_visit_and_reuses_evaluation() {
     GAMSolutionCache cache;
 
     const GAMSolutionEvaluation first =
-        evaluate_solution_with_cache(instance, solution, &cache);
+        evaluate_solution_with_cache(
+            instance,
+            solution,
+            &cache,
+            GAMFeasibilityMode::AssumeFeasible);
     const GAMSolutionEvaluation second =
-        evaluate_solution_with_cache(instance, solution, &cache);
+        evaluate_solution_with_cache(
+            instance,
+            solution,
+            &cache,
+            GAMFeasibilityMode::AssumeFeasible);
 
     assert(first.is_new_solution);
     assert(first.feasible);
@@ -898,6 +906,78 @@ void test_gam_solution_cache_marks_first_visit_and_reuses_evaluation() {
     assert(cache.size() == 1);
 
     std::cout << "test_gam_solution_cache_marks_first_visit_and_reuses_evaluation passed\n";
+}
+
+void test_gam_solution_cache_verify_with_master_check_rejects_infeasible_solution() {
+    Instance instance{};
+    instance.n = 2;
+    instance.m = 1;
+    instance.lim = 1000;
+    instance.truck_matrix = {
+        {0, 10, 20},
+        {10, 0, 10},
+        {20, 10, 0},
+    };
+    instance.drone_matrix = instance.truck_matrix;
+
+    Solution infeasible{
+        {0, 1, 2},
+        {
+            DroneCollection{{0}, {1}, {2}},
+        }};
+    assert(!master_check(instance, infeasible, false));
+
+    GAMSolutionCache cache;
+    const GAMSolutionEvaluation first =
+        evaluate_solution_with_cache(
+            instance,
+            infeasible,
+            &cache,
+            GAMFeasibilityMode::VerifyWithMasterCheck);
+    const GAMSolutionEvaluation second =
+        evaluate_solution_with_cache(
+            instance,
+            infeasible,
+            &cache,
+            GAMFeasibilityMode::VerifyWithMasterCheck);
+
+    assert(first.is_new_solution);
+    assert(!first.feasible);
+    assert(!first.objective_known);
+    assert(!second.is_new_solution);
+    assert(!second.feasible);
+    assert(!second.objective_known);
+    assert(cache.size() == 1);
+
+    std::cout << "test_gam_solution_cache_verify_with_master_check_rejects_infeasible_solution passed\n";
+}
+
+void test_shaw_removal_greedy_repair_random_medium_preserves_feasibility_on_success() {
+    Instance instance = read_instance(datasets::f10);
+    Solution solution = greedy_drone_cover(instance, nearest_neighbour(instance));
+    assert(master_check(instance, solution, false));
+
+    const bool success = shaw_removal_greedy_repair_random_medium(instance, solution);
+    if (success)
+    {
+        assert(master_check(instance, solution, false));
+    }
+
+    std::cout << "test_shaw_removal_greedy_repair_random_medium_preserves_feasibility_on_success passed\n";
+}
+
+void test_exchange_k_large_preserves_feasibility_on_success() {
+    Instance instance = read_instance(datasets::f10);
+    Solution solution = greedy_drone_cover(instance, nearest_neighbour(instance));
+    assert(master_check(instance, solution, false));
+
+    const bool success = exchange_k_large(instance, solution);
+    if (success)
+    {
+        assert(master_check(instance, solution, false));
+    }
+
+    std::cout << "test_exchange_k_large_preserves_feasibility_on_success passed\n";
 }
 
 void test_two_opt_repairs_drone_schedule_after_route_reversal() {
@@ -1552,6 +1632,9 @@ int main() {
         test_adaptive_composite_operator_rolls_back_failed_insert();
         test_gam_escape_algorithm_tracks_best_seen_while_returning_endpoint();
         test_gam_solution_cache_marks_first_visit_and_reuses_evaluation();
+        test_gam_solution_cache_verify_with_master_check_rejects_infeasible_solution();
+        test_shaw_removal_greedy_repair_random_medium_preserves_feasibility_on_success();
+        test_exchange_k_large_preserves_feasibility_on_success();
         test_two_opt_repairs_drone_schedule_after_route_reversal();
         test_collect_two_opt_affected_drone_flights_returns_intersections();
         test_repair_after_two_opt_localized_repairs_candidate();

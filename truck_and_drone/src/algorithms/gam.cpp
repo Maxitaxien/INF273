@@ -61,7 +61,8 @@ double average_positive_delta_sample(
     const Solution &reference_solution,
     long long reference_cost,
     const std::vector<NamedOperator> &ops,
-    GAMSolutionCache *cache)
+    GAMSolutionCache *cache,
+    GAMFeasibilityMode feasibility_mode)
 {
     constexpr int target_samples = 50;
     constexpr int max_attempts = 250;
@@ -85,7 +86,11 @@ double average_positive_delta_sample(
         }
 
         const GAMSolutionEvaluation evaluation =
-            evaluate_solution_with_cache(instance, neighbour, cache);
+            evaluate_solution_with_cache(
+                instance,
+                neighbour,
+                cache,
+                feasibility_mode);
         if (!evaluation.feasible || !evaluation.objective_known)
         {
             continue;
@@ -146,14 +151,16 @@ double build_phase_initial_temperature(
     const Solution &reference_solution,
     long long reference_cost,
     const std::vector<NamedOperator> &phase_ops,
-    GAMSolutionCache *cache)
+    GAMSolutionCache *cache,
+    GAMFeasibilityMode feasibility_mode)
 {
     const double sampled_positive_delta = average_positive_delta_sample(
         instance,
         reference_solution,
         reference_cost,
         phase_ops,
-        cache);
+        cache,
+        feasibility_mode);
     const double target_initial_worsening_acceptance =
         instance.n >= 50 ? 0.12 : 0.18;
     return -sampled_positive_delta / std::log(target_initial_worsening_acceptance);
@@ -163,10 +170,15 @@ GAMEscapeResult run_exchange_k_large_escape(
     const Instance &instance,
     Solution incumbent,
     int amnt_iter,
-    GAMSolutionCache *cache)
+    GAMSolutionCache *cache,
+    GAMFeasibilityMode feasibility_mode)
 {
     const GAMSolutionEvaluation initial_evaluation =
-        evaluate_solution_with_cache(instance, incumbent, cache);
+        evaluate_solution_with_cache(
+            instance,
+            incumbent,
+            cache,
+            feasibility_mode);
     const long long initial_cost =
         initial_evaluation.objective_known
             ? initial_evaluation.objective
@@ -191,7 +203,11 @@ GAMEscapeResult run_exchange_k_large_escape(
         }
 
         const GAMSolutionEvaluation evaluation =
-            evaluate_solution_with_cache(instance, neighbour, cache);
+            evaluate_solution_with_cache(
+                instance,
+                neighbour,
+                cache,
+                feasibility_mode);
         if (!evaluation.feasible || !evaluation.objective_known)
         {
             continue;
@@ -222,7 +238,8 @@ GAMEscapeResult run_configured_escape(
     const std::vector<double> &selection_weights,
     int amnt_iter,
     GAMEscapeMode escape_mode,
-    GAMSolutionCache *cache)
+    GAMSolutionCache *cache,
+    GAMFeasibilityMode feasibility_mode)
 {
     switch (escape_mode)
     {
@@ -231,7 +248,8 @@ GAMEscapeResult run_configured_escape(
             instance,
             std::move(incumbent),
             amnt_iter,
-            cache);
+            cache,
+            feasibility_mode);
     case GAMEscapeMode::LegacyGAM:
     default:
         return gam_escape_algorithm(
@@ -240,7 +258,8 @@ GAMEscapeResult run_configured_escape(
             ops,
             selection_weights,
             amnt_iter,
-            cache);
+            cache,
+            feasibility_mode);
     }
 }
 
@@ -539,6 +558,7 @@ GAMResult general_adaptive_metaheuristic(
     // initial = greedy_drone_cover(instance, initial);
 
     const bool timed_mode = time_limit_s > 0;
+    const GAMFeasibilityMode feasibility_mode = config.feasibility_mode;
     constexpr int max_iterations = 10000;
     const int segment_length = 100;
     const int stopping_condition = 400;
@@ -586,7 +606,8 @@ GAMResult general_adaptive_metaheuristic(
         initial,
         initial_cost,
         phase_one_ops.empty() ? ops : phase_one_ops,
-        &solution_cache);
+        &solution_cache,
+        feasibility_mode);
 
     const double target_initial_worsening_acceptance =
         instance.n >= 50 ? 0.12 : 0.18;
@@ -673,7 +694,8 @@ GAMResult general_adaptive_metaheuristic(
                     incumbent,
                     incumbent_cost,
                     active_ops.empty() ? ops : active_ops,
-                    &solution_cache);
+                    &solution_cache,
+                    feasibility_mode);
                 phase_final_temperature = std::max(1.0, phase_initial_temperature * 0.05);
                 timed_cooling_ratio = phase_final_temperature / phase_initial_temperature;
                 temperature = phase_initial_temperature;
@@ -695,7 +717,8 @@ GAMResult general_adaptive_metaheuristic(
                 active_weights.empty() ? selection_weights : active_weights,
                 escape_budget,
                 config.escape_mode,
-                &solution_cache);
+                &solution_cache,
+                feasibility_mode);
             incumbent = escape_result.incumbent;
             incumbent_cost = escape_result.incumbent_cost;
 
@@ -721,7 +744,10 @@ GAMResult general_adaptive_metaheuristic(
             {
                 temperature = std::max(temperature, phase_initial_temperature * 0.25);
             }
-            // solution_cache.clear();
+            if (config.clear_solution_cache_after_escape)
+            {
+                solution_cache.clear();
+            }
             non_improving_iterations = 0;
         }
 
@@ -789,7 +815,11 @@ GAMResult general_adaptive_metaheuristic(
         else
         {
             const GAMSolutionEvaluation evaluation =
-                evaluate_solution_with_cache(instance, neighbour, &solution_cache);
+                evaluate_solution_with_cache(
+                    instance,
+                    neighbour,
+                    &solution_cache,
+                    feasibility_mode);
 
             if (!evaluation.feasible || !evaluation.objective_known)
             {

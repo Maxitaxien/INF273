@@ -81,15 +81,17 @@ void gam_cache_known_feasible_solution(
 GAMSolutionEvaluation evaluate_solution_with_cache(
     const Instance &instance,
     const Solution &solution,
-    GAMSolutionCache *cache)
+    GAMSolutionCache *cache,
+    GAMFeasibilityMode feasibility_mode)
 {
     GAMSolutionEvaluation evaluation;
 
     if (cache == nullptr)
     {
-        // TEST: Assume feasible. 
-        // evaluation.feasible = master_check(instance, solution, false);
-        evaluation.feasible = true;
+        evaluation.feasible =
+            feasibility_mode == GAMFeasibilityMode::VerifyWithMasterCheck
+                ? master_check(instance, solution, false)
+                : true;
         if (evaluation.feasible)
         {
             evaluation.objective_known = true;
@@ -106,9 +108,10 @@ GAMSolutionEvaluation evaluate_solution_with_cache(
 
     if (!entry.feasible_known)
     {
-        // TEST: Assume feasible
-        entry.feasible = true;
-        // entry.feasible = master_check(instance, canonical, false);
+        entry.feasible =
+            feasibility_mode == GAMFeasibilityMode::VerifyWithMasterCheck
+                ? master_check(instance, canonical, false)
+                : true;
         entry.feasible_known = true;
     }
 

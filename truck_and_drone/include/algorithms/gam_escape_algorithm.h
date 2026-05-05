@@ -27,5 +27,6 @@ GAMEscapeResult gam_escape_algorithm(
     const std::vector<NamedOperator> &ops, 
     const std::vector<double> &selection_weights,
     int amnt_iter,
-    GAMSolutionCache *cache = nullptr
+    GAMSolutionCache *cache = nullptr,
+    GAMFeasibilityMode feasibility_mode = GAMFeasibilityMode::AssumeFeasible
 );

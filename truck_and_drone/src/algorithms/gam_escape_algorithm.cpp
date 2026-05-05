@@ -38,10 +38,15 @@ GAMEscapeResult gam_escape_algorithm(
     const std::vector<NamedOperator> &ops, 
     const std::vector<double> &selection_weights,
     int amnt_iter,
-    GAMSolutionCache *cache
+    GAMSolutionCache *cache,
+    GAMFeasibilityMode feasibility_mode
 ) {
     const GAMSolutionEvaluation initial_evaluation =
-        evaluate_solution_with_cache(inst, incumbent, cache);
+        evaluate_solution_with_cache(
+            inst,
+            incumbent,
+            cache,
+            feasibility_mode);
     const long long initial_cost =
         initial_evaluation.objective_known
             ? initial_evaluation.objective
@@ -75,7 +80,11 @@ GAMEscapeResult gam_escape_algorithm(
         if (ops[selected_idx].op(inst, neighbour) &&
             !same_solution(neighbour, incumbent)) {
             const GAMSolutionEvaluation evaluation =
-                evaluate_solution_with_cache(inst, neighbour, cache);
+                evaluate_solution_with_cache(
+                    inst,
+                    neighbour,
+                    cache,
+                    feasibility_mode);
 
             if (!evaluation.feasible || !evaluation.objective_known)
             {
