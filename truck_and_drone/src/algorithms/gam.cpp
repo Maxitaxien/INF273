@@ -336,7 +336,8 @@ void update_operator_weights(
     std::vector<double> &selection_weights,
     int segment_index,
     int iteration,
-    GAMRunStatistics &statistics)
+    GAMRunStatistics &statistics,
+    bool collect_detailed_statistics)
 {
     constexpr double reaction_factor = 0.30;
     constexpr double min_weight_ratio = 0.20;
@@ -436,12 +437,15 @@ void update_operator_weights(
         state.weight *= rescale_factor;
         selection_weights[(size_t)idx] = state.weight;
 
-        statistics.segment_stats.push_back(GAMSegmentStatistics{
-            segment_index,
-            iteration,
-            idx,
-            state.weight,
-        });
+        if (collect_detailed_statistics)
+        {
+            statistics.segment_stats.push_back(GAMSegmentStatistics{
+                segment_index,
+                iteration,
+                idx,
+                state.weight,
+            });
+        }
     }
 }
 
@@ -573,10 +577,11 @@ GAMResult general_adaptive_metaheuristic(
     const double phase_one_fraction =
         std::clamp(config.phase_one_fraction, 0.0, 1.0);
     const double phase_one_until_s = std::max(0.0, time_limit_s * phase_one_fraction);
+    const bool collect_detailed_statistics = config.collect_detailed_statistics;
 
     GAMResult result;
     result.statistics.best_found_iteration = 0;
-    if (!timed_mode)
+    if (!timed_mode && collect_detailed_statistics)
     {
         result.statistics.iteration_stats.reserve(max_iterations);
         result.statistics.segment_stats.reserve(
@@ -940,7 +945,10 @@ GAMResult general_adaptive_metaheuristic(
         iteration_stat.incumbent_objective = incumbent_cost;
         iteration_stat.best_objective = best_cost;
         operator_statistics.total_runtime_ms += iteration_stat.runtime_ms;
-        result.statistics.iteration_stats.push_back(iteration_stat);
+        if (collect_detailed_statistics)
+        {
+            result.statistics.iteration_stats.push_back(iteration_stat);
+        }
 
         if (timed_mode)
         {
@@ -977,7 +985,8 @@ GAMResult general_adaptive_metaheuristic(
                         selection_weights,
                         target_completed_segments,
                         iteration,
-                        result.statistics);
+                        result.statistics,
+                        collect_detailed_statistics);
                     completed_time_segments = target_completed_segments;
                 }
             }
@@ -1001,7 +1010,8 @@ GAMResult general_adaptive_metaheuristic(
                     selection_weights,
                     iteration / segment_length,
                     iteration,
-                    result.statistics);
+                    result.statistics,
+                    collect_detailed_statistics);
             }
 
             if (config.acceptance_mode == GAMAcceptanceMode::SimulatedAnnealing)
@@ -1020,7 +1030,8 @@ GAMResult general_adaptive_metaheuristic(
                 selection_weights,
                 completed_time_segments + 1,
                 iteration,
-                result.statistics);
+                result.statistics,
+                collect_detailed_statistics);
         }
     }
     else if (max_iterations % segment_length != 0)
@@ -1030,7 +1041,8 @@ GAMResult general_adaptive_metaheuristic(
             selection_weights,
             max_iterations / segment_length + 1,
             max_iterations,
-            result.statistics);
+            result.statistics,
+            collect_detailed_statistics);
     }
 
     if (timed_mode)

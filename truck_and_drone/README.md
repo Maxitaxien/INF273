@@ -1,15 +1,23 @@
 # README
 
-## Building/running the project (build-native/)
+## Building and running
 
-This project includes all dependencies natively.
+This project includes all dependencies natively. Configure, build, and run the
+project from `build-native/`, since the dataset paths used by the binary are
+relative to that working directory.
 
-Run the following commands inside build-native for a fast optimized build version:
-
-On creating the project:
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j${nproc}
+```bash
+cmake -S . -B build-native -DCMAKE_BUILD_TYPE=Release
+cmake --build build-native -j"$(nproc)"
+cd build-native
 ./truck_and_drone
+```
+
+The checked-in `src/main.cpp` is configured to run a one-run parallel GAM batch
+over `F10`, `R10`, `F20`, `R50`, and `F100` using the current operator mix,
+current tuned weights, and the parallel runner's default shared batch budget.
+`main.cpp` also contains a commented full-benchmark example for the full
+benchmark dataset suite with 10 sequential iterations.
 
 ## data/
 
@@ -29,6 +37,8 @@ As `gam.cpp` is the main final algorithm, it has more significantly more details
 
 ## src/datahandling/
 
+Contains methods for reading in data, converting to the submission string format and generating the result tables under `runs/`.
+
 ## src/general/
 
 Contains some general helpers such as getting positions of customers on a truck route, some utility methods and random method implementations.
@@ -43,7 +53,9 @@ Contain helper methods for running algorithm experiments. These are the endpoint
 
 ## src/solution_fixers/
 
-Contains a range of different solution fixers applied after operators destroy the solution feasibility. This usually involves reassignment of drone launch and land spots.
+Contains a range of different solution fixers applied after operators destroy
+the solution feasibility. This usually involves reassignment of drone launch
+and land spots.
 
 See `docs/current_solution_fixers.md` for more details.
 

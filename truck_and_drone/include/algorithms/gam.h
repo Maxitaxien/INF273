@@ -25,6 +25,7 @@ struct GAMConfig
     double allowed_deviation_fraction = 0.20;
     bool reset_acceptance_each_phase = true;
     bool clear_solution_cache_after_escape = false;
+    bool collect_detailed_statistics = true;
     bool print_timed_best_objective_progress = false;
     GAMAcceptanceMode acceptance_mode = GAMAcceptanceMode::SimulatedAnnealing;
     GAMEscapeMode escape_mode = GAMEscapeMode::ExchangeKLarge;

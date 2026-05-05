@@ -205,8 +205,6 @@ struct ParallelGAMDatasetResult
     long long initial_objective = 0;
     Instance instance;
     Solution best_solution;
-    GAMRunStatistics statistics;
-    std::vector<GAMRunReport> run_reports;
     std::string failure_message;
 };
 
@@ -283,6 +281,7 @@ ParallelGAMDatasetResult run_parallel_gam_dataset_once(
     result.initial_objective = objective_function_impl(result.instance, initial);
 
     GAMConfig run_config = config;
+    run_config.collect_detailed_statistics = false;
     run_config.print_timed_best_objective_progress = true;
     run_config.timed_progress_label = dataset_stem(dataset);
 
@@ -297,16 +296,10 @@ ParallelGAMDatasetResult run_parallel_gam_dataset_once(
     const auto stop = std::chrono::steady_clock::now();
 
     result.best_solution = std::move(gam_result.solution);
-    result.statistics = std::move(gam_result.statistics);
     result.best_objective = objective_function_impl(
         result.instance,
         result.best_solution);
     result.runtime_s = std::chrono::duration<double>(stop - start).count();
-    result.run_reports.push_back(
-        GAMRunReport{
-            1,
-            result.best_objective,
-            result.statistics.best_found_iteration});
     return result;
 }
 
@@ -751,7 +744,6 @@ void run_gam_parallel_batch(
         }
     }
 
-    bool saved_any_results = false;
     for (const ParallelGAMDatasetResult &result : results)
     {
         if (result.skipped)
@@ -775,24 +767,6 @@ void run_gam_parallel_batch(
             improvement,
             result.runtime_s,
             convert_to_submission(result.instance, result.best_solution));
-        save_gam_statistics(
-            run_dir,
-            result.dataset,
-            1,
-            result.statistics,
-            result.run_reports);
-        save_best_solution_visualization(
-            run_dir,
-            result.dataset,
-            result.instance,
-            result.best_solution);
-        saved_any_results = true;
-    }
-
-    if (saved_any_results)
-    {
-        create_markdown_tables(base_dir);
-        generate_run_plots(base_dir);
     }
 }
 

@@ -4,7 +4,6 @@
 
 #include "datahandling/datasets.h"
 
-#include <string>
 #include <vector>
 
 namespace
@@ -33,25 +32,28 @@ std::vector<double> build_weights()
     return weights;
 }
 
-GAMExperiment build_current_mix_experiment(
-    const std::string &label)
-{
-    GAMConfig config;
-    config.feasibility_mode = GAMFeasibilityMode::AssumeFeasible;
-
-    return GAMExperiment{
-        label,
-        build_ops(shaw_removal_greedy_repair_random_medium),
-        build_weights(),
-        config,
-    };
-}
-
 }
 
 int main()
 {
+    /*
     const std::vector<std::string> datasets = {
+        datasets::f10,
+        datasets::r10,
+        datasets::f20,
+        datasets::r50,
+        datasets::f100,
+    };
+
+    run_gam_parallel_batch(
+        build_ops(shaw_removal_greedy_repair_random_medium),
+        build_weights(),
+        GAMConfig{},
+        datasets);
+    */
+    // Full sequential benchmark example:
+    const std::vector<std::string> benchmark_datasets = {
+        /*
         datasets::f10,
         datasets::f20,
         datasets::f50,
@@ -59,14 +61,16 @@ int main()
         datasets::r10,
         datasets::r20,
         datasets::r50,
+        */
         datasets::r100,
     };
-
     const std::vector<GAMExperiment> experiments = {
-        build_current_mix_experiment(
-            "Final Benchmark"
-            ),
+        GAMExperiment{
+            "Final Benchmark",
+            build_ops(shaw_removal_greedy_repair_random_medium),
+            build_weights(),
+            GAMConfig{},
+        },
     };
-
-    run_gam_experiments(experiments, datasets, 10);
+    run_gam_experiments(experiments, benchmark_datasets, 10);
 }
