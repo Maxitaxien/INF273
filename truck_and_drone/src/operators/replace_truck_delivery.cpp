@@ -1,5 +1,6 @@
 #include "operators/replace_truck_delivery.h"
 #include "datahandling/instance.h"
+#include "general/random.h"
 #include "general/roulette_wheel_selection.h"
 #include "general/sort_drone_collection.h"
 #include "operators/helpers.h"
@@ -10,8 +11,6 @@
 #include <limits>
 #include <random>
 #include <utility>
-
-extern std::mt19937 gen;
 
 namespace
 {

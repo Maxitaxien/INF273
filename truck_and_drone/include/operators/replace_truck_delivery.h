@@ -6,7 +6,6 @@
 /**
  * Replace a truck delivery with a drone delivery
  * Effect: Reduces truck route size by one. Assigns a drone to deliver to the popped node.
- * NB: Should only be run if no existing drones launch or land at the delivery.
  *
  * All drones launching/landing indexes after the popped entry have their values decreased by 1.
  * Reject the move if the resulting schedule becomes infeasible.

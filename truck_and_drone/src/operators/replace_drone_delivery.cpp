@@ -1,4 +1,5 @@
 #include "operators/replace_drone_delivery.h"
+#include "general/random.h"
 #include "operators/operator.h"
 #include "general/roulette_wheel_selection.h"
 #include "operators/helpers.h"
@@ -12,41 +13,8 @@
 #include <utility>
 #include <vector>
 
-extern std::mt19937 gen;
-
 namespace
 {
-void shift_drone_indices_after_truck_insert(Solution &sol, int insert_idx)
-{
-    for (DroneCollection &drone_collection : sol.drones)
-    {
-        const int flight_count = (int)(drone_collection.launch_indices.size());
-        for (int i = 0; i < flight_count; ++i)
-        {
-            if (drone_collection.launch_indices[i] >= insert_idx)
-            {
-                ++drone_collection.launch_indices[i];
-            }
-
-            if (drone_collection.land_indices[i] >= insert_idx)
-            {
-                ++drone_collection.land_indices[i];
-            }
-        }
-    }
-}
-
-int count_drone_deliveries(const Solution &sol)
-{
-    int delivery_count = 0;
-    for (const DroneCollection &drone : sol.drones)
-    {
-        delivery_count += (int)(drone.deliver_nodes.size());
-    }
-
-    return delivery_count;
-}
-
 struct DroneDemotionCandidate
 {
     int drone = -1;
@@ -235,7 +203,6 @@ bool replace_drone_delivery(
     const int route_size = (int)(sol.truck_route.size());
     const int launch_idx = drone_collection.launch_indices[flight_idx];
     const int land_idx = drone_collection.land_indices[flight_idx];
-    const int delivery = drone_collection.deliver_nodes[flight_idx];
     if (route_size < 2 || launch_idx < 0 || land_idx < 0 || launch_idx >= land_idx)
     {
         return false;
@@ -243,7 +210,6 @@ bool replace_drone_delivery(
 
     const int insert_start = std::max(1, launch_idx + 1);
     const int insert_end = std::min(route_size, land_idx + 1);
-    (void)delivery;
     return replace_drone_delivery_with_bounds(
         inst,
         sol,

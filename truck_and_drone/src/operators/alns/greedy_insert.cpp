@@ -1,6 +1,7 @@
 #include "operators/alns/greedy_insert.h"
 #include "general/roulette_wheel_selection.h"
 #include "operators/drone_planner.h"
+#include "operators/helpers.h"
 #include "solution_fixers/solution_fixers.h"
 #include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
@@ -30,28 +31,6 @@ bool has_any_drone_deliveries(const Solution &sol)
     }
 
     return false;
-}
-
-void shift_drone_indices_after_truck_insert(Solution &sol, int truck_insert_position)
-{
-    for (DroneCollection &drone : sol.drones)
-    {
-        for (int &launch_idx : drone.launch_indices)
-        {
-            if (launch_idx >= truck_insert_position)
-            {
-                ++launch_idx;
-            }
-        }
-
-        for (int &land_idx : drone.land_indices)
-        {
-            if (land_idx >= truck_insert_position)
-            {
-                ++land_idx;
-            }
-        }
-    }
 }
 
 long long estimate_truck_insert_delta(

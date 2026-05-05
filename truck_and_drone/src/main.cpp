@@ -34,11 +34,9 @@ std::vector<double> build_weights()
 }
 
 GAMExperiment build_current_mix_experiment(
-    const std::string &label,
-    bool clear_solution_cache_after_escape)
+    const std::string &label)
 {
     GAMConfig config;
-    config.clear_solution_cache_after_escape = clear_solution_cache_after_escape;
     config.feasibility_mode = GAMFeasibilityMode::AssumeFeasible;
 
     return GAMExperiment{
@@ -66,12 +64,9 @@ int main()
 
     const std::vector<GAMExperiment> experiments = {
         build_current_mix_experiment(
-            "Current mix - keep cache after escape",
-            false),
-        build_current_mix_experiment(
-            "Current mix - clear cache after escape",
-            true),
+            "Final Benchmark"
+            ),
     };
 
-    run_gam_experiments(experiments, datasets, 5);
+    run_gam_experiments(experiments, datasets, 10);
 }

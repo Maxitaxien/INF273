@@ -13,4 +13,10 @@ namespace datasets {
     inline const std::string r20 = "../data/test_instances/R_20.txt"; 
     inline const std::string r50 = "../data/test_instances/R_50.txt"; 
     inline const std::string r100 = "../data/test_instances/R_100.txt";
+    inline const std::string nf10 = "../data/exam_instances/NewF10.txt";
+    inline const std::string nr10 = "../data/exam_instances/NewR10.txt";
+    inline const std::string nf20 = "../data/exam_instances/NewF20.txt";
+    inline const std::string nr50 = "../data/exam_instances/NewR50.txt";
+    inline const std::string nf100 = "../data/exam_instances/NewF100.txt";
+
 }

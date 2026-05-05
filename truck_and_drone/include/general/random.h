@@ -5,7 +5,11 @@
 #include <cstddef>
 
 
-extern std::mt19937 gen;
+inline constexpr unsigned int DEFAULT_RANDOM_SEED = 42u;
+
+extern thread_local std::mt19937 gen;
+
+void seed_random(unsigned int seed);
 
 int rand_int(int a, int b);
 

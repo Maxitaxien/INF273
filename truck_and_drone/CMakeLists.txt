@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+find_package(Threads REQUIRED)
 find_program(CONCORDE_MAKE_EXECUTABLE NAMES make gmake REQUIRED)
 
 
@@ -95,8 +96,6 @@ add_library(core
     src/operators/exchange_k_v2.cpp
     src/operators/truck_relocate_1.cpp
     src/operators/shaw_removal_greedy_repair.cpp
-    src/operators/concorde_tsp.cpp
-    src/operators/concorde_k_swap_rebuild.cpp
     src/operators/exact_segment_reopt.cpp
     src/operators/alns/random_removal.cpp
     src/operators/alns/greedy_insert.cpp
@@ -107,10 +106,9 @@ add_library(core
     src/operators/two_opt.cpp
     src/operators/three_opt.cpp
     src/operators/or_opt_segment_relocate.cpp
-    src/operators/origin_destination_relocation.cpp
     src/operators/drone_rendezvous_shift.cpp
-    src/operators/late_customer_drone_promotion.cpp
     src/operators/nearest_neighbour_reassign.cpp
+    src/operators/candidate_evaluation.cpp
     src/solution_fixers/helper_methods.cpp
     src/solution_fixers/launch_land_assignment.cpp
     src/solution_fixers/two_opt_fixers.cpp
@@ -146,6 +144,7 @@ target_link_libraries(core PUBLIC
 
 target_link_libraries(core PRIVATE
     ${CONCORDE_LIBRARY}
+    Threads::Threads
 )
 
 add_dependencies(core concorde_build)
@@ -155,10 +154,3 @@ target_include_directories(core PUBLIC ${CMAKE_SOURCE_DIR}/external)
 # Main program
 add_executable(truck_and_drone src/main.cpp)
 target_link_libraries(truck_and_drone PRIVATE core)
-
-# Tests
-add_executable(test_truck_and_drone
-    src/tests/test_main.cpp
-)
-
-target_link_libraries(test_truck_and_drone PRIVATE core)

@@ -2,8 +2,11 @@
 #include <random>
 #include <algorithm>
 
-const int SEED = 42;
-std::mt19937 gen(SEED);
+thread_local std::mt19937 gen(DEFAULT_RANDOM_SEED);
+
+void seed_random(unsigned int seed) {
+    gen.seed(seed);
+}
 
 int rand_int(int a, int b) {
     std::uniform_int_distribution<> dist(a, b);
@@ -11,9 +14,6 @@ int rand_int(int a, int b) {
 }
 
 double rand_double(double a, double b) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
     std::uniform_real_distribution<> dist(a, b);
-
     return dist(gen);
 }

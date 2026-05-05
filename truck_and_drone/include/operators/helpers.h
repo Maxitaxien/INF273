@@ -1,7 +1,6 @@
 #pragma once
 #include "verification/solution.h"
 #include "datahandling/instance.h"
-#include <set>
 #include <vector>
 
 /**
@@ -13,6 +12,8 @@ int pop_truck_delivery(Solution &solution, int i);
  * Insert truck delivery at index
  */
 void insert_truck_delivery(Solution &solution, int new_delivery, int i);
+
+void shift_drone_indices_after_truck_insert(Solution &solution, int insert_idx);
 
 /**
  * Remove drone flight at back index.
@@ -31,6 +32,8 @@ void remove_drone_flight(Solution &solution, int drone, int i);
  * Returns a pair where each entry corresponds to whether the drone landed at the back index.
  */
 std::pair<bool, bool> drone_landed_at_back(const Solution &solution);
+
+int count_drone_deliveries(const Solution &solution);
 
 /**
  * Sorts points in accordance to closeness based on drone matrix, then returns the closest from the truck route

@@ -183,61 +183,6 @@ bool three_opt_random(const Instance &inst, Solution &sol);
  * @return Whether the sampled move remained feasible.
  */
 bool nearest_neighbour_reassign_random(const Instance &inst, Solution &sol);
-
-/**
- * Scaffold for a combined truck/drone perturb-and-rebuild operator.
- *
- * Intended workflow:
- * 1. Sample `k` customers from the combined truck + drone representation.
- * 2. Randomly permute those sampled customers across their sampled slots.
- * 3. Reoptimize the truck route with Concorde linkern.
- * 4. Shuffle the current drone-customer set.
- * 5. Reassign drone launch/land anchors one customer at a time.
- *
- * The current implementation is intentionally conservative and exposes the
- * main tuning knobs you are likely to change next.
- */
-struct ConcordeKSwapRebuildConfig
-{
-    int k = 4;
-    int stallcount = 10;
-    int repeatcount = 20;
-    int kicktype = 0;
-    double time_bound = -1.0;
-    bool score_depot_cut_by_arrival = true;
-    bool require_improvement = false;
-};
-
-/**
- * Randomly permute `k` combined customer slots, then rebuild the truck route
- * with linkern and reconstruct the drone schedule from scratch.
- *
- * This is a scaffold operator: the stage boundaries are explicit so it is easy
- * to replace the slot perturbation, the truck surrogate, or the per-customer
- * drone assignment rule independently.
- */
-bool concorde_k_swap_rebuild(
-    const Instance &instance,
-    Solution &sol,
-    const ConcordeKSwapRebuildConfig &config);
-
-/**
- * Default-parameter wrapper for the combined linkern rebuild operator.
- */
-bool concorde_k_swap_rebuild(
-    const Instance &instance,
-    Solution &sol);
-
-/**
- * Reorder the current truck node set with Concorde's linkern heuristic.
- *
- * The truck cycle is optimized on the nodes currently assigned to the truck,
- * then the existing repair/planner path is used to rebuild any invalid drone
- * launch/land anchors. The move is kept only if the repaired full objective
- * improves.
- */
-bool concorde_linkern_improve(const Instance &instance, Solution &sol);
-
 /**
  * Rebuild the current drone schedule with the planner and keep the result only
  * if it strictly improves the current objective.

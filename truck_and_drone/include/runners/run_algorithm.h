@@ -67,6 +67,12 @@ void run_gam_experiments(
     const std::vector<std::string> &datasets,
     int amnt_iter,
     const std::unordered_map<std::string, int> &time_budget_overrides = {});
+void run_gam_parallel_batch(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights,
+    const GAMConfig &config,
+    const std::vector<std::string> &datasets,
+    int total_time_budget_s = 600);
 
 /**
  * Runs construction algorithms.

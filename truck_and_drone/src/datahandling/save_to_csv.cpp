@@ -27,7 +27,6 @@ std::string operator_name_at(const GAMRunStatistics& statistics, int operator_id
 
 bool save_to_csv(
     const std::string& run_dir,
-    const std::string& algo_name,
     const std::string& dataset,
     long double avg,
     long long best,
@@ -47,8 +46,6 @@ bool save_to_csv(
         std::cerr << "Failed to open file at:" << csv_path << "\n";
         return false;
     }
-
-    (void)(algo_name);
 
     csvfile << dataset_stem(dataset) << ",,,\n";
     csvfile << "Average objective,Best Objective,Improvement (%),Average running time (in seconds)\n";
@@ -83,14 +80,10 @@ bool save_gam_statistics(
     }
 
     summary_file
-        << "best_run,max_iterations,segment_length,stopping_condition,best_found_iteration,"
-        << "operator_failures,infeasible_candidates,accepted_moves,improving_accepts,"
-        << "non_improving_accepts,best_updates\n";
+        << "best_run,best_found_iteration,operator_failures,infeasible_candidates,"
+        << "accepted_moves,improving_accepts,non_improving_accepts,best_updates\n";
     summary_file
         << run_idx << ","
-        << statistics.max_iterations << ","
-        << statistics.segment_length << ","
-        << statistics.stopping_condition << ","
         << statistics.best_found_iteration << ","
         << statistics.operator_failures << ","
         << statistics.infeasible_candidates << ","

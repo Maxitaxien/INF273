@@ -1,11 +1,10 @@
 #include "operators/one_reinsert.h"
+#include "general/random.h"
 #include "verification/feasibility_check.h"
 #include "operators/helpers.h"
 #include "solution_fixers/solution_fixers.h"
 #include <algorithm>
 #include <random>
-
-extern std::mt19937 gen;
 
 bool one_reinsert(const Instance &inst, Solution &sol,
                   int pop, int insert, int idx)

@@ -2,14 +2,14 @@
 #include "algorithms/gam_escape_algorithm.h"
 #include "algorithms/gam_solution_cache.h"
 #include "algorithms/nearest_neighbour.h"
-#include "algorithms/greedy_drone_cover.h"
 #include "general/random.h"
 #include "general/roulette_wheel_selection.h"
-#include "verification/feasibility_check.h"
 #include "verification/objective_value.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <iostream>
+#include <mutex>
 #include <numeric>
 #include <random>
 #include <string>
@@ -19,27 +19,7 @@
 
 namespace
 {
-bool same_solution(const Solution &lhs, const Solution &rhs)
-{
-    if (lhs.truck_route != rhs.truck_route || lhs.drones.size() != rhs.drones.size())
-    {
-        return false;
-    }
-
-    for (int drone = 0; drone < (int)(lhs.drones.size()); ++drone)
-    {
-        const DroneCollection &lhs_collection = lhs.drones[drone];
-        const DroneCollection &rhs_collection = rhs.drones[drone];
-        if (lhs_collection.launch_indices != rhs_collection.launch_indices ||
-            lhs_collection.deliver_nodes != rhs_collection.deliver_nodes ||
-            lhs_collection.land_indices != rhs_collection.land_indices)
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
+std::mutex timed_progress_output_mutex;
 
 struct GAMOperatorState
 {
@@ -543,6 +523,36 @@ bool segment_has_activity(const std::vector<GAMOperatorState> &operator_state)
 
     return false;
 }
+
+void print_timed_best_objective_progress(
+    const GAMConfig &config,
+    long long best_cost,
+    int elapsed_minutes,
+    bool final_update)
+{
+    if (!config.print_timed_best_objective_progress ||
+        config.timed_progress_label.empty())
+    {
+        return;
+    }
+
+    const std::lock_guard<std::mutex> lock(timed_progress_output_mutex);
+    std::cout << "[" << config.timed_progress_label << "] ";
+    if (final_update)
+    {
+        std::cout << "best objective at end: " << best_cost << std::endl;
+        return;
+    }
+
+    std::cout << "best objective after "
+              << elapsed_minutes
+              << " minute";
+    if (elapsed_minutes != 1)
+    {
+        std::cout << "s";
+    }
+    std::cout << ": " << best_cost << std::endl;
+}
 } // namespace
 
 GAMResult general_adaptive_metaheuristic(
@@ -553,9 +563,7 @@ GAMResult general_adaptive_metaheuristic(
     const GAMConfig &config,
     const std::vector<double> &initial_weights)
 {
-    // TEST: With NN initial solution (easier to start with than greedy drone cover solution)
     initial = nearest_neighbour(instance);
-    // initial = greedy_drone_cover(instance, initial);
 
     const bool timed_mode = time_limit_s > 0;
     const GAMFeasibilityMode feasibility_mode = config.feasibility_mode;
@@ -567,9 +575,6 @@ GAMResult general_adaptive_metaheuristic(
     const double phase_one_until_s = std::max(0.0, time_limit_s * phase_one_fraction);
 
     GAMResult result;
-    result.statistics.max_iterations = timed_mode ? 0 : max_iterations;
-    result.statistics.segment_length = timed_mode ? 0 : segment_length;
-    result.statistics.stopping_condition = stopping_condition;
     result.statistics.best_found_iteration = 0;
     if (!timed_mode)
     {
@@ -651,6 +656,7 @@ GAMResult general_adaptive_metaheuristic(
         timed_mode ? std::max(0.001, (double)time_limit_s / 50.0) : 0.0;
     int completed_time_segments = 0;
     bool previous_phase_one = true;
+    double next_progress_log_s = 60.0;
 
     while (true)
     {
@@ -706,7 +712,6 @@ GAMResult general_adaptive_metaheuristic(
 
         if (non_improving_iterations >= stopping_condition)
         {
-            const int remaining_iterations = std::max(0, max_iterations - iteration + 1);
             const int escape_budget = 20;
             const std::vector<double> active_weights =
                 build_active_selection_weights(selection_weights, active_indices);
@@ -976,6 +981,16 @@ GAMResult general_adaptive_metaheuristic(
                     completed_time_segments = target_completed_segments;
                 }
             }
+
+            while (elapsed_after_iteration >= next_progress_log_s)
+            {
+                print_timed_best_objective_progress(
+                    config,
+                    best_cost,
+                    (int)(next_progress_log_s / 60.0),
+                    false);
+                next_progress_log_s += 60.0;
+            }
         }
         else
         {
@@ -1016,6 +1031,15 @@ GAMResult general_adaptive_metaheuristic(
             max_iterations / segment_length + 1,
             max_iterations,
             result.statistics);
+    }
+
+    if (timed_mode)
+    {
+        print_timed_best_objective_progress(
+            config,
+            best_cost,
+            0,
+            true);
     }
 
     result.solution = std::move(best);

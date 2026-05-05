@@ -69,9 +69,8 @@ void gam_cache_known_feasible_solution(
 {
     const Solution canonical =
         canonicalize_terminal_depot_landings(instance, solution);
-    bool unused_is_new = false;
     GAMCachedSolution &entry =
-        gam_solution_cache_entry(cache, canonical, &unused_is_new);
+        gam_solution_cache_entry(cache, canonical, nullptr);
     entry.feasible_known = true;
     entry.feasible = true;
     entry.objective_known = true;

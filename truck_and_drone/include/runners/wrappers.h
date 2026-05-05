@@ -35,8 +35,3 @@ Solution construction_wrapper(
     const Instance &instance,
     Solution initial,
     Operator op);
-
-Solution random_escape_wrapper(
-    const Instance &instance,
-    Solution current,
-    Operator op);

@@ -19,8 +19,13 @@
 #include "runners/algorithms.h"
 #include "datahandling/file_helpers.h"
 #include "datahandling/create_markdown_tables.h"
+#include "general/random.h"
 #include "general/roulette_wheel_selection.h"
+#include <atomic>
 #include <filesystem>
+#include <limits>
+#include <stdexcept>
+#include <thread>
 #include <unordered_map>
 
 const long long INF = 4e18;
@@ -190,6 +195,121 @@ NamedOperator build_run_operator(
         selector};
 }
 
+struct ParallelGAMDatasetResult
+{
+    std::string dataset;
+    bool skipped = false;
+    std::string skip_reason;
+    long long best_objective = INF;
+    double runtime_s = 0.0;
+    long long initial_objective = 0;
+    Instance instance;
+    Solution best_solution;
+    GAMRunStatistics statistics;
+    std::vector<GAMRunReport> run_reports;
+    std::string failure_message;
+};
+
+unsigned int stable_string_hash(const std::string &value)
+{
+    unsigned int hash = 2166136261u;
+    for (unsigned char ch : value)
+    {
+        hash ^= ch;
+        hash *= 16777619u;
+    }
+
+    return hash;
+}
+
+unsigned int dataset_seed(const std::string &dataset)
+{
+    return DEFAULT_RANDOM_SEED ^ stable_string_hash(dataset_stem(dataset));
+}
+
+int remaining_time_limit_s(const std::chrono::steady_clock::time_point &deadline)
+{
+    const long long remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        deadline - std::chrono::steady_clock::now())
+                                       .count();
+    if (remaining_ms <= 0)
+    {
+        return 0;
+    }
+
+    const long long rounded_up_seconds = (remaining_ms + 999LL) / 1000LL;
+    return (int)(std::min<long long>(
+        rounded_up_seconds,
+        std::numeric_limits<int>::max()));
+}
+
+void validate_unique_dataset_stems(const std::vector<std::string> &datasets)
+{
+    std::unordered_map<std::string, std::string> stems;
+    stems.reserve(datasets.size());
+
+    for (const std::string &dataset : datasets)
+    {
+        const std::string stem = dataset_stem(dataset);
+        const auto [it, inserted] = stems.emplace(stem, dataset);
+        if (!inserted)
+        {
+            throw std::invalid_argument(
+                "run_gam_parallel_batch: duplicate dataset stem '" +
+                stem +
+                "' for '" +
+                it->second +
+                "' and '" +
+                dataset +
+                "'");
+        }
+    }
+}
+
+ParallelGAMDatasetResult run_parallel_gam_dataset_once(
+    const std::string &dataset,
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights,
+    const GAMConfig &config,
+    int time_limit_s)
+{
+    ParallelGAMDatasetResult result;
+    result.dataset = dataset;
+    result.instance = read_instance(dataset);
+
+    seed_random(dataset_seed(dataset));
+
+    Solution initial = simple_initial_solution(result.instance.n);
+    result.initial_objective = objective_function_impl(result.instance, initial);
+
+    GAMConfig run_config = config;
+    run_config.print_timed_best_objective_progress = true;
+    run_config.timed_progress_label = dataset_stem(dataset);
+
+    const auto start = std::chrono::steady_clock::now();
+    GAMResult gam_result = general_adaptive_metaheuristic(
+        result.instance,
+        initial,
+        ops,
+        time_limit_s,
+        run_config,
+        weights);
+    const auto stop = std::chrono::steady_clock::now();
+
+    result.best_solution = std::move(gam_result.solution);
+    result.statistics = std::move(gam_result.statistics);
+    result.best_objective = objective_function_impl(
+        result.instance,
+        result.best_solution);
+    result.runtime_s = std::chrono::duration<double>(stop - start).count();
+    result.run_reports.push_back(
+        GAMRunReport{
+            1,
+            result.best_objective,
+            result.statistics.best_found_iteration});
+    return result;
+}
+
 void save_best_solution_visualization(
     const std::string &run_dir,
     const std::string &dataset,
@@ -250,12 +370,23 @@ void run_single_gam_experiment(
                 instance,
                 dataset,
                 time_budget_overrides);
+            GAMConfig run_config = config;
+            if (time_limit_s > 0)
+            {
+                run_config.print_timed_best_objective_progress = true;
+                run_config.timed_progress_label =
+                    dataset_stem(dataset) +
+                    " run " +
+                    std::to_string(i + 1) +
+                    "/" +
+                    std::to_string(amnt_iter);
+            }
             GAMResult gam_result = general_adaptive_metaheuristic(
                 instance,
                 initial,
                 ops,
                 time_limit_s,
-                config,
+                run_config,
                 weights);
             auto stop = std::chrono::steady_clock::now();
 
@@ -279,7 +410,6 @@ void run_single_gam_experiment(
         const double improvement = 100.0 * (initial_obj - best) / initial_obj;
         save_to_csv(
             run_dir,
-            algo_op_name,
             dataset,
             avg,
             best,
@@ -376,7 +506,7 @@ void run_algorithm(
 
         double improvement = 100.0 * (initial_obj - best) / initial_obj;
 
-        save_to_csv(run_dir, algo_op_name, dataset, avg, best, improvement, avg_runtime,
+        save_to_csv(run_dir, dataset, avg, best, improvement, avg_runtime,
                     convert_to_submission(instance, best_solution));
         save_best_solution_visualization(run_dir, dataset, instance, best_solution);
     }
@@ -507,6 +637,165 @@ void run_gam_experiments(
     generate_run_plots(base_dir);
 }
 
+void run_gam_parallel_batch(
+    const std::vector<NamedOperator> &ops,
+    const std::vector<double> &weights,
+    const GAMConfig &config,
+    const std::vector<std::string> &datasets,
+    int total_time_budget_s)
+{
+    if (ops.empty())
+    {
+        throw std::invalid_argument(
+            "run_gam_parallel_batch: operator list must not be empty");
+    }
+    if (datasets.empty())
+    {
+        return;
+    }
+    if (total_time_budget_s <= 0)
+    {
+        throw std::invalid_argument(
+            "run_gam_parallel_batch: total_time_budget_s must be positive");
+    }
+
+    validate_unique_dataset_stems(datasets);
+
+    std::string base_dir = create_run_directory();
+    std::string algo_op_name = "General Adaptive Metaheuristic Parallel Batch";
+    const std::string mix_name = build_operator_mix_name(
+        ops,
+        weights,
+        "Operator Mix (Equal Weights)",
+        "Operator Mix (Tuned Weights)");
+    if (!mix_name.empty())
+    {
+        algo_op_name += " " + mix_name;
+    }
+    std::string run_dir = create_algo_directory(
+        base_dir,
+        sanitize_path_component(algo_op_name));
+
+    std::vector<ParallelGAMDatasetResult> results(datasets.size());
+    std::atomic<size_t> next_dataset_idx{0};
+    const unsigned int detected_workers = std::thread::hardware_concurrency();
+    const size_t worker_count = std::min<size_t>(
+        datasets.size(),
+        std::max(1u, detected_workers));
+    const auto batch_deadline =
+        std::chrono::steady_clock::now() +
+        std::chrono::seconds(total_time_budget_s);
+
+    std::vector<std::thread> workers;
+    workers.reserve(worker_count);
+
+    for (size_t worker = 0; worker < worker_count; ++worker)
+    {
+        workers.emplace_back([&]() {
+            while (true)
+            {
+                const size_t idx = next_dataset_idx.fetch_add(1);
+                if (idx >= datasets.size())
+                {
+                    return;
+                }
+
+                const std::string &dataset = datasets[idx];
+                try
+                {
+                    const int time_limit_s = remaining_time_limit_s(batch_deadline);
+                    if (time_limit_s <= 0)
+                    {
+                        results[idx].dataset = dataset;
+                        results[idx].skipped = true;
+                        results[idx].skip_reason =
+                            "global batch budget exhausted before run started";
+                        continue;
+                    }
+
+                    results[idx] = run_parallel_gam_dataset_once(
+                        dataset,
+                        ops,
+                        weights,
+                        config,
+                        time_limit_s);
+                }
+                catch (const std::exception &ex)
+                {
+                    results[idx].dataset = dataset;
+                    results[idx].failure_message = ex.what();
+                }
+                catch (...)
+                {
+                    results[idx].dataset = dataset;
+                    results[idx].failure_message = "unknown error";
+                }
+            }
+        });
+    }
+
+    for (std::thread &worker : workers)
+    {
+        worker.join();
+    }
+
+    for (const ParallelGAMDatasetResult &result : results)
+    {
+        if (!result.failure_message.empty())
+        {
+            throw std::runtime_error(
+                "run_gam_parallel_batch: dataset '" +
+                result.dataset +
+                "' failed: " +
+                result.failure_message);
+        }
+    }
+
+    bool saved_any_results = false;
+    for (const ParallelGAMDatasetResult &result : results)
+    {
+        if (result.skipped)
+        {
+            std::cerr << "Skipping dataset "
+                      << result.dataset
+                      << ": "
+                      << result.skip_reason
+                      << "\n";
+            continue;
+        }
+
+        const double improvement =
+            100.0 * (result.initial_objective - result.best_objective) /
+            result.initial_objective;
+        save_to_csv(
+            run_dir,
+            result.dataset,
+            result.best_objective,
+            result.best_objective,
+            improvement,
+            result.runtime_s,
+            convert_to_submission(result.instance, result.best_solution));
+        save_gam_statistics(
+            run_dir,
+            result.dataset,
+            1,
+            result.statistics,
+            result.run_reports);
+        save_best_solution_visualization(
+            run_dir,
+            result.dataset,
+            result.instance,
+            result.best_solution);
+        saved_any_results = true;
+    }
+
+    if (saved_any_results)
+    {
+        create_markdown_tables(base_dir);
+        generate_run_plots(base_dir);
+    }
+}
+
 void run_construction_algos()
 {
     int amnt_iter = 1; // construction is deterministc
@@ -520,5 +809,3 @@ void run_construction_algos()
     create_markdown_tables(base_dir);
     generate_run_plots(base_dir);
 }
-
-

@@ -12,7 +12,5 @@
  * This operator only changes the truck sequence. The surrounding search
  * algorithm is expected to perform the final feasibility check.
  *
- * TODO: Evauate if this can potentially also take points that are covered by drone. A bit more complexity though
- *
  */
 bool nearest_neighbour_reassign(const Instance &inst, Solution &sol, int i);

@@ -25,9 +25,11 @@ struct GAMConfig
     double allowed_deviation_fraction = 0.20;
     bool reset_acceptance_each_phase = true;
     bool clear_solution_cache_after_escape = false;
+    bool print_timed_best_objective_progress = false;
     GAMAcceptanceMode acceptance_mode = GAMAcceptanceMode::SimulatedAnnealing;
     GAMEscapeMode escape_mode = GAMEscapeMode::ExchangeKLarge;
     GAMFeasibilityMode feasibility_mode = GAMFeasibilityMode::AssumeFeasible;
+    std::string timed_progress_label;
     std::vector<std::string> phase_one_operator_names;
     std::vector<std::string> phase_two_operator_names;
 };

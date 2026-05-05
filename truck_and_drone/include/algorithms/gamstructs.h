@@ -45,9 +45,6 @@ struct GAMOperatorStatistics
 
 struct GAMRunStatistics
 {
-    int max_iterations = 0;
-    int segment_length = 0;
-    int stopping_condition = 0;
     int best_found_iteration = 0;
     int operator_failures = 0;
     int infeasible_candidates = 0;

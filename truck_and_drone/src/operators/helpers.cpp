@@ -15,6 +15,26 @@ void insert_truck_delivery(Solution &solution, int new_delivery, int i)
     solution.truck_route.insert(solution.truck_route.begin() + i, new_delivery);
 }
 
+void shift_drone_indices_after_truck_insert(Solution &solution, int insert_idx)
+{
+    for (DroneCollection &drone_collection : solution.drones)
+    {
+        const int flight_count = (int)drone_collection.launch_indices.size();
+        for (int i = 0; i < flight_count; ++i)
+        {
+            if (drone_collection.launch_indices[i] >= insert_idx)
+            {
+                ++drone_collection.launch_indices[i];
+            }
+
+            if (drone_collection.land_indices[i] >= insert_idx)
+            {
+                ++drone_collection.land_indices[i];
+            }
+        }
+    }
+}
+
 void remove_drone_flight(Solution &solution, int drone, int i)
 {
     solution.drones[drone].launch_indices.erase(
@@ -58,6 +78,17 @@ std::pair<bool, bool> drone_landed_at_back(const Solution &solution)
         }
     }
     return drone_is_invalid;
+}
+
+int count_drone_deliveries(const Solution &solution)
+{
+    int delivery_count = 0;
+    for (const DroneCollection &drone : solution.drones)
+    {
+        delivery_count += (int)drone.deliver_nodes.size();
+    }
+
+    return delivery_count;
 }
 
 std::vector<int> sort_by_distance_to_point_drone(const Instance &instance, const Solution &solution, int point)

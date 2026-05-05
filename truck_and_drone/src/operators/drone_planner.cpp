@@ -4,6 +4,7 @@
 #include "general/get_customer_positions.h"
 #include "general/get_not_covered_by_truck.h"
 #include "general/sort_drone_collection.h"
+#include "operators/helpers.h"
 #include "operators/operator.h"
 #include "operators/route_timing.h"
 #include "verification/feasibility_check.h"
@@ -93,17 +94,6 @@ void clear_drone_schedule(DroneCollection &drone)
 {
     drone.launch_indices.clear();
     drone.land_indices.clear();
-}
-
-int count_drone_deliveries(const Solution &sol)
-{
-    int delivery_count = 0;
-    for (const DroneCollection &drone : sol.drones)
-    {
-        delivery_count += (int)(drone.deliver_nodes.size());
-    }
-
-    return delivery_count;
 }
 
 void update_p(

@@ -26,6 +26,8 @@ struct Solution {
     bool save_visualization(const Instance &instance, const std::string &output_path) const;
 };
 
+bool same_solution(const Solution &lhs, const Solution &rhs);
+
 int terminal_depot_land_index(const Solution &solution);
 
 bool is_terminal_depot_landing(const Solution &solution, int land_idx);
