@@ -53,25 +53,25 @@ int main()
         build_weights(),
         config,
         datasets);
-        
+
     // Full sequential benchmark example:
-    const std::vector<std::string> benchmark_datasets = {
-        datasets::f10,
-        datasets::f20,
-        datasets::f50,
-        datasets::f100,
-        datasets::r10,
-        datasets::r20,
-        datasets::r50,
-        datasets::r100,
-    };
-    const std::vector<GAMExperiment> experiments = {
-        GAMExperiment{
-            "Final Benchmark",
-            build_ops(shaw_removal_greedy_repair_random_medium),
-            build_weights(),
-            config,
-        },
-    };
-    run_gam_experiments(experiments, benchmark_datasets, 5);
+    // const std::vector<std::string> benchmark_datasets = {
+    //     datasets::f10,
+    //     datasets::f20,
+    //     datasets::f50,
+    //     datasets::f100,
+    //     datasets::r10,
+    //     datasets::r20,
+    //     datasets::r50,
+    //     datasets::r100,
+    // };
+    // const std::vector<GAMExperiment> experiments = {
+    //     GAMExperiment{
+    //         "Final Benchmark",
+    //         build_ops(shaw_removal_greedy_repair_random_medium),
+    //         build_weights(),
+    //         config,
+    //     },
+    // };
+    // run_gam_experiments(experiments, benchmark_datasets, 10);
 }
