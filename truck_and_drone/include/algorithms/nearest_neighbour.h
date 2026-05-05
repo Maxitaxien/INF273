@@ -11,3 +11,12 @@
  * @return Solution with truck route and no drone usage
  */
 Solution nearest_neighbour(const Instance& problem_instance);
+
+/**
+ * Randomized nearest-neighbour constructor that samples from a short list of the
+ * currently closest truck candidates using exponential rank bias.
+ *
+ * This keeps the same truck-only scaffold as the deterministic NN, but introduces
+ * controlled diversification for restart paths.
+ */
+Solution roulette_nearest_neighbour(const Instance& problem_instance);

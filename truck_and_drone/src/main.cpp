@@ -36,7 +36,6 @@ std::vector<double> build_weights()
 
 int main()
 {
-    /*
     const std::vector<std::string> datasets = {
         datasets::f10,
         datasets::r10,
@@ -45,15 +44,18 @@ int main()
         datasets::f100,
     };
 
+    GAMConfig config{};
+    config.enable_drastic_random_restart = true;
+
+    
     run_gam_parallel_batch(
         build_ops(shaw_removal_greedy_repair_random_medium),
         build_weights(),
-        GAMConfig{},
+        config,
         datasets);
-    */
+        
     // Full sequential benchmark example:
     const std::vector<std::string> benchmark_datasets = {
-        /*
         datasets::f10,
         datasets::f20,
         datasets::f50,
@@ -61,7 +63,6 @@ int main()
         datasets::r10,
         datasets::r20,
         datasets::r50,
-        */
         datasets::r100,
     };
     const std::vector<GAMExperiment> experiments = {
@@ -69,8 +70,8 @@ int main()
             "Final Benchmark",
             build_ops(shaw_removal_greedy_repair_random_medium),
             build_weights(),
-            GAMConfig{},
+            config,
         },
     };
-    run_gam_experiments(experiments, benchmark_datasets, 10);
+    run_gam_experiments(experiments, benchmark_datasets, 5);
 }

@@ -576,8 +576,16 @@ GAMResult general_adaptive_metaheuristic(
     const int stopping_condition = 400;
     const double phase_one_fraction =
         std::clamp(config.phase_one_fraction, 0.0, 1.0);
+    const double drastic_restart_stagnation_fraction =
+        std::clamp(config.drastic_restart_stagnation_fraction, 0.0, 1.0);
     const double phase_one_until_s = std::max(0.0, time_limit_s * phase_one_fraction);
+    const double drastic_restart_window_s =
+        timed_mode ? time_limit_s * drastic_restart_stagnation_fraction : 0.0;
     const bool collect_detailed_statistics = config.collect_detailed_statistics;
+    const bool enable_drastic_random_restart =
+        timed_mode &&
+        config.enable_drastic_random_restart &&
+        drastic_restart_window_s > 0.0;
 
     GAMResult result;
     result.statistics.best_found_iteration = 0;
@@ -662,6 +670,7 @@ GAMResult general_adaptive_metaheuristic(
     int completed_time_segments = 0;
     bool previous_phase_one = true;
     double next_progress_log_s = 60.0;
+    double last_drastic_restart_anchor_s = 0.0;
 
     while (true)
     {
@@ -715,6 +724,44 @@ GAMResult general_adaptive_metaheuristic(
         }
         previous_phase_one = phase_one;
 
+        if (enable_drastic_random_restart &&
+            elapsed_before_iteration - last_drastic_restart_anchor_s >= drastic_restart_window_s)
+        {
+            Solution drastic_candidate = roulette_nearest_neighbour(instance);
+            const GAMSolutionEvaluation drastic_evaluation =
+                evaluate_solution_with_cache(
+                    instance,
+                    drastic_candidate,
+                    &solution_cache,
+                    feasibility_mode);
+            last_drastic_restart_anchor_s = elapsed_before_iteration;
+
+            if (drastic_evaluation.feasible && drastic_evaluation.objective_known)
+            {
+                incumbent = std::move(drastic_candidate);
+                incumbent_cost = drastic_evaluation.objective;
+
+                if (incumbent_cost < best_cost)
+                {
+                    best = incumbent;
+                    best_cost = incumbent_cost;
+                    result.statistics.best_updates++;
+                    result.statistics.best_found_iteration = iteration;
+                    last_drastic_restart_anchor_s = elapsed_before_iteration;
+                }
+
+                non_improving_iterations = 0;
+                if (config.acceptance_mode == GAMAcceptanceMode::SimulatedAnnealing)
+                {
+                    temperature = phase_initial_temperature;
+                }
+                if (config.clear_solution_cache_after_escape)
+                {
+                    solution_cache.clear();
+                }
+            }
+        }
+
         if (non_improving_iterations >= stopping_condition)
         {
             const int escape_budget = 20;
@@ -740,6 +787,7 @@ GAMResult general_adaptive_metaheuristic(
                     best_cost = escape_result.best_seen_cost;
                     result.statistics.best_updates++;
                     result.statistics.best_found_iteration = iteration;
+                    last_drastic_restart_anchor_s = elapsed_before_iteration;
                 }
             }
             else if (incumbent_cost < best_cost)
@@ -748,6 +796,7 @@ GAMResult general_adaptive_metaheuristic(
                 best_cost = incumbent_cost;
                 result.statistics.best_updates++;
                 result.statistics.best_found_iteration = iteration;
+                last_drastic_restart_anchor_s = elapsed_before_iteration;
             }
 
             if (config.acceptance_mode == GAMAcceptanceMode::SimulatedAnnealing)
@@ -909,6 +958,7 @@ GAMResult general_adaptive_metaheuristic(
                     best_cost = cost;
                     result.statistics.best_updates++;
                     result.statistics.best_found_iteration = iteration;
+                    last_drastic_restart_anchor_s = elapsed_before_iteration;
                     non_improving_iterations = 0;
                 }
                 else if (incumbent_improved)

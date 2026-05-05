@@ -25,6 +25,8 @@ struct GAMConfig
     double allowed_deviation_fraction = 0.20;
     bool reset_acceptance_each_phase = true;
     bool clear_solution_cache_after_escape = false;
+    bool enable_drastic_random_restart = false;
+    double drastic_restart_stagnation_fraction = 0.30;
     bool collect_detailed_statistics = true;
     bool print_timed_best_objective_progress = false;
     GAMAcceptanceMode acceptance_mode = GAMAcceptanceMode::SimulatedAnnealing;
