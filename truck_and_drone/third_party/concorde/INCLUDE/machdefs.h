@@ -137,7 +137,7 @@ extern int
 
 #ifdef CC_PROTO_GETHOSTNAME
 extern int
-    gethostname (char *, int);
+    /* gethostname (char *, int); */
 #endif
 
 #ifdef CC_PROTO_GETRUSAGE

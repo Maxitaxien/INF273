@@ -37,7 +37,7 @@ add_custom_command(
         "${CONCORDE_MAKEFILE}"
         "${CONCORDE_CONFIG_HEADER}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CONCORDE_BUILD_DIR}"
-    COMMAND "${CONCORDE_SOURCE_DIR}/configure"
+    COMMAND ${CMAKE_COMMAND} -E env "CC=gcc" "CFLAGS=-w -std=gnu89" "CPPFLAGS=-w" "${CONCORDE_SOURCE_DIR}/configure"
     WORKING_DIRECTORY "${CONCORDE_BUILD_DIR}"
     DEPENDS
         "${CONCORDE_SOURCE_DIR}/configure"
