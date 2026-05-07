@@ -208,7 +208,7 @@ bool drone_rendezvous_shift_best_improvement(
     const Instance &inst,
     Solution &sol)
 {
-    const int window = 3;
+    const int window = 5;
 
     std::vector<std::pair<long long, Solution>> top_candidates;
     top_candidates.reserve(kTopShiftCandidates);
