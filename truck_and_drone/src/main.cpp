@@ -8,6 +8,18 @@
 
 namespace
 {
+bool shaw_removal_greedy_repair_size_adaptive(
+    const Instance &inst,
+    Solution &sol)
+{
+    if (inst.n >= 50)
+    {
+        return shaw_removal_greedy_repair_random_large(inst, sol);
+    }
+
+    return shaw_removal_greedy_repair_random_medium(inst, sol);
+}
+
 std::vector<NamedOperator> build_ops(Operator shaw_removal_op)
 {
     std::vector<NamedOperator> ops;
@@ -51,11 +63,11 @@ int main()
     config.enable_drastic_random_restart = true;
 
     
-    // run_gam_parallel_batch(
-    //     build_ops(shaw_removal_greedy_repair_random_medium),
-    //     build_weights(),
-    //     config,
-    //     datasets);
+    run_gam_parallel_batch(
+        build_ops(shaw_removal_greedy_repair_size_adaptive),
+        build_weights(),
+        config,
+        datasets);
 
     // Full sequential benchmark example:
     const std::vector<std::string> benchmark_datasets = {
@@ -71,7 +83,7 @@ int main()
     const std::vector<GAMExperiment> experiments = {
         GAMExperiment{
             "Final Benchmark",
-            build_ops(shaw_removal_greedy_repair_random_medium),
+            build_ops(shaw_removal_greedy_repair_size_adaptive),
             build_weights(),
             config,
         },
