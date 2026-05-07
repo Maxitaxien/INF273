@@ -328,7 +328,7 @@ bool two_opt_arrival_screened(const Instance &inst, Solution &solution)
 
     const int max_trials = std::min(
         (int)(promising_moves.size()),
-        inst.n >= 50 ? 2 : 3);
+        inst.n >= 50 ? 4 : 6);
     const std::vector<int> trial_order = build_roulette_trial_order(max_trials);
     Solution candidate = solution;
 
