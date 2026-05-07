@@ -23,12 +23,12 @@ std::vector<NamedOperator> build_ops(Operator shaw_removal_op)
 std::vector<double> build_weights()
 {
     std::vector<double> weights;
-    weights.push_back(0.40); // NN-Reassign
+    weights.push_back(0.60); // NN-Reassign
     weights.push_back(0.50); // Two-Opt Arrival Screened
     weights.push_back(0.55); // Truck replacement greedy
     weights.push_back(0.15); // Targeted drone-to-truck
-    weights.push_back(0.90); // Drone rendezvous shift best improvement
-    weights.push_back(0.80); // shaw removal greedy repair, different sizes
+    weights.push_back(0.40); // Drone rendezvous shift best improvement
+    weights.push_back(0.70); // shaw removal greedy repair, different sizes
     return weights;
 }
 
@@ -40,38 +40,41 @@ int main()
         datasets::f10,
         datasets::r10,
         datasets::f20,
+        datasets::r20,
+        datasets::f50,
         datasets::r50,
         datasets::f100,
+        datasets::r100,
     };
 
     GAMConfig config{};
     config.enable_drastic_random_restart = true;
 
     
-    run_gam_parallel_batch(
-        build_ops(shaw_removal_greedy_repair_random_medium),
-        build_weights(),
-        config,
-        datasets);
+    // run_gam_parallel_batch(
+    //     build_ops(shaw_removal_greedy_repair_random_medium),
+    //     build_weights(),
+    //     config,
+    //     datasets);
 
     // Full sequential benchmark example:
-    // const std::vector<std::string> benchmark_datasets = {
-    //     datasets::f10,
-    //     datasets::f20,
-    //     datasets::f50,
-    //     datasets::f100,
-    //     datasets::r10,
-    //     datasets::r20,
-    //     datasets::r50,
-    //     datasets::r100,
-    // };
-    // const std::vector<GAMExperiment> experiments = {
-    //     GAMExperiment{
-    //         "Final Benchmark",
-    //         build_ops(shaw_removal_greedy_repair_random_medium),
-    //         build_weights(),
-    //         config,
-    //     },
-    // };
-    // run_gam_experiments(experiments, benchmark_datasets, 10);
+    const std::vector<std::string> benchmark_datasets = {
+        datasets::f10,
+        datasets::f20,
+        datasets::f50,
+        datasets::f100,
+        datasets::r10,
+        datasets::r20,
+        datasets::r50,
+        datasets::r100,
+    };
+    const std::vector<GAMExperiment> experiments = {
+        GAMExperiment{
+            "Final Benchmark",
+            build_ops(shaw_removal_greedy_repair_random_medium),
+            build_weights(),
+            config,
+        },
+    };
+    run_gam_experiments(experiments, benchmark_datasets, 2);
 }
