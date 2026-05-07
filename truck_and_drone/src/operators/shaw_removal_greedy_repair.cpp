@@ -407,5 +407,5 @@ bool shaw_removal_greedy_repair_random_large(
     const Instance &inst,
     Solution &sol)
 {
-    return shaw_removal_greedy_repair(inst, sol, 8);
+    return shaw_removal_greedy_repair(inst, sol, 7);
 }

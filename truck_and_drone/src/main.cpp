@@ -39,7 +39,7 @@ std::vector<double> build_weights()
     weights.push_back(0.50); // Two-Opt Arrival Screened
     weights.push_back(0.55); // Truck replacement greedy
     weights.push_back(0.15); // Targeted drone-to-truck
-    weights.push_back(0.40); // Drone rendezvous shift best improvement
+    weights.push_back(0.60); // Drone rendezvous shift best improvement
     weights.push_back(0.70); // shaw removal greedy repair, different sizes
     return weights;
 }

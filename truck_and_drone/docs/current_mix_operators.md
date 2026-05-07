@@ -112,7 +112,7 @@ This is the authoritative reference for the six operators used in the current GA
 - Removing a truck anchor can invalidate drone flights that launched from, landed on, or otherwise depended on that stop.
 
 ### What repair path is used
-- It first calls `repair_affected_drone_flights_localized(...)` with the removed customer in the repair list.
+- It first calls `repair_affected_drone_flights_localized(...)` with the removed customer in the `allowed_missing` validation set.
 - Only after the local anchor repair succeeds does it attempt the new drone assignment.
 - The final candidate must pass `master_check(...)`.
 
@@ -153,7 +153,7 @@ This is the authoritative reference for the six operators used in the current GA
 - It then evaluates only a shortlist:
   - top `3` ranked flights when `n >= 50`
   - top `4` otherwise
-- For each shortlisted flight, `replace_drone_delivery_with_bounds(...)` removes the flight and tries every truck insertion position in the allowed range, keeping the best feasible reinsertion.
+- For each shortlisted flight, `replace_drone_delivery_with_bounds(...)` removes the flight and tries every truck insertion position across the full current truck route, from `1` through `route_size`, keeping the best feasible reinsertion for that chosen demotion.
 
 ### What happens if feasibility breaks
 - Removing the flight itself is easy; the risk is that reinserting the customer on the truck shifts later truck indices and breaks other drone anchors.
@@ -188,8 +188,8 @@ This is the authoritative reference for the six operators used in the current GA
 ### How the candidate is generated
 - `drone_rendezvous_shift_best_improvement` evaluates every existing drone flight.
 - For each one, `find_best_shift_for_flight(...)` searches a local launch/land window:
-  - launch window `3`
-  - land window `3`
+  - launch window `5`
+  - land window `5`
 - It tries every `(new_launch, new_land)` pair within that bounded window, excluding the original pair.
 
 ### What happens if feasibility breaks
@@ -205,6 +205,7 @@ This is the authoritative reference for the six operators used in the current GA
 ### What screening, bounding, or shortlist tricks it uses
 - Search is local, not global: only a bounded anchor window is explored.
 - Same-drone interval overlap is screened out before calling `master_check(...)`.
+- The move only considers explicit truck-stop landings; it does not propose terminal-depot landings in this operator.
 - The best candidate per flight is extracted first.
 - Across flights, the operator keeps the top `5` candidates by objective and then samples from them with exponential roulette.
 
@@ -220,11 +221,14 @@ This is the authoritative reference for the six operators used in the current GA
 - `overlaps(...)`
 - `sort_drone_collection(...)`
 
-## Shaw removal greedy repair (current Shaw-medium variant)
+## Shaw removal greedy repair (current size-adaptive mix variant)
 
 ### Purpose / neighborhood
 - Destroy-and-repair operator that removes a related set of served customers and reinserts them greedily.
-- In the current mix, `src/main.cpp` uses `shaw_removal_greedy_repair_random_medium`, which sets `remove_count = 5`.
+- In the current mix, `src/main.cpp` uses a size-adaptive wrapper:
+  - `shaw_removal_greedy_repair_random_medium` with `remove_count = 5` when `n < 50`
+  - `shaw_removal_greedy_repair_random_large` with `remove_count = 7` when `n >= 50`
+- The destroy/repair logic below is the same in both variants; only the removal size changes.
 - For the shared repair terminology used below, see [current_solution_fixers.md](current_solution_fixers.md).
 
 ### How the candidate is generated
@@ -320,10 +324,10 @@ This is the authoritative reference for the six operators used in the current GA
 ## Notes
 
 - The current mix in `src/main.cpp` uses these initial weights:
-  - `NN-Reassign`: `0.40`
+  - `NN-Reassign`: `0.60`
   - `Two-Opt Arrival Screened`: `0.50`
   - `Truck replacement greedy`: `0.55`
   - `Targeted drone-to-truck`: `0.15`
-  - `Drone rendezvous shift best improvement`: `0.90`
-  - `Shaw removal greedy repair`: `0.80`
+  - `Drone rendezvous shift best improvement`: `0.60`
+  - `Shaw removal greedy repair`: `0.70`
 - These are only starting weights. GAM updates them online during the run.

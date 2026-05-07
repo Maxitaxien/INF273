@@ -6,13 +6,17 @@ This is the authoritative reference for the current General Adaptive Metaheurist
 
 - The GAM runner entry points live in `include/runners/run_algorithm.h` and `src/runners/run_algorithm.cpp`.
 - The current experiment mix is defined in `src/main.cpp`.
-- `main()` currently runs two experiments over:
+- `main()` currently calls `run_gam_parallel_batch(...)` over:
   - `F_10`, `F_20`, `F_50`, `F_100`
   - `R_10`, `R_20`, `R_50`, `R_100`
-- Each experiment runs `5` independent runs per dataset.
-- The two current experiment labels are:
-  - `Current mix - keep cache after escape`
-  - `Current mix - clear cache after escape`
+- The checked-in `main()` setup runs each dataset once under one shared parallel-batch wall-clock budget of `600` seconds.
+- `main()` only changes one config field from the default:
+  - `enable_drastic_random_restart = true`
+- A commented sequential benchmark example is still kept in `src/main.cpp`:
+  - same operator mix and weights
+  - `GAMConfig{}`
+  - all benchmark datasets
+  - `10` sequential runs per dataset
 
 ## Current mix and weights
 
@@ -23,19 +27,23 @@ This is the authoritative reference for the current General Adaptive Metaheurist
   - `Targeted drone-to-truck`
   - `Drone rendezvous shift best improvement`
   - `Shaw removal greedy repair`
+- The Shaw entry in `src/main.cpp` is size-adaptive:
+  - `remove_count = 5` through `shaw_removal_greedy_repair_random_medium` when `n < 50`
+  - `remove_count = 7` through `shaw_removal_greedy_repair_random_large` when `n >= 50`
 - The starting weights from `src/main.cpp` are:
-  - `0.40`
+  - `0.60`
   - `0.50`
   - `0.55`
   - `0.15`
-  - `0.90`
-  - `0.80`
+  - `0.60`
+  - `0.70`
 - These are only initial weights. Selection remains roulette-wheel based, but the weights are updated online by GAM.
 
 ## Initial solution behavior
 
 - `general_adaptive_metaheuristic(...)` currently ignores the passed-in initial solution and replaces it with `nearest_neighbour(instance)` at the start of the run.
 - That means the runner's `simple_initial_solution(...)` is still used for baseline reporting outside GAM, but the GAM search itself always starts from nearest neighbour right now.
+- The timed drastic-restart path does not use that deterministic constructor. When enabled, it jumps to `roulette_nearest_neighbour(instance)` instead.
 
 ## Time budgets and timed mode
 
@@ -44,8 +52,25 @@ This is the authoritative reference for the current General Adaptive Metaheurist
   - `n = 20`: `20` seconds
   - `n = 50`: `60` seconds
   - `n = 100`: `510` seconds
-- Because `run_gam_experiments(...)` resolves these budgets per instance, the current main-program GAM runs are in timed mode.
+- `run_gam(...)` and `run_gam_experiments(...)` resolve those budgets per instance, so those sequential runners operate in timed mode by default.
+- The checked-in `main()` path is different:
+  - it uses `run_gam_parallel_batch(...)`
+  - it gives the batch one shared `600` second wall-clock deadline
+  - each dataset run receives the remaining whole seconds at the moment that worker starts it
 - If `time_limit_s <= 0`, GAM switches to untimed mode instead.
+
+## Parallel batch mode
+
+- `run_gam_parallel_batch(...)` is a GAM-only runner that executes one timed GAM solve per dataset.
+- It uses a fixed worker pool of:
+  - `min(datasets.size(), max(1, std::thread::hardware_concurrency()))`
+- Work distribution is done through an atomic dataset index.
+- Each dataset is seeded deterministically from the dataset stem before its run starts.
+- The runner forces:
+  - `collect_detailed_statistics = false`
+  - `print_timed_best_objective_progress = true`
+  - `timed_progress_label = dataset_stem(dataset)`
+- That is why the checked-in `main()` setup prints minute-by-minute best-objective progress and only writes lightweight per-dataset summary outputs.
 
 ## Core loop shape
 
@@ -127,6 +152,24 @@ This is the authoritative reference for the current General Adaptive Metaheurist
   - `temperature = max(temperature, phase_initial_temperature * 0.25)`
 - This is a partial reheating, not a full reset to the original phase temperature.
 
+## Timed drastic random restart
+
+- `GAMConfig.enable_drastic_random_restart` enables an additional timed-mode-only backstop.
+- The current default config value is `false`, but `src/main.cpp` explicitly enables it for the checked-in parallel batch.
+- `GAMConfig.drastic_restart_stagnation_fraction` currently defaults to `0.30`.
+- When enabled, GAM tracks wall-clock time since the last global-best improvement.
+- If that stagnation window reaches:
+  - `drastic_restart_stagnation_fraction * time_limit_s`
+  it attempts a drastic restart before the normal stagnation escape check.
+- The restart seed is `roulette_nearest_neighbour(instance)`, not `random_valid_solution(...)`.
+- If that candidate evaluates successfully, GAM:
+  - replaces the incumbent unconditionally
+  - keeps the current global best unless the restart is actually better
+  - resets `non_improving_iterations`
+  - reheats SA fully with `temperature = phase_initial_temperature`
+  - optionally clears the solution cache if `clear_solution_cache_after_escape` is enabled
+- If the restart candidate fails evaluation, GAM keeps the incumbent and simply rate-limits the next drastic-restart attempt.
+
 ## Escape mechanism
 
 - GAM tracks `non_improving_iterations`.
@@ -159,9 +202,7 @@ This is the authoritative reference for the current General Adaptive Metaheurist
 ### Cache-clearing option
 
 - `GAMConfig.clear_solution_cache_after_escape` controls whether the entire cache is cleared immediately after each escape.
-- The current main program runs both variants:
-  - one keeping the cache after escapes
-  - one clearing it after escapes
+- The checked-in `main()` leaves this option at its default `false`, so the cache is currently preserved across normal escapes and drastic restarts.
 
 ## Feasibility mode
 
@@ -239,12 +280,22 @@ Weight updates happen segment-by-segment, not after every move.
   - whether to rebuild the acceptance schedule when phase two starts
 - `clear_solution_cache_after_escape`
   - whether to drop the full GAM solution cache after each escape
+- `enable_drastic_random_restart`
+  - whether timed-mode wall-clock stagnation can trigger a randomized nearest-neighbour restart
+- `drastic_restart_stagnation_fraction`
+  - fraction of the time budget with no global-best improvement before that drastic restart is attempted
+- `collect_detailed_statistics`
+  - whether GAM stores per-iteration and per-segment statistics in memory for later export
+- `print_timed_best_objective_progress`
+  - whether timed runs print best-objective progress lines to stdout
 - `acceptance_mode`
   - `SimulatedAnnealing` or `BestRelativeRRT`
 - `escape_mode`
   - `ExchangeKLarge` or `LegacyGAM`
 - `feasibility_mode`
   - `AssumeFeasible` or `VerifyWithMasterCheck`
+- `timed_progress_label`
+  - label prefix used by the timed progress logger
 - `phase_one_operator_names`
   - optional exact-name filter for the phase-one operator pool
 - `phase_two_operator_names`
@@ -252,7 +303,7 @@ Weight updates happen segment-by-segment, not after every move.
 
 ## Persisted statistics files
 
-For the best run on each dataset, `save_gam_statistics(...)` writes a dataset statistics directory containing:
+For sequential `run_gam(...)` or `run_gam_experiments(...)` runs with detailed statistics enabled, `save_gam_statistics(...)` writes a dataset statistics directory containing:
 
 ### `summary.csv`
 
@@ -315,6 +366,22 @@ For the best run on each dataset, `save_gam_statistics(...)` writes a dataset st
   - delta sample counts and sums
   - total runtime
   - average runtime
+
+## Current checked-in batch outputs
+
+- The checked-in `main()` path does **not** write the full `*_statistics` directory set above.
+- `run_gam_parallel_batch(...)` currently writes only:
+  - the top-level dataset summary CSV, for example `F_20.csv`
+  - the corresponding submission-format solution text, for example `F_20.txt`
+- It does not generate:
+  - `summary.csv`
+  - `trace.csv`
+  - `weights.csv`
+  - `runs.csv`
+  - `operators.csv`
+  - markdown tables
+  - run plots
+  - best-solution visualizations
 
 ## Plotting pipeline note
 

@@ -762,7 +762,7 @@ GAMResult general_adaptive_metaheuristic(
             }
         }
 
-        if (non_improving_iterations >= stopping_condition)
+        if (non_improving_iterations >= stopping_condition) // Escape
         {
             const int escape_budget = 20;
             const std::vector<double> active_weights =
@@ -801,7 +801,7 @@ GAMResult general_adaptive_metaheuristic(
 
             if (config.acceptance_mode == GAMAcceptanceMode::SimulatedAnnealing)
             {
-                temperature = std::max(temperature, phase_initial_temperature * 0.25);
+                temperature = std::max(temperature, phase_initial_temperature * 0.25); // reheat
             }
             if (config.clear_solution_cache_after_escape)
             {
@@ -1014,7 +1014,7 @@ GAMResult general_adaptive_metaheuristic(
             const double progress_delta =
                 elapsed_delta_s / std::max(0.001, phase_schedule_duration_s);
             if (config.acceptance_mode == GAMAcceptanceMode::SimulatedAnnealing &&
-                progress_delta > 0.0)
+                progress_delta > 0.0) // cooling
             {
                 temperature = std::max(
                     phase_final_temperature,

@@ -60,8 +60,9 @@ This is the authoritative reference for the current shared repair and fixer logi
 
 ### Terminal-depot landing canonicalization
 
-- The destroy/repair operators that evaluate whole candidate solutions use `canonicalize_terminal_depot_landings(...)`.
+- Whole-candidate evaluation uses `canonicalize_terminal_depot_landings(...)`.
 - That canonicalization allows the last feasible drone flight to land at the implicit return-to-depot position when appropriate.
+- The local assignment helpers now also generate `land_idx == truck_route.size()` directly as a terminal-depot landing candidate when that is a better local repair than landing on an explicit truck stop.
 - The paired checker `canonical_drone_schedule_consistent(...)` then enforces:
   - matching flight-array sizes
   - valid launch/land index ranges
@@ -186,7 +187,7 @@ This is the authoritative reference for the current shared repair and fixer logi
 
 - `repair_after_two_opt_localized(...)` uses the same internal repair engine but swaps the assignment selector.
 - Instead of immediately using generic vicinity search, it calls `find_two_opt_local_feasible_flight(...)`.
-- That selector first searches a corridor centered on the reversed 2-opt region plus a small padding.
+- That selector first searches a corridor centered on the reversed 2-opt region plus a small padding, including terminal-depot landing as a candidate when `land_idx == route_size` is legal.
 - If it still finds nothing, it falls back to the normal vicinity search.
 
 ## Greedy Launch/Land Assignment
@@ -220,7 +221,8 @@ This is the authoritative reference for the current shared repair and fixer logi
 - Then it adds truck stops ranked by drone-distance-to-delivery via `sort_by_distance_to_point_drone(...)`.
 - Each truck stop is converted to its current route index through `get_customer_positions(...)`.
 - Duplicate anchor positions are removed.
-- Anchors at the final truck position are skipped because a launch there cannot create a forward flight interval.
+- The primary vicinity pass still skips the final explicit truck position as an anchor.
+- Terminal-depot landing is handled separately as an extra landing option, and the later lookahead fallback may still launch from the final explicit truck stop because it can land at the implicit depot.
 
 ### Two search passes from `make_assignment_search_limits(...)`
 
@@ -238,6 +240,7 @@ This is the authoritative reference for the current shared repair and fixer logi
 - For each anchor, the search tries:
   - launches from the bounded backward window
   - lands from `max(launch + 1, anchor)` forward through the bounded land window
+- In both passes, the search also considers `land_idx == route_size` as a terminal-depot landing candidate when the interval and timing checks allow it.
 
 ### Scoring and tiebreaks in `consider_flight_assignment(...)`
 
@@ -254,6 +257,11 @@ This is the authoritative reference for the current shared repair and fixer logi
   3. lower drone wait
   4. lower drone arrival time
   5. lower land index
+- For terminal-depot landings specifically, the scorer treats:
+  - `land_node = 0`
+  - `drone_wait = 0`
+  - `truck_wait = 0`
+  - `downstream_delay_impact = 0`
 - The key idea is to prefer assignments that disturb future truck progress and drone synchronization as little as possible.
 
 ### Fallback when vicinity search fails
@@ -264,11 +272,13 @@ This is the authoritative reference for the current shared repair and fixer logi
   - the chosen launch index
   - a lookahead of `min(route_size - 1, max(3, n / 10))`
 - That helper scans forward only, stopping before the next already-scheduled launch on the same drone if needed.
+- In the fallback path, the launch candidate set may include the final explicit truck stop, because terminal-depot landing is now a valid forward endpoint.
 - It uses a similar timing-based tiebreak:
   - downstream delay impact
   - truck wait
   - drone wait
   - earlier land index
+- It can also choose `land_idx == route_size`, meaning the flight returns to the implicit final depot instead of an explicit truck stop.
 - Among successful fallback assignments, the greedy assigner keeps the one with the best full objective value.
 
 ## Per-Drone Repair and Global Feasibility Repair
